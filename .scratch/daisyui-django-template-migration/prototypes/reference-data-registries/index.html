@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>CODA — Reference data registries (prototype)</title>
+        <meta name="description" content="DaisyUI prototype for CODA's existing sidebar groups and reference-data pages.">
+        <meta name="keywords" content="CODA, reference data, DaisyUI, prototype">
+        <!--
+          Ticket: .scratch/daisyui-django-template-migration/issues/13-prototype-reference-data-registries.md
+          Current Request Center, Journals & Publishers, and Finances routes are preserved.
+          ?page selects a route; ?variant=unified/workspaces compares catalog list/detail layouts. Samples are inert.
+        -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+        <style>
+            @font-face {
+                font-family: Montserrat;
+                src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+                font-weight: 100 900;
+                font-style: normal;
+                font-display: swap;
+            }
+            :root[data-theme="light"] {
+                color-scheme: light;
+                --color-base-100: #fff;
+                --color-base-200: #f3f6fa;
+                --color-base-300: #dce4ee;
+                --color-base-content: #1b2a3b;
+                --color-primary: #285096;
+                --color-primary-content: #fff;
+                --color-neutral: #253248;
+                --color-neutral-content: #f5f7fa;
+                --color-success: #28794b;
+                --color-warning: #a56709;
+                --color-error: #b42318;
+            }
+            :root[data-theme="dark"] {
+                color-scheme: dark;
+                --color-base-100: #0d0d0d;
+                --color-base-200: #121212;
+                --color-base-300: #282828;
+                --color-base-content: #e7ecf2;
+                --color-primary: #80a9f1;
+                --color-primary-content: #101722;
+                --color-neutral: #202a38;
+                --color-neutral-content: #f5f7fa;
+                --color-success: #65bf88;
+                --color-warning: #f2bc67;
+                --color-error: #f08a82;
+            }
+            * { box-sizing: border-box; }
+            [hidden] { display: none !important; }
+            body {
+                min-width: 320px;
+                min-height: 100vh;
+                margin: 0;
+                padding-bottom: 5rem;
+                background: var(--color-base-200);
+                color: var(--color-base-content);
+                font-family: Montserrat, system-ui, sans-serif;
+                font-size: 0.88rem;
+                line-height: 1.5;
+            }
+            button, input, select { font: inherit; }
+            button { cursor: pointer; }
+            a { color: var(--color-primary); }
+            .app-shell { min-height: 100vh; display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+            .app-sidebar { position: sticky; top: 0; z-index: 40; display: flex; flex-direction: column; gap: 0.8rem; height: 100vh; min-height: 100vh; overflow-y: auto; padding: 0.8rem 0.7rem; border-right: 1px solid var(--color-base-300); background: var(--color-base-100); }
+            .app-brand { display: block; padding: 0.45rem 0.55rem; color: var(--color-primary); font-size: 1.35rem; font-weight: 750; text-decoration: none; }
+            .app-navigation { display: grid; gap: 0.35rem; }
+            .app-nav-group { display: grid; gap: 0.15rem; }
+            .app-nav-group-link { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.52rem 0.58rem; border: 1px solid transparent; border-radius: 0.42rem; color: var(--color-base-content); font-size: 0.72rem; font-weight: 660; text-decoration: none; }
+            .app-nav-group-link[aria-expanded="true"] { border-color: var(--color-base-300); background: var(--color-base-200); }
+            .app-nav-group-link[aria-current="page"] { color: var(--color-primary); }
+            .app-nav-chevron { color: color-mix(in oklab, var(--color-base-content) 54%, transparent); font-size: 0.62rem; }
+            .app-nav-submenu { display: grid; gap: 0.12rem; margin: 0.12rem 0 0.3rem 0.75rem; padding-left: 0.55rem; border-left: 1px solid var(--color-base-300); }
+            .app-nav-submenu[hidden] { display: none; }
+            .app-nav-submenu a { display: block; padding: 0.38rem 0.48rem; border-radius: 0.34rem; color: color-mix(in oklab, var(--color-base-content) 76%, transparent); font-size: 0.66rem; text-decoration: none; }
+            .app-nav-submenu a:hover, .app-nav-submenu a[aria-current="page"] { background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100)); color: var(--color-primary); }
+            .app-sidebar-footer { margin-top: auto; padding: 0.65rem 0.45rem 0.1rem; border-top: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.59rem; }
+            .app-main { min-width: 0; }
+            .mobile-topbar, .sidebar-backdrop { display: none; }
+            .page { width: min(1420px, 100%); min-width: 0; margin: 0 auto; padding: 0.8rem clamp(0.8rem, 2.4vw, 2rem) 5rem; }
+            .breadcrumbs { padding: 0.25rem 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.74rem; }
+            .page-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.8rem; }
+            .page-titlebar h1 { margin: 0; font-size: clamp(1.4rem, 2vw, 1.85rem); font-weight: 650; letter-spacing: -0.03em; }
+            .page-titlebar p { margin: 0.22rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.75rem; }
+            .prototype-note { margin: 0 0 0.85rem; padding: 0.62rem 0.8rem; border-left: 3px solid var(--color-primary); background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 66%, transparent); font-size: 0.69rem; }
+            .directory-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.8rem; }
+            .filter-tools { display: flex; align-items: center; flex: 1; flex-wrap: wrap; gap: 0.48rem; }
+            .search-field { width: min(27rem, 100%); }
+            .search-field .input { width: 100%; }
+            .include-archived { display: inline-flex; align-items: center; gap: 0.42rem; padding: 0.34rem 0.55rem; border: 1px solid var(--color-base-300); border-radius: 0.42rem; background: var(--color-base-100); font-size: 0.66rem; white-space: nowrap; }
+            .action-tools, .inline-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; }
+            .surface { border: 1px solid var(--color-base-300); border-radius: 0.55rem; background: var(--color-base-100); }
+            .surface-header { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--color-base-300); }
+            .surface-header h2, .surface-header h3 { margin: 0; font-size: 0.85rem; font-weight: 650; }
+            .surface-header p { margin: 0.12rem 0 0; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.64rem; }
+            .category-rail { padding: 0.7rem; }
+            .category-rail h2 { margin: 0 0 0.5rem; font-size: 0.8rem; }
+            .category-nav { display: grid; gap: 0.2rem; }
+            .category-button { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 2.05rem; padding: 0.38rem 0.5rem; border: 1px solid transparent; border-radius: 0.38rem; background: transparent; color: var(--color-base-content); text-align: left; font-size: 0.67rem; }
+            .category-button:hover { background: var(--color-base-200); }
+            .category-button[aria-pressed="true"] { border-color: color-mix(in oklab, var(--color-primary) 26%, var(--color-base-300)); background: color-mix(in oklab, var(--color-primary) 8%, var(--color-base-100)); color: var(--color-primary); font-weight: 650; }
+            .category-count { color: color-mix(in oklab, var(--color-base-content) 54%, transparent); font-size: 0.59rem; }
+            .unified-layout { display: grid; grid-template-columns: minmax(11rem, 0.68fr) minmax(0, 1.45fr) minmax(16rem, 0.95fr); align-items: start; gap: 0.65rem; }
+            .catalog-list { overflow: hidden; }
+            .list-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; padding: 0.72rem 0.8rem; border-bottom: 1px solid var(--color-base-300); }
+            .list-title h2 { margin: 0; font-size: 0.86rem; }
+            .home-link-list { display: grid; gap: 0.5rem; max-width: 56rem; }
+            .home-link-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.7rem; padding: 0.7rem 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.48rem; background: var(--color-base-100); color: var(--color-base-content); text-align: left; }
+            .home-link-card:hover { border-color: color-mix(in oklab, var(--color-primary) 46%, var(--color-base-300)); }
+            .home-link-card strong { font-size: 0.76rem; }
+            .home-link-card p { margin: 0.16rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.63rem; }
+            .list-title p { margin: 0.14rem 0 0; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.62rem; }
+            .registry-table-wrap { overflow-x: auto; }
+            .registry-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 0.65rem; }
+            .registry-table th, .registry-table td { padding: 0.46rem 0.5rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: middle; }
+            .registry-table th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.59rem; font-weight: 650; }
+            .registry-table td:first-child { min-width: 9.5rem; }
+            .registry-table td:first-child .badge { white-space: nowrap; }
+            .registry-table tr:last-child td { border-bottom: 0; }
+            .registry-name { display: block; max-width: 17rem; border: 0; padding: 0; overflow: hidden; background: none; color: var(--color-primary); text-align: left; text-overflow: ellipsis; white-space: nowrap; font-size: 0.68rem; font-weight: 640; }
+            .registry-name:hover { text-decoration: underline; }
+            .registry-subline { display: block; margin-top: 0.08rem; color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.59rem; }
+            .status-pill { display: inline-flex; align-items: center; gap: 0.28rem; white-space: nowrap; font-size: 0.6rem; }
+            .status-mark { width: 0.4rem; height: 0.4rem; flex: 0 0 auto; border-radius: 50%; background: var(--color-success); }
+            .status-mark.warn { background: var(--color-warning); }
+            .status-mark.error { background: var(--color-error); }
+            .row-action { white-space: nowrap; }
+            .row-action .btn { min-height: 1.55rem; height: 1.55rem; padding-inline: 0.38rem; font-size: 0.59rem; }
+            .preview-card { overflow: hidden; }
+            .preview-body { padding: 0.8rem; }
+            .preview-body h2 { margin: 0; font-size: 0.96rem; }
+            .preview-body > p { margin: 0.2rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.65rem; }
+            .preview-facts { display: grid; gap: 0.38rem; margin-top: 0.72rem; }
+            .preview-fact { display: flex; justify-content: space-between; gap: 0.45rem; padding-bottom: 0.32rem; border-bottom: 1px solid var(--color-base-300); font-size: 0.62rem; }
+            .preview-fact span:first-child { color: color-mix(in oklab, var(--color-base-content) 56%, transparent); }
+            .preview-fact strong { text-align: right; font-weight: 620; }
+            .preview-actions { display: flex; flex-wrap: wrap; gap: 0.32rem; padding: 0.65rem 0.8rem; border-top: 1px solid var(--color-base-300); }
+            .preview-actions .btn { min-height: 1.75rem; height: 1.75rem; padding-inline: 0.42rem; font-size: 0.6rem; }
+            .relationship-note, .empty-note { color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.64rem; }
+            .registry-landing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+            .registry-tile { display: flex; flex-direction: column; min-height: 8.2rem; padding: 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.52rem; background: var(--color-base-100); text-align: left; }
+            .registry-tile:hover { border-color: color-mix(in oklab, var(--color-primary) 48%, var(--color-base-300)); box-shadow: 0 4px 14px #182c4514; }
+            .registry-tile strong { font-size: 0.78rem; }
+            .registry-tile p { margin: 0.28rem 0 0.6rem; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.63rem; }
+            .registry-tile span { margin-top: auto; color: var(--color-primary); font-size: 0.62rem; font-weight: 630; }
+            .workspace-list { display: grid; gap: 0.62rem; }
+            .workspace-label-list { display: grid; gap: 0.5rem; }
+            .workspace-label-card { display: flex; justify-content: space-between; align-items: center; gap: 0.65rem; padding: 0.65rem 0.75rem; }
+            .workspace-label-main { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+            .workspace-label-main strong { font-size: 0.69rem; }
+            .workspace-label-main small { display: block; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.6rem; }
+            .workspace-label-card .inline-actions { justify-content: flex-end; }
+            .workspace-label-card .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.4rem; font-size: 0.59rem; }
+            .workspace-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+            .workspace-heading h2 { margin: 0; font-size: 0.98rem; }
+            .workspace-heading p { margin: 0.16rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.65rem; }
+            .detail-page { overflow: hidden; }
+            .detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; padding: 0.9rem 1rem; border-bottom: 1px solid var(--color-base-300); }
+            .detail-header h1 { margin: 0; font-size: 1.16rem; letter-spacing: -0.025em; }
+            .detail-header p { margin: 0.15rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.67rem; }
+            .detail-header .inline-actions { justify-content: flex-end; }
+            .detail-header .btn { min-height: 1.75rem; height: 1.75rem; padding-inline: 0.42rem; font-size: 0.6rem; }
+            .detail-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; padding: 0.68rem 0.8rem; border-bottom: 1px solid var(--color-base-300); }
+            .detail-summary .fact-card { background: transparent; }
+            .fact-card { min-width: 0; padding: 0.6rem 0.65rem; border: 1px solid var(--color-base-300); border-radius: 0.4rem; background: color-mix(in oklab, var(--color-base-200) 65%, transparent); }
+            .fact-label { display: block; margin-bottom: 0.18rem; color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.59rem; }
+            .fact-value { display: block; overflow-wrap: anywhere; font-size: 0.68rem; font-weight: 620; }
+            .detail-content { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0.65rem; padding: 0.72rem; }
+            .detail-content.unified-content { grid-template-columns: minmax(0, 1fr); }
+            .detail-rail, .detail-main { display: grid; align-content: start; gap: 0.62rem; min-width: 0; }
+            .detail-card { overflow: hidden; }
+            .section-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--color-base-300); }
+            .section-head h3 { margin: 0; font-size: 0.74rem; }
+            .section-head span { color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.59rem; }
+            .section-body { padding: 0.65rem 0.75rem; }
+            .section-body p { margin: 0.2rem 0; font-size: 0.65rem; }
+            .record-table { width: 100%; border-collapse: collapse; font-size: 0.62rem; }
+            .record-table th, .record-table td { padding: 0.4rem 0.45rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: top; }
+            .record-table th { color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.58rem; }
+            .record-table tr:last-child td { border-bottom: 0; }
+            .record-table ul { margin: 0; padding-left: 1rem; }
+            .color-chip { display: inline-block; width: 0.72rem; height: 0.72rem; margin-right: 0.3rem; border: 1px solid #0002; border-radius: 0.18rem; vertical-align: -0.1rem; }
+            .detail-main .detail-card { min-width: 0; }
+            .editor-screen { max-width: 1250px; margin: 0 auto; }
+            .editor-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; margin: 0 0 0.75rem; }
+            .editor-header h2 { margin: 0; font-size: 1.1rem; }
+            .editor-header p { margin: 0.15rem 0 0; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.65rem; }
+            .editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "primary primary" "identifiers associations" "actions actions"; gap: 0.6rem; padding: 0.7rem; }
+            .editor-grid[data-layout="workspaces"] { grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 1.2fr); grid-template-areas: "primary associations" "identifiers associations" "actions actions"; align-items: start; }
+            .editor-primary { grid-area: primary; }
+            .editor-identifiers { grid-area: identifiers; }
+            .editor-associations { grid-area: associations; }
+            .editor-actions { grid-area: actions; display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; }
+            .editor-panel { overflow: hidden; }
+            .editor-panel-body { padding: 0.68rem 0.75rem; }
+            .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.58rem; }
+            .field { min-width: 0; }
+            .field label { display: block; margin-bottom: 0.22rem; font-size: 0.63rem; font-weight: 620; }
+            .field .input, .field .select { width: 100%; max-width: none; }
+            .field-help { display: block; margin-top: 0.2rem; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.59rem; }
+            .link-editor-wrap { overflow-x: auto; }
+            .link-editor { width: 100%; min-width: 380px; border-collapse: collapse; font-size: 0.61rem; }
+            .link-editor th, .link-editor td { padding: 0.38rem 0.42rem; border-bottom: 1px solid var(--color-base-300); text-align: left; }
+            .link-editor th { color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.58rem; }
+            .link-editor .input, .link-editor .select { width: 100%; max-width: none; }
+            .link-editor td:last-child { width: 3.8rem; }
+            .search-group { display: grid; gap: 0.4rem; padding: 0.65rem 0.7rem; border-bottom: 1px solid var(--color-base-300); }
+            .search-group legend { padding: 0; font-size: 0.63rem; font-weight: 650; }
+            .search-controls { display: flex; gap: 0.35rem; }
+            .search-controls .input { min-width: 0; flex: 1; }
+            .search-controls .btn { min-height: 1.9rem; height: 1.9rem; padding-inline: 0.45rem; font-size: 0.61rem; }
+            .result-scroll { max-height: 9rem; overflow: auto; }
+            .form-results { width: 100%; min-width: 300px; border-collapse: collapse; font-size: 0.6rem; }
+            .form-results th, .form-results td { padding: 0.36rem 0.42rem; border-bottom: 1px solid var(--color-base-300); text-align: left; }
+            .form-results th { color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.57rem; }
+            .form-results td:last-child { width: 3.6rem; text-align: right; }
+            .form-results .btn { min-height: 1.45rem; height: 1.45rem; padding-inline: 0.38rem; font-size: 0.58rem; }
+            .selected-list { padding: 0.55rem 0.7rem; border-top: 1px solid var(--color-base-300); }
+            .selected-list h4 { margin: 0 0 0.38rem; font-size: 0.63rem; }
+            .selected-list ul { margin: 0; padding-left: 1rem; font-size: 0.6rem; }
+            .publisher-field { display: flex; align-items: center; gap: 0.35rem; }
+            .publisher-field .select { flex: 1; min-width: 0; }
+            .publisher-field .btn { min-height: 1.9rem; height: 1.9rem; padding-inline: 0.4rem; font-size: 0.59rem; }
+            .label-color-field { display: flex; align-items: center; gap: 0.4rem; }
+            .label-color-field .input { flex: 1; }
+            .label-color-field .color-chip { width: 1rem; height: 1rem; flex: 0 0 auto; }
+            .label-association { padding: 0.45rem 0.7rem; border-top: 1px solid var(--color-base-300); }
+            .label-association form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.35rem; }
+            .label-association input, .label-association select { min-width: 8rem; flex: 1; }
+            .variant-switcher { position: fixed; z-index: 100; left: 50%; bottom: 0.72rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.35rem; max-width: calc(100% - 1rem); padding: 0.23rem 0.38rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 24px #0004; }
+            .variant-switcher .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.42rem; border-color: transparent; color: inherit; font-size: 0.64rem; }
+            .variant-name { min-width: 10.5rem; text-align: center; font-size: 0.65rem; font-weight: 620; }
+            :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+            @media (max-width: 1040px) {
+                .app-shell { grid-template-columns: 14rem minmax(0, 1fr); }
+                .unified-layout { grid-template-columns: minmax(10rem, 0.7fr) minmax(0, 1.4fr); }
+                #unified-preview { grid-column: 2; }
+                .registry-landing { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            @media (max-width: 740px) {
+                .app-shell { display: block; }
+                .app-sidebar { position: fixed; inset: 0 auto 0 0; width: min(18rem, 88vw); transform: translateX(-102%); transition: transform 0.2s ease; box-shadow: 0 10px 32px #0005; }
+                .app-sidebar[data-open="true"] { transform: translateX(0); }
+                .sidebar-backdrop:not([hidden]) { position: fixed; inset: 0; z-index: 30; display: block; border: 0; background: #0007; }
+                .mobile-topbar { display: flex; align-items: center; gap: 0.55rem; min-height: 3.1rem; padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--color-base-300); background: var(--color-base-100); }
+                .mobile-topbar .brand { color: var(--color-primary); font-size: 0.9rem; font-weight: 750; }
+                .page { width: 100%; padding: 0.65rem 0.7rem 5rem; }
+                .page-titlebar, .detail-header, .editor-header { align-items: flex-start; flex-direction: column; }
+                .directory-toolbar { align-items: flex-start; flex-direction: column; }
+                .filter-tools, .search-field, .action-tools { width: 100%; }
+                .action-tools .btn { flex: 1; }
+                .unified-layout, .detail-content, .detail-content.unified-content { grid-template-columns: minmax(0, 1fr); }
+                #unified-preview { grid-column: auto; }
+                .registry-landing { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .category-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .detail-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .editor-grid, .editor-grid[data-layout="workspaces"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "primary" "identifiers" "associations" "actions"; }
+                .variant-switcher { bottom: 0.5rem; }
+                .variant-name { min-width: 0; }
+            }
+            @media (max-width: 460px) {
+                .home-link-list, .registry-landing, .category-nav, .detail-summary, .field-grid { grid-template-columns: minmax(0, 1fr); }
+                .detail-header .inline-actions { width: 100%; }
+                .label-association form { align-items: stretch; flex-direction: column; }
+                .variant-switcher .btn { padding-inline: 0.32rem; }
+                .variant-name { font-size: 0.6rem; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+            }
+        </style>
+    </head>
+    <body data-screen="navigation">
+        <div class="app-shell">
+            <aside class="app-sidebar" id="app-sidebar" data-open="false" aria-label="CODA navigation">
+                <a class="app-brand" href="?page=request-center" data-page="request-center" aria-label="CODA home"><strong>CODA</strong></a>
+                <nav class="app-navigation" aria-label="CODA pages">
+                    <section class="app-nav-group" data-nav-group="request-center">
+                        <a class="app-nav-group-link" href="?page=request-center" data-page="request-center" aria-expanded="true"><span>Request Center</span><span class="app-nav-chevron" aria-hidden="true">⌄</span></a>
+                        <div class="app-nav-submenu"><a href="?page=funders" data-page="funders">Funders</a><a href="?page=request-labels" data-page="request-labels">Request Labels</a></div>
+                    </section>
+                    <section class="app-nav-group" data-nav-group="publishing">
+                        <a class="app-nav-group-link" href="?page=publishing" data-page="publishing" aria-expanded="false"><span>Journals &amp; Publishers</span><span class="app-nav-chevron" aria-hidden="true">⌄</span></a>
+                        <div class="app-nav-submenu" hidden><a href="?page=journals" data-page="journals">Journals</a><a href="?page=publishers" data-page="publishers">Publishers</a></div>
+                    </section>
+                    <section class="app-nav-group" data-nav-group="finances">
+                        <a class="app-nav-group-link" href="?page=finances" data-page="finances" aria-expanded="false"><span>Finances</span><span class="app-nav-chevron" aria-hidden="true">⌄</span></a>
+                        <div class="app-nav-submenu" hidden><a href="?page=creditors" data-page="creditors">Creditors</a><a href="?page=fundingsources" data-page="fundingsources">Funding Sources</a></div>
+                    </section>
+                </nav>
+                <div class="app-sidebar-footer">Static prototype · sample data · actions inert</div>
+            </aside>
+            <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" hidden></button>
+            <div class="app-main">
+                <header class="mobile-topbar"><button class="btn btn-ghost btn-sm" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="app-sidebar">Menu</button><span class="brand">CODA</span></header>
+        <main class="page">
+            <div class="breadcrumbs" id="page-breadcrumbs">Administration&nbsp; / &nbsp;Request Center</div>
+            <header class="page-titlebar">
+                <div><p class="eyebrow" id="page-team-label">Request Center team</p><h1 id="page-title">Request Center</h1><p id="page-description">Manage funders and request labels.</p></div>
+                <button class="btn btn-outline btn-sm" id="theme-toggle" type="button" aria-pressed="false">Use dark theme</button>
+            </header>
+            <p class="prototype-note">Prototype boundary: Funding Requests, Invoices, and Blocklist pages are excluded. Catalog data and actions are sample-only; production templates are untouched.</p>
+            <div class="directory-toolbar" id="directory-toolbar" hidden>
+                <form class="filter-tools" id="registry-filter" method="get" data-inert-form>
+                    <label class="search-field" for="id-query"><span class="sr-only" id="catalog-search-label">Search Funding Organizations</span><input class="input input-bordered input-sm" type="search" name="query" id="id-query" placeholder="Search Funding Organizations…"></label>
+                    <label class="include-archived" id="include-archived-label"><input class="toggle toggle-sm" type="checkbox" role="switch" name="include_archived" id="id-include-archived" aria-checked="true" checked> Include archived</label>
+                </form>
+                <div class="action-tools"><button class="btn btn-primary btn-sm" id="new-item-button" type="button" data-open-editor="new">New Funding Organization</button></div>
+            </div>
+
+            <section id="navigation-screen" aria-label="Current CODA section">
+                <section id="group-home-screen">
+                    <div class="registry-landing" id="group-home-cards"></div>
+                </section>
+            </section>
+
+            <section id="directory-screen" aria-label="Reference-data directory" hidden>
+                <section class="layout-root" data-layout-root="unified" aria-label="Team-scoped category rail" hidden>
+                    <div class="unified-layout" id="unified-team-layout">
+                        <aside class="surface category-rail"><h2 id="category-rail-title">Request Center</h2><nav class="category-nav" id="unified-category-nav" aria-label="Current section pages"></nav></aside>
+                        <section class="surface catalog-list">
+                            <header class="list-title"><div><h2 id="unified-list-title"></h2><p id="unified-list-summary" aria-live="polite"></p></div><span class="badge badge-outline" id="unified-list-badge"></span></header>
+                            <div class="registry-table-wrap" id="unified-table-wrap"><table class="registry-table"><thead id="unified-list-head"></thead><tbody id="unified-list-body"></tbody></table></div>
+                            <p class="empty-note" id="unified-empty" hidden>No matching Funding Organizations.</p>
+                        </section>
+                        <article class="surface preview-card" id="unified-preview" aria-label="Funding organization preview" hidden></article>
+                    </div>
+                </section>
+                <section class="layout-root" data-layout-root="workspaces" aria-label="Page-focused catalog list">
+                    <div class="workspace-list" id="workspace-list">
+                        <section class="surface catalog-list" id="workspace-table-panel"><div class="list-title"><div><h2 id="workspace-table-title"></h2><p id="workspace-list-summary" aria-live="polite"></p></div><span class="badge badge-outline" id="workspace-kind-badge"></span></div><div class="registry-table-wrap"><table class="registry-table"><thead id="workspace-table-head"></thead><tbody id="workspace-list-body"></tbody></table></div><p class="empty-note" id="workspace-empty" hidden>No funding organizations match this search.</p></section>
+                        <div class="workspace-label-list" id="workspace-label-list" hidden></div>
+                        <p class="empty-note" id="workspace-label-empty" hidden>No Request Labels to show.</p>
+                    </div>
+                </section>
+            </section>
+
+            <section id="record-screen" hidden aria-label="Catalog details">
+                <section class="layout-root" aria-label="Sectioned catalog details"><div id="unified-record-content"></div></section>
+            </section>
+
+            <section id="editor-screen" class="editor-screen" hidden aria-labelledby="editor-heading">
+                <header class="editor-header"><div><p class="eyebrow" id="editor-team-label"></p><p class="eyebrow" id="editor-mode-label">Update funding organization</p><h2 id="editor-heading">Northstar Research Foundation</h2><p>Fields vary by catalog; related workflows remain visible.</p></div><button class="btn btn-ghost btn-sm" type="button" data-cancel-editor>Cancel</button></header>
+                <form id="registry-form" class="surface" action="#" method="post" data-inert-form><div class="editor-grid" id="editor-grid" data-layout="unified"><section class="surface editor-panel editor-primary"><div class="surface-header"><div><h2 id="editor-primary-title">Funding organization details</h2><p>Core catalog fields</p></div></div><div class="editor-panel-body" id="editor-primary-fields"></div></section><section class="surface editor-panel editor-identifiers"><div class="surface-header"><div><h2>Identifiers</h2><p>External references, where supported</p></div></div><div class="editor-panel-body" id="editor-identifiers-content"></div></section><section class="surface editor-panel editor-associations"><div class="surface-header"><div><h2>Relationships</h2><p>Link and selection workflows</p></div></div><div class="editor-panel-body" id="editor-associations-content"></div></section><footer class="editor-actions"><button class="btn btn-ghost btn-sm" type="button" data-cancel-editor>Cancel</button><button class="btn btn-primary btn-sm" type="submit">Save funding organization</button></footer></div></form>
+            </section>
+        </main>
+            </div>
+        </div>
+
+        <div class="variant-switcher" role="group" aria-label="Reference-data layout variants"><button class="btn btn-ghost btn-sm" id="variant-prev" type="button" aria-label="Previous layout">←</button><span class="variant-name" id="variant-name" aria-live="polite">B · Sidebar + page cards</span><button class="btn btn-ghost btn-sm" id="variant-next" type="button" aria-label="Next layout">→</button></div>
+        <div id="nested-entity-creation-modal-wrapper"></div>
+
+        <script>
+            (() => {
+                const layouts = ["unified", "workspaces"];
+                const layoutNames = { unified: "A · Sidebar + category rail", workspaces: "B · Sidebar + page cards" };
+                const registryTypes = [
+                    { key: "publishers", label: "Publishers", description: "Publisher names and linked journals.", supportsArchived: false },
+                    { key: "journals", label: "Journals", description: "E-ISSNs and publisher relationships.", supportsArchived: false },
+                    { key: "funders", label: "Funding organizations", description: "Identifiers and organization links, with archive and merge actions.", supportsArchived: true },
+                    { key: "creditors", label: "Creditors", description: "Finance counterparties with archive and restore states.", supportsArchived: true },
+                    { key: "fundingsources", label: "Funding Sources", description: "Budget and institution sources managed in Finance.", supportsArchived: false },
+                    { key: "labels", label: "Request Labels", description: "Color-coded labels managed in Request Center.", supportsArchived: false },
+                ];
+                const registryTeams = [
+                    { key: "request-center", label: "Request Center", summary: "Funders, request labels, publishers, and journals.", registries: ["publishers", "journals", "funders", "labels"] },
+                    { key: "finances", label: "Finances", summary: "Creditors and funding sources.", registries: ["creditors", "fundingsources"] },
+                ];
+                const navigationGroups = [
+                    { key: "request-center", label: "Request Center", team: "request-center", homePage: "request-center", items: ["funders", "request-labels"] },
+                    { key: "publishing", label: "Journals & Publishers", team: "request-center", homePage: "publishing", items: ["journals", "publishers"] },
+                    { key: "finances", label: "Finances", team: "finances", homePage: "finances", items: ["creditors", "fundingsources"] }
+                ];
+                const pages = {
+                    "request-center": { group: "request-center", title: "Request Center", description: "Manage funders and request labels.", view: "home" },
+                    funders: { group: "request-center", title: "Funders", description: "Manage external research funding organizations.", registry: "funders" },
+                    "request-labels": { group: "request-center", title: "Request Labels", description: "Manage color-coded labels in Request Center.", registry: "labels" },
+                    publishing: { group: "publishing", title: "Journals & Publishers", description: "Manage journals and publishers.", view: "home" },
+                    journals: { group: "publishing", title: "Journals", description: "An overview of journals currently in the system.", registry: "journals" },
+                    publishers: { group: "publishing", title: "Publishers", description: "An overview of publishers currently in the system.", registry: "publishers" },
+                    finances: { group: "finances", title: "Finances", description: "Manage creditors and funding sources.", view: "home" },
+                    creditors: { group: "finances", title: "Creditors", description: "Manage finance counterparties.", registry: "creditors" },
+                    fundingsources: { group: "finances", title: "Funding Sources", description: "Manage funding sources used in Finance.", registry: "fundingsources" },
+                };
+                const records = [
+                    {
+                        id: "publisher-northstar",
+                        pk: 11,
+                        kind: "publishers",
+                        kindLabel: "Publisher",
+                        name: "Northstar Academic Press",
+                        context: "2 journals",
+                        hasDetail: true,
+                        facts: [["Linked journals", "2"]],
+                        related: [
+                            { title: "Journals", rows: ["Journal of Open Scholarship", "Research Methods Review"] },
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Publication", "Linked through"],
+                                rows: [
+                                    ["FR-2026-0561", "Open access support for Journal of Open Scholarship", "Journal: Journal of Open Scholarship"],
+                                    ["FR-2026-0527", "Northstar open scholarship collection", "Monograph"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["2 linked", "FR-2026-0561 · FR-2026-0527"],
+                        editor: { name: "Northstar Academic Press" },
+                    },
+                    {
+                        id: "publisher-lakeside",
+                        pk: 12,
+                        kind: "publishers",
+                        kindLabel: "Publisher",
+                        name: "Lakeside University Press",
+                        context: "1 journal",
+                        hasDetail: true,
+                        facts: [["Linked journals", "1"]],
+                        related: [
+                            { title: "Journals", rows: ["Regional Research Review"] },
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Publication", "Linked through"],
+                                rows: [
+                                    ["FR-2026-0509", "Regional Research Review publication support", "Journal: Regional Research Review"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["1 linked", "FR-2026-0509"],
+                        editor: { name: "Lakeside University Press" },
+                    },
+                    {
+                        id: "journal-open",
+                        pk: 21,
+                        kind: "journals",
+                        kindLabel: "Journal",
+                        name: "Journal of Open Scholarship",
+                        context: "Northstar Academic Press",
+                        hasDetail: true,
+                        eissn: "2049-3630",
+                        publisher: "Northstar Academic Press",
+                        facts: [["E-ISSN", "2049-3630"], ["Publisher", "Northstar Academic Press"]],
+                        identifiers: [{ type: "E-ISSN", value: "2049-3630" }],
+                        related: [
+                            { title: "Publisher", rows: ["Northstar Academic Press"] },
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Publication", "Funding Organization"],
+                                rows: [
+                                    ["FR-2026-0561", "Open access support for Journal of Open Scholarship", "Northstar Research Foundation"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["2049-3630", "Northstar Academic Press"],
+                        editor: { name: "Journal of Open Scholarship", title: "Journal of Open Scholarship" },
+                    },
+                    {
+                        id: "journal-regional",
+                        pk: 22,
+                        kind: "journals",
+                        kindLabel: "Journal",
+                        name: "Regional Research Review",
+                        context: "Lakeside University Press",
+                        hasDetail: true,
+                        eissn: "2398-1155",
+                        publisher: "Lakeside University Press",
+                        facts: [["E-ISSN", "2398-1155"], ["Publisher", "Lakeside University Press"]],
+                        identifiers: [{ type: "E-ISSN", value: "2398-1155" }],
+                        related: [
+                            { title: "Publisher", rows: ["Lakeside University Press"] },
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Publication", "Funding Organization"],
+                                rows: [
+                                    ["FR-2026-0509", "Regional Research Review publication support", "Legacy Coastal Science Trust"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["2398-1155", "Lakeside University Press"],
+                        editor: { name: "Regional Research Review", title: "Regional Research Review" },
+                    },
+                    {
+                        id: "funder-northstar",
+                        pk: 31,
+                        kind: "funders",
+                        kindLabel: "Funding organization",
+                        name: "Northstar Research Foundation",
+                        status: "Active",
+                        tone: "success",
+                        context: "2 identifiers",
+                        hasDetail: true,
+                        archived: false,
+                        facts: [["Status", "Active"], ["Identifiers", "2"]],
+                        identifiers: [{ type: "ROR", value: "00northstar001" }, { type: "ISNI", value: "0000 0001 2345 6789" }],
+                        related: [
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Project", "Publication"],
+                                rows: [
+                                    ["FR-2026-0561", "Open Access publishing support", "Open access support for Journal of Open Scholarship"],
+                                    ["FR-2026-0527", "Open scholarship monograph", "Northstar open scholarship collection"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["Active", "2 identifiers"],
+                        editor: { name: "Northstar Research Foundation", identifiers: [{ type: "ROR", value: "00northstar001" }, { type: "ISNI", value: "0000 0001 2345 6789" }] },
+                    },
+                    {
+                        id: "funder-legacy",
+                        pk: 32,
+                        kind: "funders",
+                        kindLabel: "Funding organization",
+                        name: "Legacy Coastal Science Trust",
+                        status: "Archived",
+                        tone: "error",
+                        context: "1 identifier · historical funding",
+                        hasDetail: true,
+                        archived: true,
+                        facts: [["Status", "Archived 12 Mar 2025"], ["Identifiers", "1"]],
+                        identifiers: [{ type: "ROR", value: "00coastal000" }],
+                        related: [
+                            {
+                                title: "Funding Requests",
+                                columns: ["Funding Request", "Project", "Publication"],
+                                rows: [
+                                    ["FR-2026-0509", "Regional research archive", "Regional Research Review publication support"],
+                                ],
+                            },
+                        ],
+                        tableValues: ["Archived", "1 identifier"],
+                        editor: { name: "Legacy Coastal Science Trust", identifiers: [{ type: "ROR", value: "00coastal000" }] },
+                    },
+                    { id: "creditor-northstar", pk: 41, kind: "creditors", kindLabel: "Creditor", name: "Northstar Publishing Services", status: "Active", tone: "success", context: "Finance counterparty", hasDetail: true, archived: false, facts: [["Status", "Active"]], related: [{ title: "Invoices", columns: ["Invoice", "Date", "Status", "Total"], rows: [["INV-2026-0148", "14 Aug 2026", "Open", "USD 3,100.00"], ["INV-2026-0141", "08 Aug 2026", "Paid", "EUR 1,320.00"]] }], tableValues: ["Active"], editor: { name: "Northstar Publishing Services" } },
+                    { id: "creditor-legacy", pk: 42, kind: "creditors", kindLabel: "Creditor", name: "Legacy Print House", status: "Archived", tone: "error", context: "Archived finance counterparty", hasDetail: true, archived: true, facts: [["Status", "Archived 04 Feb 2025"], ["Invoices", "1 historical"]], related: [{ title: "Invoices", columns: ["Invoice", "Date", "Status", "Total"], rows: [["INV-2025-0291", "18 Dec 2025", "Paid", "EUR 930.00"]] }], tableValues: ["Archived"], editor: { name: "Legacy Print House" } },
+                    { id: "fundingsource-budget", pk: 51, kind: "fundingsources", kindLabel: "Funding Source", name: "Research Library Budget", context: "Budget source", hasDetail: true, facts: [["Type", "Budget"], ["Name", "Research Library Budget"]], related: [{ title: "Invoices", columns: ["Invoice", "Creditor", "Allocated"], rows: [["INV-2026-0148", "Northstar Publishing Services", "USD 1,250.00"], ["INV-2026-0141", "Northstar Publishing Services", "EUR 1,320.00"]] }], tableValues: ["Budget", "—"], editor: { name: "Research Library Budget" } },
+                    { id: "label-open-access", pk: 61, kind: "labels", kindLabel: "Request Label", name: "Open Access", context: "Request Center label", hasDetail: false, facts: [["Color", "#285096"], ["Scope", "Request Center"]], related: [], tableValues: ["#285096", "Request Center"], color: "#285096", editor: { name: "Open Access", hexcolor: "#285096" } },
+                    { id: "label-urgent", pk: 62, kind: "labels", kindLabel: "Request Label", name: "Urgent review", context: "Request Center label", hasDetail: false, facts: [["Color", "#A56709"], ["Scope", "Request Center"]], related: [], tableValues: ["#A56709", "Request Center"], color: "#A56709", editor: { name: "Urgent review", hexcolor: "#A56709" } },
+                ];
+
+                const directoryScreen = document.getElementById("directory-screen");
+                const navigationScreen = document.getElementById("navigation-screen");
+                const groupHomeScreen = document.getElementById("group-home-screen");
+                const recordScreen = document.getElementById("record-screen");
+                const editorScreen = document.getElementById("editor-screen");
+                const directoryToolbar = document.getElementById("directory-toolbar");
+                const queryInput = document.getElementById("id-query");
+                const includeArchived = document.getElementById("id-include-archived");
+                const includeArchivedLabel = document.getElementById("include-archived-label");
+                const variantName = document.getElementById("variant-name");
+                const editorGrid = document.getElementById("editor-grid");
+                const appSidebar = document.getElementById("app-sidebar");
+                const mobileNavToggle = document.getElementById("mobile-nav-toggle");
+                const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+                let activeLayout = new URLSearchParams(location.search).get("variant");
+                let activePage = new URLSearchParams(location.search).get("page") || "request-center";
+                let activeScreen = "navigation";
+                let activeKind = "all";
+                let activeRecordId = null;
+                let editMode = "edit";
+                let editorReturnScreen = "navigation";
+                if (!layouts.includes(activeLayout)) activeLayout = "workspaces";
+                if (!pages[activePage]) activePage = "request-center";
+
+                function esc(value) {
+                    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+                }
+
+                function getRecord(id) {
+                    return records.find((record) => record.id === id) || null;
+                }
+
+                function resetPageFilters() {
+                    queryInput.value = "";
+                    includeArchived.checked = true;
+                    includeArchived.setAttribute("aria-checked", "true");
+                    document.getElementById("unified-list-body").replaceChildren();
+                    document.getElementById("unified-preview").replaceChildren();
+                    document.getElementById("workspace-list-body").replaceChildren();
+                    document.getElementById("workspace-label-list").replaceChildren();
+                }
+
+                function currentGroup() {
+                    return navigationGroups.find((group) => group.key === pages[activePage].group);
+                }
+
+                function currentTeam() {
+                    return registryTeams.find((team) => team.key === currentGroup().team);
+                }
+
+                function renderNavigation() {
+                    const group = currentGroup();
+                    document.querySelectorAll("[data-nav-group]").forEach((section) => {
+                        const active = section.dataset.navGroup === group.key;
+                        const parent = section.querySelector(".app-nav-group-link");
+                        parent.setAttribute("aria-expanded", String(active));
+                        if (active && activePage === group.homePage) parent.setAttribute("aria-current", "page");
+                        else parent.removeAttribute("aria-current");
+                        section.querySelector(".app-nav-submenu").hidden = !active;
+                        section.querySelectorAll(".app-nav-submenu [data-page]").forEach((link) => {
+                            if (link.dataset.page === activePage) link.setAttribute("aria-current", "page");
+                            else link.removeAttribute("aria-current");
+                        });
+                    });
+                }
+
+                function renderPageHeader() {
+                    const page = pages[activePage];
+                    const group = currentGroup();
+                    document.title = `CODA — ${page.title} (prototype)`;
+                    document.getElementById("page-team-label").textContent = `${currentTeam().label} team`;
+                    document.getElementById("page-title").textContent = page.title;
+                    document.getElementById("page-description").textContent = page.description;
+                    document.getElementById("page-breadcrumbs").textContent = `Administration / ${group.label}${page.group === activePage ? "" : ` / ${page.title}`}`;
+                }
+
+                function showScreen(screen) {
+                    activeScreen = screen;
+                    document.body.dataset.screen = screen;
+                    navigationScreen.hidden = screen !== "navigation";
+                    directoryScreen.hidden = screen !== "directory";
+                    recordScreen.hidden = screen !== "detail";
+                    editorScreen.hidden = screen !== "edit";
+                    directoryToolbar.hidden = screen !== "directory";
+                }
+
+                function setSidebarOpen(open) {
+                    appSidebar.dataset.open = String(open);
+                    sidebarBackdrop.hidden = !open;
+                    mobileNavToggle.setAttribute("aria-expanded", String(open));
+                }
+
+                function navigateTo(pageKey, updateUrl = true) {
+                    if (!pages[pageKey]) return;
+                    activePage = pageKey;
+                    activeRecordId = null;
+                    resetPageFilters();
+                    if (updateUrl) {
+                        const url = new URL(location.href);
+                        url.searchParams.set("page", activePage);
+                        history.replaceState(null, "", url);
+                    }
+                    renderCurrentPage();
+                    setSidebarOpen(false);
+                }
+
+                function renderCurrentPage() {
+                    const page = pages[activePage];
+                    const group = currentGroup();
+                    activeKind = page.registry || "all";
+                    renderNavigation();
+                    renderPageHeader();
+                    if (page.registry) {
+                        showScreen("directory");
+                        renderDirectories();
+                    } else {
+                        showScreen("navigation");
+                        renderGroupHome(group, page);
+                    }
+                }
+
+
+                function visibleRecords(kind = activeKind) {
+                    const query = queryInput.value.trim().toLocaleLowerCase();
+                    return records.filter((record) => {
+                        const typeMatches = kind === "all" || record.kind === kind;
+                        const queryMatches = !query || `${record.name} ${record.kindLabel} ${record.context}`.toLocaleLowerCase().includes(query);
+                        const archiveMatches = includeArchived.checked || !record.archived;
+                        return typeMatches && queryMatches && archiveMatches;
+                    });
+                }
+
+                function statusMarkup(record) {
+                    if (!record.status) return "";
+                    const classes = { success: "badge-success", error: "badge-error", warning: "badge-warning", primary: "badge-primary", neutral: "badge-ghost" };
+                    return `<span class="badge ${classes[record.tone] || "badge-ghost"}">${esc(record.status)}</span>`;
+                }
+
+
+                function directoryAction(record) {
+                    return record.hasDetail ? `<button class="btn btn-ghost btn-xs" type="button" data-open-record="${esc(record.id)}">View</button>` : `<button class="btn btn-ghost btn-xs" type="button" data-open-editor="edit" data-record-id="${esc(record.id)}">Edit</button>`;
+                }
+
+                function renderCategoryNav() {
+                    const group = currentGroup();
+                    document.getElementById("category-rail-title").textContent = group.label;
+                    document.getElementById("unified-category-nav").innerHTML = group.items.map((pageKey) => {
+                        const page = pages[pageKey];
+                        const current = activePage === pageKey ? 'aria-current="page"' : "";
+                        return `<button class="category-button" type="button" data-page="${pageKey}" ${current}><span>${esc(page.title)}</span></button>`;
+                    }).join("");
+                }
+
+                function renderUnifiedList() {
+                    const result = visibleRecords(activeKind);
+                    const registry = registryTypes.find((item) => item.key === activeKind);
+                    document.getElementById("unified-list-title").textContent = `${registry.label} directory`;
+                    document.getElementById("unified-list-summary").textContent = registryCountLabel(registry, result.length);
+                    document.getElementById("unified-list-badge").textContent = currentGroup().label;
+                    document.getElementById("unified-table-wrap").hidden = false;
+                    document.getElementById("unified-preview").hidden = false;
+                    document.getElementById("unified-empty").textContent = `No ${registry.label.toLowerCase()} match this search.`;
+                    document.getElementById("unified-empty").hidden = result.length > 0;
+                    if (!result.some((item) => item.id === activeRecordId)) activeRecordId = result[0]?.id || null;
+                    document.getElementById("unified-list-head").innerHTML = `<tr>${workspaceColumns(activeKind).map((column) => `<th>${esc(column)}</th>`).join("")}<th></th></tr>`;
+                    document.getElementById("unified-list-body").innerHTML = result.map((item) => `<tr><td><button class="registry-name" type="button" data-select-record="${esc(item.id)}">${esc(item.name)}</button><small class="registry-subline">${esc(item.context)}</small></td>${item.tableValues.map((value) => `<td>${value.startsWith("#") ? `<span class="color-chip" style="background:${esc(value)}"></span>${esc(value)}` : esc(value)}</td>`).join("")}<td class="row-action">${directoryAction(item)}</td></tr>`).join("");
+                    renderPreview(activeRecordId ? getRecord(activeRecordId) : null);
+                }
+
+                function renderGroupHome(group, page) {
+                    groupHomeScreen.hidden = false;
+                    const cards = document.getElementById("group-home-cards");
+                    cards.className = activeLayout === "workspaces" ? "registry-landing" : "home-link-list";
+                    cards.innerHTML = group.items.map((pageKey) => {
+                        const destination = pages[pageKey];
+                        if (activeLayout === "workspaces") {
+                            return `<button class="registry-tile" type="button" data-page="${pageKey}"><strong>${esc(destination.title)}</strong><p>${esc(destination.description)}</p><span>Open page</span></button>`;
+                        }
+                        return `<button class="home-link-card" type="button" data-page="${pageKey}"><span><strong>${esc(destination.title)}</strong><p>${esc(destination.description)}</p></span><span class="btn btn-ghost btn-xs">View</span></button>`;
+                    }).join("");
+                }
+
+
+                function registryCountLabel(registry, count) {
+                    const singular = records.find((item) => item.kind === registry.key)?.kindLabel;
+                    const label = count === 1 ? singular || registry.label : registry.label;
+                    return `${count} ${label.toLocaleLowerCase()}`;
+                }
+
+                function workspaceColumns(kind) {
+                    return { publishers: ["Publisher", "Linked journals", "Funding Requests"], journals: ["Journal", "E-ISSN", "Publisher"], funders: ["Funding organization", "Status", "Identifiers"], creditors: ["Creditor", "Status"], fundingsources: ["Funding Source", "Type", "Institution"], labels: ["Request Label", "Color", "Scope"] }[kind];
+                }
+
+                function renderWorkspaceList() {
+                    const registry = registryTypes.find((item) => item.key === activeKind);
+                    if (!registry) return;
+                    const result = visibleRecords(activeKind);
+                    document.getElementById("workspace-table-title").textContent = `${registry.label} directory`;
+                    document.getElementById("workspace-list-summary").textContent = registryCountLabel(registry, result.length);
+                    document.getElementById("workspace-kind-badge").textContent = currentGroup().label;
+                    document.getElementById("workspace-empty").textContent = `No ${registry.label.toLowerCase()} match this search.`;
+                    document.getElementById("workspace-empty").hidden = result.length > 0;
+                    const tablePanel = document.getElementById("workspace-table-panel");
+                    const labelList = document.getElementById("workspace-label-list");
+                    const labelEmpty = document.getElementById("workspace-label-empty");
+                    if (activeKind === "labels") {
+                        tablePanel.hidden = true;
+                        labelList.hidden = false;
+                        labelEmpty.hidden = result.length > 0;
+                        labelEmpty.textContent = "No Request Labels to show.";
+                        labelList.innerHTML = result.map((item) => `<article class="surface workspace-label-card"><div class="workspace-label-main"><span class="color-chip" style="background:${esc(item.color)}"></span><div><strong>${esc(item.name)}</strong><small>${esc(item.context)}</small></div></div><div class="inline-actions">${renderRecordActionButtons(item)}</div></article>`).join("");
+                        return;
+                    }
+                    tablePanel.hidden = false;
+                    labelList.hidden = true;
+                    labelEmpty.hidden = true;
+                    document.getElementById("workspace-table-head").innerHTML = `<tr>${workspaceColumns(activeKind).map((column) => `<th>${esc(column)}</th>`).join("")}<th></th></tr>`;
+                    document.getElementById("workspace-list-body").innerHTML = result.map((item) => `<tr><td><button class="registry-name" type="button" data-select-record="${esc(item.id)}">${esc(item.name)}</button></td>${item.tableValues.map((value) => `<td>${value.startsWith("#") ? `<span class="color-chip" style="background:${esc(value)}"></span>${esc(value)}` : esc(value)}</td>`).join("")}<td class="row-action">${directoryAction(item)}</td></tr>`).join("");
+                }
+
+
+                function renderFacts(record) {
+                    return record.facts.map(([label, value]) => `<div class="fact-card"><span class="fact-label">${esc(label)}</span><span class="fact-value">${esc(value)}</span></div>`).join("");
+                }
+
+                function renderIdentifiers(record) {
+                    if (!record.identifiers?.length) return `<p class="empty-note">No identifiers assigned.</p>`;
+                    return `<table class="record-table"><thead><tr><th>Type</th><th>Value</th></tr></thead><tbody>${record.identifiers.map((item) => `<tr><td>${esc(item.type)}</td><td><code>${esc(item.value)}</code></td></tr>`).join("")}</tbody></table>`;
+                }
+
+                function renderRelations(record) {
+                    if (!record.related?.length) return "";
+                    return record.related.map((relation) => {
+                        const content = relation.empty ? `<p class="empty-note">${esc(relation.empty)}</p>` : relation.columns ? `<table class="record-table"><thead><tr>${relation.columns.map((column) => `<th>${esc(column)}</th>`).join("")}</tr></thead><tbody>${relation.rows.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<ul>${relation.rows.map((row) => `<li>${esc(row)}</li>`).join("")}</ul>`;
+                        return `<section class="surface detail-card"><div class="section-head"><h3>${esc(relation.title)}</h3></div><div class="section-body">${content}</div></section>`;
+                    }).join("");
+                }
+
+                function renderRecordActionButtons(record) {
+                    const edit = `<button class="btn btn-outline btn-sm" type="button" data-open-editor="edit" data-record-id="${esc(record.id)}">Edit</button>`;
+                    if (record.kind === "funders") return record.archived ? `<button class="btn btn-success btn-outline btn-sm" type="button" hx-get="/fundingrequests/funders/${record.pk}/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button>${edit}` : `<button class="btn btn-outline btn-sm" type="button" hx-get="/fundingrequests/funders/${record.pk}/request-update-from-ror/" hx-target="body" hx-swap="beforeend">Update from ROR</button>${edit}<button class="btn btn-outline btn-sm" type="button" hx-get="/fundingrequests/funders/${record.pk}/merge/select-target/" hx-target="body" hx-swap="beforeend">Merge</button><button class="btn btn-warning btn-outline btn-sm" type="button" hx-get="/fundingrequests/funders/${record.pk}/request-archive/" hx-target="body" hx-swap="beforeend">Archive</button><button class="btn btn-error btn-outline btn-sm" type="button" hx-get="/fundingrequests/funders/${record.pk}/request-delete/" hx-target="body" hx-swap="beforeend">Delete</button>`;
+                    if (record.kind === "creditors") return record.archived ? `<button class="btn btn-success btn-outline btn-sm" type="button" hx-get="/invoices/creditors/${record.pk}/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button>${edit}` : `<button class="btn btn-warning btn-outline btn-sm" type="button" hx-get="/invoices/creditors/${record.pk}/request-archive/" hx-target="body" hx-swap="beforeend">Archive</button><button class="btn btn-error btn-outline btn-sm" type="button" hx-get="/invoices/creditors/${record.pk}/request-delete/" hx-target="body" hx-swap="beforeend">Delete</button>${edit}`;
+                    if (record.kind === "labels") return `${edit}<button class="btn btn-error btn-outline btn-sm" type="button" hx-delete="/fundingrequests/labels/delete/${record.pk}/" hx-target="closest article" hx-swap="delete">Delete</button>`;
+                    return edit;
+                }
+
+                function renderDetail(record) {
+                    const team = registryTeams.find((item) => item.registries.includes(record.kind));
+                    const registry = registryTypes.find((item) => item.key === record.kind);
+                    const status = record.status ? `<div class="status-row">${statusMarkup(record)}</div>` : "";
+                    const header = `<header class="detail-header"><div><p class="eyebrow">${esc(team.label)} team · ${esc(record.kindLabel)}</p><h1>${esc(record.name)}</h1>${status}</div><div class="inline-actions">${renderRecordActionButtons(record)}<button class="btn btn-ghost btn-sm" type="button" data-screen="directory">Back to ${esc(registry.label)}</button></div></header>`;
+                    const facts = renderFacts(record);
+                    const ids = `<section class="surface detail-card"><div class="section-head"><h3>${esc(record.kindLabel)} identifiers</h3></div><div class="section-body">${renderIdentifiers(record)}</div></section>`;
+                    const relations = renderRelations(record);
+                    document.getElementById("record-screen").setAttribute("aria-label", `${record.kindLabel} details`);
+                    document.getElementById("unified-record-content").innerHTML = `<article class="surface detail-page">${header}<div class="detail-summary">${facts}</div><div class="detail-content unified-content">${ids}${relations}</div></article>`;
+                }
+
+                function renderPreview(item) {
+                    const preview = document.getElementById("unified-preview");
+                    const registry = registryTypes.find((entry) => entry.key === activeKind);
+                    preview.setAttribute("aria-label", `${registry.label} preview`);
+                    if (!item) {
+                        preview.innerHTML = `<div class="preview-body"><p class="empty-note">No ${esc(registry.label.toLowerCase())} match the search.</p></div>`;
+                        return;
+                    }
+                    const facts = item.facts.map(([label, value]) => `<div class="preview-fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
+                    const primary = item.hasDetail ? `<button class="btn btn-primary btn-sm" type="button" data-open-record="${esc(item.id)}">Open ${esc(item.kindLabel.toLowerCase())}</button>` : "";
+                    const status = item.status ? statusMarkup(item) : "";
+                    const editNote = item.hasDetail ? "" : `<p class="relationship-note">Use Edit to update this ${esc(item.kindLabel.toLowerCase())} in ${esc(currentGroup().label)}.</p>`;
+                    preview.innerHTML = `<div class="surface-header"><div><h2>${esc(item.kindLabel)}</h2><p>${esc(currentGroup().label)}</p></div>${status}</div><div class="preview-body"><h2>${esc(item.name)}</h2><p>${esc(item.context)}</p><div class="preview-facts">${facts}</div>${editNote}</div>${renderRelations(item)}<div class="preview-actions">${primary}${renderRecordActionButtons(item)}</div>`;
+                }
+
+                function editorPrimary(record, mode) {
+                    const value = (field) => esc(mode === "new" ? "" : record.editor?.[field] || record.name || "");
+                    if (record.kind === "journals") return `<div class="field-grid"><div class="field field-wide"><label for="id_title">Journal title</label><input class="input input-bordered input-sm" id="id_title" name="title" type="text" value="${value("title")}"></div><div class="field"><label for="id_eissn">E-ISSN</label><input class="input input-bordered input-sm" id="id_eissn" name="eissn" type="text" value="${esc(mode === "new" ? "" : record.eissn)}"></div><div class="field"><label for="id_publisher">Publisher</label><div class="publisher-field"><select class="select select-bordered select-sm" id="id_publisher" name="publisher"><option value="11" selected>Northstar Academic Press</option><option value="12">Lakeside University Press</option></select><button class="btn btn-outline btn-sm" type="button" hx-get="/publishing/publishers/create-modal/?context=journal_modal" hx-target="#nested-entity-creation-modal-wrapper" hx-swap="innerHTML">New publisher</button></div></div></div>`;
+                    if (record.kind === "labels") return `<div class="field-grid"><div class="field"><label for="id_name">Label name</label><input class="input input-bordered input-sm" id="id_name" name="name" type="text" value="${value("name")}"></div><div class="field"><label for="id_hexcolor">Color</label><div class="label-color-field"><span class="color-chip" style="background:${mode === "new" ? "#285096" : esc(record.color)}"></span><input class="input input-bordered input-sm" id="id_hexcolor" name="hexcolor" type="text" value="${mode === "new" ? "#285096" : esc(record.color)}"></div></div></div>`;
+                    const label = { publishers: "Publisher name", funders: "Funding organization name", creditors: "Creditor name", fundingsources: "Funding source name" }[record.kind];
+                    return `<div class="field"><label for="id_name">${label}</label><input class="input input-bordered input-sm" id="id_name" name="name" type="text" value="${value("name")}"></div>`;
+                }
+
+                function editorIdentifiers(record, mode) {
+                    if (record.kind !== "funders") return `<p class="empty-note">${record.kind === "journals" ? "E-ISSN is part of Journal details." : `No external identifiers are maintained for ${esc(record.kindLabel.toLowerCase())}.`}</p>`;
+                    const links = mode === "new" ? [] : (record.identifiers || []);
+                    const rows = links.map((link) => `<tr><td><select class="select select-bordered select-sm" name="link_type" aria-label="Identifier type"><option value="ROR" ${link.type === "ROR" ? "selected" : ""}>ROR</option><option value="ISNI" ${link.type === "ISNI" ? "selected" : ""}>ISNI</option><option value="Ringgold" ${link.type === "Ringgold" ? "selected" : ""}>Ringgold</option></select></td><td><input class="input input-bordered input-sm" type="text" name="link_value" value="${esc(link.value)}" aria-label="Identifier value"></td><td><button class="btn btn-ghost btn-xs" type="button" onclick="this.closest('tr').remove()">Remove</button></td></tr>`).join("");
+                    return `<div class="link-editor-wrap"><table class="link-editor"><thead><tr><th>Type</th><th>Value</th><th><button class="btn btn-outline btn-xs" type="button" hx-post="/fundingrequests/funders/partial/add-linkrow/" hx-target="#funder-linktable" hx-swap="beforeend">Add</button></th></tr></thead><tbody id="funder-linktable">${rows}</tbody></table></div><p class="field-help">ROR, ISNI, and Ringgold are representative external identifier types.</p>`;
+                }
+
+                function editorAssociations(record, mode) {
+                    if (record.kind === "journals") return `<p class="field-help">Choose a publisher for this Journal; the New publisher control opens the current selector workflow.</p>`;
+                    if (record.kind === "labels") return `<p class="field-help">Request Labels are catalogued in the Request Center.</p>`;
+                    if (record.kind === "funders") return `<p class="field-help">External identifiers and organization matching are managed from this Funding Organization page.</p>`;
+                    if (record.kind === "creditors") return `<p class="field-help">Archived creditors remain available for historical finance references and are hidden from new entries.</p>`;
+                    if (record.kind === "fundingsources") return `<p class="field-help">Funding source names, types, and institutions are managed in Finance.</p>`;
+                    return `<p class="field-help">Publisher names and journal links are managed in Journals & Publishers.</p>`;
+                }
+
+                function openEditor(mode, recordId = null) {
+                    editMode = mode;
+                    editorReturnScreen = mode === "new" ? "directory" : activeScreen;
+                    const baseRecord = mode === "new" ? records.find((record) => record.kind === activeKind) || records[0] : getRecord(recordId || activeRecordId);
+                    activeRecordId = baseRecord.id;
+                    const record = mode === "new" ? { ...baseRecord, name: "", editor: {}, identifiers: [] } : baseRecord;
+                    const team = registryTeams.find((item) => item.registries.includes(record.kind));
+                    document.getElementById("editor-team-label").textContent = `${team.label} team`;
+                    document.getElementById("editor-mode-label").textContent = mode === "new" ? `Create ${record.kindLabel.toLocaleLowerCase()}` : `Update ${record.kindLabel.toLocaleLowerCase()}`;
+                    document.getElementById("editor-heading").textContent = mode === "new" ? `New ${record.kindLabel.toLocaleLowerCase()}` : record.name;
+                    document.getElementById("editor-primary-title").textContent = `${record.kindLabel} details`;
+                    document.getElementById("new-item-button").textContent = `New ${record.kindLabel}`;
+                    document.querySelector("#registry-form button[type='submit']").textContent = `Save ${record.kindLabel}`;
+                    document.getElementById("editor-primary-fields").innerHTML = editorPrimary(record, mode);
+                    document.getElementById("editor-identifiers-content").innerHTML = editorIdentifiers(record, mode);
+                    document.getElementById("editor-associations-content").innerHTML = editorAssociations(record, mode);
+                    showScreen("edit");
+                }
+
+                function renderDirectories() {
+                    const page = pages[activePage];
+                    const registry = registryTypes.find((item) => item.key === page.registry);
+                    if (!registry) return;
+                    const name = records.find((item) => item.kind === activeKind)?.kindLabel || registry.label;
+                    directoryToolbar.hidden = activeScreen !== "directory";
+                    includeArchivedLabel.hidden = !registry.supportsArchived;
+                    document.getElementById("catalog-search-label").textContent = `Search ${registry.label}`;
+                    queryInput.placeholder = `Search ${registry.label}…`;
+                    document.getElementById("new-item-button").textContent = `New ${name}`;
+                    if (activeLayout === "unified") {
+                        renderCategoryNav();
+                        renderUnifiedList();
+                    } else {
+                        renderWorkspaceList();
+                    }
+                }
+
+                function setLayout(next, updateUrl = true) {
+                    activeLayout = layouts.includes(next) ? next : "workspaces";
+                    document.querySelectorAll('[data-layout-root="unified"]').forEach((root) => { root.hidden = activeLayout !== "unified"; });
+                    document.querySelectorAll('[data-layout-root="workspaces"]').forEach((root) => { root.hidden = activeLayout !== "workspaces"; });
+                    editorGrid.dataset.layout = activeLayout;
+                    variantName.textContent = layoutNames[activeLayout];
+                    if (updateUrl) {
+                        const url = new URL(location.href);
+                        url.searchParams.set("variant", activeLayout);
+                        history.replaceState(null, "", url);
+                    }
+                    if (activeScreen === "detail") renderDetail(getRecord(activeRecordId));
+                    else if (activeScreen !== "edit") renderCurrentPage();
+                }
+
+                function initialize() {
+                    setLayout(activeLayout, false);
+                }
+
+                document.addEventListener("click", (event) => {
+                    const target = event.target.closest("button, a");
+                    if (!target) return;
+                    if (target.dataset.page) {
+                        event.preventDefault();
+                        navigateTo(target.dataset.page);
+                        return;
+                    }
+                    if (target.dataset.selectRecord) {
+                        activeRecordId = target.dataset.selectRecord;
+                        renderDirectories();
+                        return;
+                    }
+                    if (target.dataset.openRecord) {
+                        activeRecordId = target.dataset.openRecord;
+                        const record = getRecord(activeRecordId);
+                        if (record.hasDetail) {
+                            renderDetail(record);
+                            showScreen("detail");
+                        } else openEditor("edit", record.id);
+                        return;
+                    }
+                    if (target.dataset.openEditor) {
+                        openEditor(target.dataset.openEditor, target.dataset.recordId || null);
+                        return;
+                    }
+                    if (target.hasAttribute("data-cancel-editor")) {
+                        showScreen(editorReturnScreen);
+                        if (editorReturnScreen === "directory") renderDirectories();
+                        else if (editorReturnScreen === "navigation") renderCurrentPage();
+                        else renderDetail(getRecord(activeRecordId));
+                        return;
+                    }
+                    if (target.dataset.screen === "directory") {
+                        showScreen("directory");
+                        renderDirectories();
+                    }
+                });
+                mobileNavToggle.addEventListener("click", () => setSidebarOpen(appSidebar.dataset.open !== "true"));
+                sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+                queryInput.addEventListener("input", () => { if (activeScreen === "directory") renderDirectories(); });
+                includeArchived.addEventListener("change", (event) => {
+                    event.currentTarget.setAttribute("aria-checked", String(event.currentTarget.checked));
+                    if (activeScreen === "directory") renderDirectories();
+                });
+                document.addEventListener("submit", (event) => {
+                    if (event.target.matches("[data-inert-form], #registry-form")) event.preventDefault();
+                });
+                document.getElementById("variant-prev").addEventListener("click", () => {
+                    setLayout(layouts[(layouts.indexOf(activeLayout) + layouts.length - 1) % layouts.length]);
+                });
+                document.getElementById("variant-next").addEventListener("click", () => {
+                    setLayout(layouts[(layouts.indexOf(activeLayout) + 1) % layouts.length]);
+                });
+                document.addEventListener("keydown", (event) => {
+                    if (event.target.matches("input, textarea, select, [contenteditable='true']")) return;
+                    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                        event.preventDefault();
+                        const step = event.key === "ArrowRight" ? 1 : -1;
+                        setLayout(layouts[(layouts.indexOf(activeLayout) + step + layouts.length) % layouts.length]);
+                    }
+                });
+                document.getElementById("theme-toggle").addEventListener("click", (event) => {
+                    const dark = document.documentElement.dataset.theme !== "dark";
+                    document.documentElement.dataset.theme = dark ? "dark" : "light";
+                    event.currentTarget.setAttribute("aria-pressed", String(dark));
+                    event.currentTarget.textContent = dark ? "Use light theme" : "Use dark theme";
+                });
+                initialize();
+            })();
+        </script>
+    </body>
+</html>

@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CODA — Publication Vocabularies (prototype)</title>
+    <meta name="description" content="Three DaisyUI patterns for publication vocabulary administration.">
+    <!--
+      Ticket: .scratch/daisyui-django-template-migration/issues/15-prototype-publication-vocabulary-management.md
+      Three structurally different layouts for end-to-end limited-vocabulary administration, switchable with ?variant=.
+      All records and mutations are sample-only and stay in browser memory.
+    -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+    <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #fff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #fff;
+            --color-neutral: #253248;
+            --color-neutral-content: #f5f7fa;
+            --color-success: #28794b;
+            --color-warning: #a56709;
+            --color-error: #b42318;
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-neutral: #202a38;
+            --color-neutral-content: #f5f7fa;
+            --color-success: #65bf88;
+            --color-warning: #f2bc67;
+            --color-error: #f08a82;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding-bottom: 4.7rem;
+            overflow-x: hidden;
+            background: var(--color-base-200);
+            color: var(--color-base-content);
+            font-family: Montserrat, system-ui, sans-serif;
+            font-size: 0.9rem;
+            line-height: 1.48;
+        }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        a { color: var(--color-primary); }
+        .app-shell { min-height: 100vh; display: grid; grid-template-columns: 15rem minmax(0, 1fr); }
+        .app-sidebar {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            height: 100vh;
+            padding: 0.85rem 0.7rem;
+            border-right: 1px solid var(--color-base-300);
+            background: var(--color-base-100);
+        }
+        .app-brand { padding: 0.35rem 0.55rem; color: var(--color-primary); font-size: 1.4rem; font-weight: 760; text-decoration: none; }
+        .side-section-label { padding: 0.25rem 0.55rem; color: color-mix(in oklab, var(--color-base-content) 54%, transparent); font-size: 0.62rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; }
+        .side-link { display: block; padding: 0.48rem 0.58rem; border-radius: 0.42rem; color: var(--color-base-content); font-size: 0.74rem; text-decoration: none; }
+        .side-link[aria-current="page"] { background: color-mix(in oklab, var(--color-primary) 10%, var(--color-base-100)); color: var(--color-primary); font-weight: 650; }
+        .sidebar-note { margin-top: auto; padding: 0.65rem 0.45rem 0.1rem; border-top: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.6rem; }
+        .app-main { min-width: 0; }
+        .mobile-topbar, .sidebar-backdrop { display: none; }
+        .page { width: min(1480px, 100%); min-width: 0; margin: 0 auto; padding: 0.8rem clamp(0.8rem, 2.4vw, 2rem) 5rem; }
+        .breadcrumbs { padding: 0.22rem 0 0.48rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.72rem; }
+        .page-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.78rem; }
+        .eyebrow { margin: 0 0 0.18rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.65rem; }
+        .page-titlebar h1 { margin: 0; font-size: clamp(1.4rem, 2vw, 1.85rem); font-weight: 660; letter-spacing: -0.03em; }
+        .page-titlebar p { margin: 0.2rem 0 0; color: color-mix(in oklab, var(--color-base-content) 61%, transparent); font-size: 0.74rem; }
+        .prototype-note { margin: 0 0 0.85rem; padding: 0.62rem 0.8rem; border-left: 3px solid var(--color-primary); background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 66%, transparent); font-size: 0.68rem; }
+        .surface { min-width: 0; border: 1px solid var(--color-base-300); border-radius: 0.55rem; background: var(--color-base-100); }
+        .surface-header { display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; padding: 0.72rem 0.85rem; border-bottom: 1px solid var(--color-base-300); }
+        .surface-header h2, .surface-header h3 { margin: 0; font-size: 0.85rem; font-weight: 660; }
+        .surface-header p { margin: 0.1rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.64rem; }
+        .list-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 0.55rem; margin: 0 0 0.72rem; }
+        .search-control { flex: 1 1 16rem; }
+        .search-control label, .filter-control label { display: block; margin-bottom: 0.2rem; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.63rem; font-weight: 620; }
+        .search-control input, .filter-control select { width: 100%; }
+        .filter-control { flex: 0 1 12rem; }
+        .list-summary { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0 0 0.55rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.65rem; }
+        .table-wrap { overflow-x: auto; }
+        .vocab-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 0.69rem; }
+        .vocab-table th, .vocab-table td { padding: 0.58rem 0.62rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: middle; }
+        .vocab-table th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.6rem; font-weight: 650; }
+        .vocab-table tr:last-child td { border-bottom: 0; }
+        .vocab-name { display: block; font-size: 0.74rem; font-weight: 650; }
+        .vocab-subline { display: block; margin-top: 0.1rem; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.61rem; }
+        .type-badge { display: inline-flex; align-items: center; padding: 0.16rem 0.42rem; border: 1px solid var(--color-base-300); border-radius: 999px; font-size: 0.6rem; font-weight: 620; white-space: nowrap; }
+        .type-badge.limited { border-color: color-mix(in oklab, var(--color-primary) 38%, var(--color-base-300)); color: var(--color-primary); }
+        .usage-cell { white-space: nowrap; }
+        .row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.28rem; }
+        .row-actions .btn { min-height: 1.7rem; height: 1.7rem; padding-inline: 0.4rem; font-size: 0.6rem; }
+        .vocab-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+        .vocab-card { display: grid; gap: 0.55rem; padding: 0.8rem; }
+        .vocab-card h2 { margin: 0; font-size: 0.83rem; }
+        .vocab-card-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.38rem; }
+        .mini-fact { padding: 0.44rem 0.5rem; border: 1px solid var(--color-base-300); border-radius: 0.38rem; }
+        .mini-fact small { display: block; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.58rem; }
+        .mini-fact strong { display: block; margin-top: 0.12rem; font-size: 0.68rem; }
+        .vocab-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+        .editor-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.7rem; }
+        .editor-header h2 { margin: 0; font-size: 1.16rem; letter-spacing: -0.02em; }
+        .editor-header p { margin: 0.16rem 0 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.68rem; }
+        .editor-grid { display: grid; gap: 0.65rem; padding: 0.72rem; }
+        .editor-meta { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: end; gap: 0.55rem; padding: 0.7rem; border-bottom: 1px solid var(--color-base-300); }
+        .field { min-width: 0; }
+        .field label { display: block; margin-bottom: 0.22rem; color: color-mix(in oklab, var(--color-base-content) 63%, transparent); font-size: 0.62rem; font-weight: 620; }
+        .field input { width: 100%; }
+        .readonly-value { display: flex; align-items: center; min-height: 2.1rem; padding: 0.42rem 0.6rem; border: 1px solid var(--color-base-300); border-radius: 0.35rem; background: var(--color-base-200); font-size: 0.68rem; }
+        .editor-stats { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .editor-stats .badge { font-size: 0.6rem; }
+        .editor-main { padding: 0.75rem; }
+        .split-editor { display: grid; grid-template-columns: minmax(0, 1fr) 4.2rem minmax(0, 1fr); align-items: stretch; gap: 0.55rem; }
+        .concept-pane { min-width: 0; overflow: hidden; border: 1px solid var(--color-base-300); border-radius: 0.45rem; background: var(--color-base-100); }
+        .pane-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; padding: 0.58rem 0.65rem; border-bottom: 1px solid var(--color-base-300); }
+        .pane-header h3 { margin: 0; font-size: 0.73rem; }
+        .pane-header p { margin: 0.12rem 0 0; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.6rem; }
+        .pane-controls { display: grid; gap: 0.38rem; padding: 0.55rem 0.65rem; border-bottom: 1px solid var(--color-base-300); }
+        .pane-search { width: 100%; }
+        .selection-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+        .selection-tools .btn { min-height: 1.58rem; height: 1.58rem; padding-inline: 0.37rem; font-size: 0.57rem; }
+        .level-select { font-size: 0.58rem; }
+        .level-select summary { padding: 0.25rem 0.4rem; border: 1px solid var(--color-base-300); border-radius: 0.3rem; cursor: pointer; }
+        .level-options { display: grid; gap: 0.2rem; padding: 0.45rem; background: var(--color-base-100); }
+        .level-options label { font-size: 0.58rem; }
+        .tree-scroll { max-height: 25rem; min-height: 16rem; overflow: auto; padding: 0.55rem 0.65rem; }
+        .concept-tree, .concept-tree ul { margin: 0; padding-left: 0.85rem; list-style: none; }
+        .concept-tree { padding-left: 0; }
+        .concept-node { margin: 0.08rem 0; }
+        .concept-row { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; min-height: 1.78rem; padding: 0.17rem 0.28rem; border-radius: 0.32rem; }
+        .concept-row:hover { background: var(--color-base-200); }
+        .concept-label { display: flex; align-items: flex-start; gap: 0.38rem; min-width: 0; font-size: 0.65rem; }
+        .concept-label input { margin-top: 0.18rem; flex: 0 0 auto; }
+        .concept-name { overflow-wrap: anywhere; }
+        .context-label { color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.63rem; }
+        .context-note { margin-left: 0.28rem; color: color-mix(in oklab, var(--color-base-content) 46%, transparent); font-size: 0.53rem; }
+        .concept-row .badge { flex: 0 0 auto; font-size: 0.52rem; }
+        .move-controls { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.45rem; }
+        .move-controls .btn { width: 100%; min-height: 2.25rem; padding-inline: 0.15rem; font-size: 0.58rem; }
+        .tabbed-editor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.55rem; }
+        .editor-tabs { display: flex; gap: 0.25rem; padding: 0.25rem; border-bottom: 1px solid var(--color-base-300); }
+        .editor-tabs .btn { flex: 1; min-height: 2rem; font-size: 0.65rem; }
+        .tab-count { margin-left: 0.32rem; opacity: 0.72; }
+        .single-tree { max-width: 58rem; margin: 0 auto; }
+        .single-tree .tree-scroll { min-height: 21rem; }
+        .tab-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.55rem 0.65rem; border-top: 1px solid var(--color-base-300); }
+        .tab-actions p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 59%, transparent); font-size: 0.6rem; }
+        .ledger-editor { display: grid; gap: 0.55rem; }
+        .ledger-filter-bar { display: grid; grid-template-columns: minmax(12rem, 1fr) auto; align-items: end; gap: 0.55rem; padding: 0.55rem 0.65rem; border: 1px solid var(--color-base-300); border-radius: 0.42rem; background: var(--color-base-100); }
+        .ledger-search-control { min-width: 0; }
+        .ledger-search-control label { display: block; margin-bottom: 0.2rem; font-size: 0.61rem; font-weight: 640; }
+        .ledger-search-control .input { width: 100%; }
+        .ledger-search-hint { display: flex; justify-content: space-between; gap: 0.35rem; margin-top: 0.18rem; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.56rem; }
+        .ledger-status-filters { display: flex; flex-wrap: wrap; gap: 0.18rem; padding: 0.18rem; border: 1px solid var(--color-base-300); border-radius: 0.43rem; background: var(--color-base-200); }
+        .ledger-status-button { display: inline-flex; align-items: center; gap: 0.28rem; min-height: 1.9rem; padding: 0.25rem 0.5rem; border: 1px solid transparent; border-radius: 0.32rem; background: transparent; color: var(--color-base-content); font-size: 0.6rem; }
+        .ledger-status-button[aria-pressed="true"] { border-color: var(--color-base-300); background: var(--color-base-100); color: var(--color-primary); font-weight: 650; }
+        .ledger-status-button span { color: color-mix(in oklab, var(--color-base-content) 56%, transparent); }
+        .ledger-selection-toolbar { display: grid; grid-template-columns: minmax(10rem, 0.8fr) minmax(0, 1.35fr) auto; align-items: center; gap: 0.55rem; padding: 0.58rem 0.65rem; border: 1px solid var(--color-base-300); border-radius: 0.42rem; background: var(--color-base-100); }
+        .selection-overview strong { display: block; font-size: 0.68rem; }
+        .selection-overview small { display: block; margin-top: 0.12rem; color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.56rem; }
+        .ledger-selection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+        .ledger-selection-actions .btn { min-height: 1.72rem; height: 1.72rem; padding-inline: 0.42rem; font-size: 0.58rem; }
+        .ledger-level-control { display: flex; align-items: center; gap: 0.28rem; }
+        .ledger-level-control .btn { white-space: nowrap; }
+        .ledger-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .ledger-actions .btn { min-height: 1.8rem; height: 1.8rem; padding-inline: 0.45rem; font-size: 0.59rem; white-space: nowrap; }
+        .ledger-actions .btn:disabled, .ledger-selection-actions .btn:disabled { cursor: not-allowed; opacity: 0.52; }
+        .ledger-table-wrap { overflow-x: auto; border: 1px solid var(--color-base-300); border-radius: 0.42rem; }
+        .ledger-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 0.64rem; }
+        .ledger-table th, .ledger-table td { padding: 0.42rem 0.5rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: middle; }
+        .ledger-table th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.58rem; }
+        .ledger-table tr:last-child td { border-bottom: 0; }
+        .ledger-table .ledger-group-row td { background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 66%, transparent); font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.035em; }
+        .ledger-group-count { float: right; font-weight: 550; text-transform: none; letter-spacing: 0; }
+        .ledger-concept { white-space: nowrap; }
+        .ledger-path { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); }
+        .ledger-level { display: inline-block; padding-left: calc(var(--depth) * 0.8rem); }
+        .access-pill { display: inline-flex; padding: 0.12rem 0.38rem; border-radius: 999px; font-size: 0.55rem; }
+        .access-pill.allowed { background: color-mix(in oklab, var(--color-success) 13%, var(--color-base-100)); color: var(--color-success); }
+        .access-pill.forbidden { background: color-mix(in oklab, var(--color-error) 10%, var(--color-base-100)); color: var(--color-error); }
+        .editor-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.65rem; }
+        .editor-footer p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 56%, transparent); font-size: 0.59rem; }
+        .empty-state { padding: 1.1rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); text-align: center; font-size: 0.7rem; }
+        .flash-message { margin: 0 0 0.65rem; padding: 0.5rem 0.7rem; border: 1px solid color-mix(in oklab, var(--color-success) 35%, var(--color-base-300)); border-radius: 0.42rem; background: color-mix(in oklab, var(--color-success) 9%, var(--color-base-100)); font-size: 0.65rem; }
+        .variant-switcher { position: fixed; z-index: 100; left: 50%; bottom: 0.72rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.35rem; max-width: calc(100% - 1rem); padding: 0.23rem 0.38rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 24px #0004; }
+        .variant-switcher .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.42rem; border-color: transparent; color: inherit; font-size: 0.64rem; }
+        .variant-name { min-width: 10rem; text-align: center; font-size: 0.62rem; font-weight: 620; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        dialog.modal { padding: 0; border: 0; background: transparent; color: var(--color-base-content); }
+        dialog.modal::backdrop { background: #0b1420a8; }
+        .modal-box { width: min(32rem, calc(100vw - 1.5rem)); max-width: none; border: 1px solid var(--color-base-300); background: var(--color-base-100); color: var(--color-base-content); }
+        .modal-box h2 { margin: 0; font-size: 1rem; }
+        .modal-box p, .modal-box li { font-size: 0.7rem; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.8rem; }
+        @media (max-width: 1050px) {
+            .app-shell { grid-template-columns: 13rem minmax(0, 1fr); }
+            .editor-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .editor-stats { grid-column: 1 / -1; }
+            .split-editor { grid-template-columns: minmax(0, 1fr) 3.5rem minmax(0, 1fr); }
+        }
+        @media (max-width: 760px) {
+            .app-shell { display: block; }
+            .app-sidebar { position: fixed; inset: 0 auto 0 0; width: min(18rem, 88vw); transform: translateX(-102%); transition: transform 0.2s ease; box-shadow: 0 10px 32px #0005; }
+            .app-sidebar[data-open="true"] { transform: translateX(0); }
+            .sidebar-backdrop:not([hidden]) { position: fixed; inset: 0; z-index: 30; display: block; border: 0; background: #0007; }
+            .mobile-topbar { display: flex; align-items: center; gap: 0.55rem; min-height: 3.1rem; padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--color-base-300); background: var(--color-base-100); }
+            .mobile-topbar .brand { color: var(--color-primary); font-size: 0.9rem; font-weight: 750; }
+            .page { width: 100%; padding: 0.65rem 0.7rem 5rem; }
+            .page-titlebar, .editor-header { align-items: flex-start; flex-direction: column; }
+            .list-toolbar, .editor-meta { align-items: stretch; flex-direction: column; }
+            .search-control, .filter-control { flex: 0 1 auto; width: 100%; }
+            .split-editor { grid-template-columns: minmax(0, 1fr); }
+            .move-controls { flex-direction: row; }
+            .move-controls .btn { width: auto; flex: 1; }
+            .ledger-filter-bar, .ledger-selection-toolbar { grid-template-columns: minmax(0, 1fr); }
+            .ledger-status-filters { width: 100%; }
+            .ledger-status-button { flex: 1; justify-content: center; }
+            .ledger-selection-actions { align-items: stretch; }
+            .ledger-actions .btn { flex: 1; }
+            .variant-switcher { bottom: 0.5rem; }
+            .variant-name { min-width: 0; }
+        }
+        @media (max-width: 520px) {
+            .vocab-card-grid { grid-template-columns: minmax(0, 1fr); }
+            .editor-meta { display: grid; grid-template-columns: minmax(0, 1fr); }
+            .editor-footer { align-items: stretch; flex-direction: column-reverse; }
+            .editor-footer .btn { width: 100%; }
+            .variant-switcher .btn { padding-inline: 0.3rem; }
+            .variant-name { font-size: 0.56rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="app-sidebar" id="app-sidebar" data-open="false" aria-label="CODA navigation">
+            <a class="app-brand" href="#" aria-label="CODA home">CODA</a>
+            <div class="side-section-label">Administration</div>
+            <nav aria-label="Administration pages">
+                <a class="side-link" href="#">Institutions</a>
+                <a class="side-link" href="#">Contracts</a>
+                <a class="side-link" href="#">Publications</a>
+                <a class="side-link" href="?page=vocabularies" aria-current="page">Vocabularies</a>
+            </nav>
+            <div class="sidebar-note">Static prototype · sample records · interactions stay in this page</div>
+        </aside>
+        <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" hidden></button>
+        <div class="app-main">
+            <header class="mobile-topbar">
+                <button class="btn btn-ghost btn-sm" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="app-sidebar">Menu</button>
+                <span class="brand">CODA</span>
+            </header>
+            <main class="page" id="main-content">
+                <div class="breadcrumbs">Administration / Publications / Vocabularies</div>
+                <header class="page-titlebar">
+                    <div>
+                        <p class="eyebrow">Publication administration</p>
+                        <h1>Vocabularies</h1>
+                        <p>Manage base vocabularies and limited term sets used by publications.</p>
+                    </div>
+                    <button class="btn btn-outline btn-sm" id="theme-toggle" type="button" aria-pressed="false">Use dark theme</button>
+                </header>
+                <p class="prototype-note">Prototype boundary: sample vocabulary data and in-memory actions only. Existing HTMX hooks are shown but no Django requests are sent.</p>
+                <p id="flash-message" class="flash-message" role="status" aria-live="polite" hidden></p>
+                <section id="list-screen" aria-labelledby="page-list-title">
+                    <div class="list-toolbar">
+                        <div class="search-control">
+                            <label for="vocabulary-search">Search vocabularies</label>
+                            <input class="input input-bordered input-sm" id="vocabulary-search" type="search" placeholder="Name or base vocabulary">
+                        </div>
+                        <div class="filter-control">
+                            <label for="kind-filter">Vocabulary type</label>
+                            <select class="select select-bordered select-sm" id="kind-filter">
+                                <option value="all">All vocabularies</option>
+                                <option value="base">Base vocabularies</option>
+                                <option value="limited">Limited vocabularies</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="list-summary">
+                        <h2 id="page-list-title" class="sr-only">Publication vocabularies</h2>
+                        <span id="list-count" aria-live="polite"></span>
+                        <span>Limited vocabularies inherit terms from a base.</span>
+                    </div>
+                    <div id="vocabulary-list" aria-live="polite"></div>
+                </section>
+                <section id="editor-screen" hidden aria-labelledby="editor-heading">
+                    <header class="editor-header">
+                        <div>
+                            <p class="eyebrow" id="editor-mode-label">Create Limited Vocabulary</p>
+                            <h2 id="editor-heading">New limited vocabulary</h2>
+                            <p id="editor-context">Choose which inherited concepts are available in this limited vocabulary.</p>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" type="button" data-action="cancel-editor">Back to vocabularies</button>
+                    </header>
+                    <form id="vocabularies_form" name="vocabularies_form" class="surface" method="post" action="/publications/vocabulary/edit/save" data-inert-form>
+                        <div class="editor-meta">
+                            <input type="hidden" id="vocabulary_id" name="vocabulary_id" value="None">
+                            <input type="hidden" id="base_vocabulary_id" name="base_vocabulary_id" value="">
+                            <div class="field">
+                                <label for="vocabulary_name">Limited vocabulary name</label>
+                                <input class="input input-bordered input-sm" id="vocabulary_name" name="vocabulary_name" type="text" value="">
+                            </div>
+                            <div class="field">
+                                <label for="base_vocabulary_name">Base vocabulary</label>
+                                <input class="input input-bordered input-sm" id="base_vocabulary_name" name="base_vocabulary_name" type="text" readonly value="">
+                            </div>
+                            <div class="editor-stats" id="editor-stats" aria-live="polite"></div>
+                        </div>
+                        <div class="editor-main" id="vocabulary-table-host"></div>
+                        <footer class="editor-footer">
+                            <p>Save updates this prototype in memory; Cancel discards unsaved edits.</p>
+                            <div class="inline-actions">
+                                <button class="btn btn-ghost btn-sm" type="button" data-action="cancel-editor">Cancel</button>
+                                <button class="btn btn-primary btn-sm" type="submit" id="save-vocabulary" name="action" value="create">Save limited vocabulary</button>
+                            </div>
+                        </footer>
+                    </form>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <dialog id="delete-dialog" class="modal" aria-labelledby="delete-dialog-title"></dialog>
+    <div class="variant-switcher" role="group" aria-label="Vocabulary layout variants">
+        <button class="btn btn-ghost btn-sm" id="variant-prev" type="button" aria-label="Previous layout">←</button>
+        <span class="variant-name" id="variant-name" aria-live="polite"></span>
+        <button class="btn btn-ghost btn-sm" id="variant-next" type="button" aria-label="Next layout">→</button>
+    </div>
+
+    <script>
+        (() => {
+            const variants = ["split", "tabs", "ledger"];
+            const variantNames = {
+                split: "A · Split allowed / not allowed trees",
+                tabs: "B · One hierarchy, status tabs",
+                ledger: "C · B card list + ledger editor",
+            };
+            const researchTree = [
+                { id: "life-sciences", name: "Life Sciences", children: [
+                    { id: "biology", name: "Biology", children: [
+                        { id: "ecology", name: "Ecology", children: [] },
+                        { id: "genetics", name: "Genetics", children: [] },
+                    ] },
+                    { id: "medicine", name: "Medicine", children: [
+                        { id: "public-health", name: "Public Health", children: [] },
+                        { id: "nursing", name: "Nursing", children: [] },
+                    ] },
+                ] },
+                { id: "social-sciences", name: "Social Sciences", children: [
+                    { id: "education", name: "Education", children: [
+                        { id: "higher-education", name: "Higher Education", children: [] },
+                    ] },
+                    { id: "economics", name: "Economics", children: [] },
+                ] },
+            ];
+            const legacyTypeTree = [
+                { id: "journal-article", name: "Journal article", children: [] },
+                { id: "preprint", name: "Preprint", children: [] },
+                { id: "book", name: "Book", children: [] },
+                { id: "book-chapter", name: "Book chapter", children: [] },
+            ];
+            const vocabularies = [
+                { id: "101", type: "base", name: "Research Subject Areas", version: "2025.1", treeId: "101", disallowed: [], publications: 128 },
+                { id: "102", type: "base", name: "Legacy Publication Types", version: "1.0", treeId: "102", disallowed: [], publications: 0 },
+                { id: "201", type: "limited", name: "Institutional Repository Subjects", version: "2025.1", baseId: "101", treeId: "101", disallowed: ["genetics", "nursing", "higher-education", "economics"], publications: 31 },
+                { id: "202", type: "limited", name: "Faculty Browse Subjects", version: "2025.1", baseId: "101", treeId: "101", disallowed: ["life-sciences", "biology", "medicine", "public-health", "nursing", "genetics"], publications: 0 },
+            ];
+            const trees = { "101": researchTree, "102": legacyTypeTree };
+            const state = {
+                screen: "list",
+                variant: new URLSearchParams(location.search).get("variant"),
+                editor: null,
+                listQuery: "",
+                listKind: "all",
+                nextId: 203,
+                deleteTargetId: null,
+            };
+            if (!variants.includes(state.variant)) state.variant = "split";
+            const appSidebar = document.getElementById("app-sidebar");
+            const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+            const mobileNavToggle = document.getElementById("mobile-nav-toggle");
+            const listScreen = document.getElementById("list-screen");
+            const editorScreen = document.getElementById("editor-screen");
+            const listHost = document.getElementById("vocabulary-list");
+            const deleteDialog = document.getElementById("delete-dialog");
+            const variantName = document.getElementById("variant-name");
+            const flashMessage = document.getElementById("flash-message");
+            let flashTimeout = null;
+
+            function escapeHtml(value) {
+                return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+            }
+
+            function getVocabulary(id) {
+                return vocabularies.find((item) => item.id === String(id)) || null;
+            }
+
+            function rootVocabulary(item) {
+                let current = item;
+                while (current && current.type === "limited") current = getVocabulary(current.baseId);
+                return current;
+            }
+
+            function effectiveDisallowed(item) {
+                const blocked = new Set();
+                let current = item;
+                while (current && current.type === "limited") {
+                    for (const conceptId of current.disallowed) blocked.add(conceptId);
+                    current = getVocabulary(current.baseId);
+                }
+                return blocked;
+            }
+
+            function flattenTree(nodes, depth = 1, parents = []) {
+                const result = [];
+                for (const node of nodes) {
+                    const path = [...parents, node.name];
+                    result.push({ id: node.id, name: node.name, depth, path: path.join(" / "), children: node.children || [] });
+                    result.push(...flattenTree(node.children || [], depth + 1, path));
+                }
+                return result;
+            }
+
+            function countConcepts(item) {
+                const root = rootVocabulary(item);
+                return root ? flattenTree(trees[root.id]).length : 0;
+            }
+
+            function getDerived(item) {
+                return vocabularies.filter((candidate) => candidate.type === "limited" && candidate.baseId === item.id);
+            }
+
+            function allowedCount(item) {
+                const concepts = countConcepts(item);
+                return concepts - effectiveDisallowed(item).size;
+            }
+
+            function typeBadge(item) {
+                return `<span class="type-badge ${item.type === "limited" ? "limited" : ""}">${item.type === "limited" ? "Limited" : "Base"}</span>`;
+            }
+
+            function renderActions(item) {
+                const edit = item.type === "limited"
+                    ? `<a class="btn btn-ghost btn-xs" href="/publications/vocabularies/edit-limited/${encodeURIComponent(item.id)}" data-action="edit-limited" data-vocabulary-id="${escapeHtml(item.id)}">Edit</a>`
+                    : "";
+                const create = `<a class="btn btn-outline btn-xs" href="/publications/vocabularies/create-limited/${encodeURIComponent(item.id)}" data-action="create-limited" data-vocabulary-id="${escapeHtml(item.id)}">Create Limited</a>`;
+                const remove = `<button class="btn btn-ghost btn-xs text-error" type="button" hx-post="/publications/vocabulary/request-delete/${encodeURIComponent(item.id)}" hx-target="body" hx-swap="beforeend" data-action="request-delete" data-vocabulary-id="${escapeHtml(item.id)}">Delete</button>`;
+                return `${edit}${create}${remove}`;
+            }
+
+            function renderListRow(item) {
+                const base = item.type === "limited" ? getVocabulary(item.baseId) : null;
+                const count = item.type === "limited" ? `${allowedCount(item)} / ${countConcepts(item)}` : String(countConcepts(item));
+                const usage = `${item.publications} publications${item.type === "base" ? ` · ${getDerived(item).length} derived` : ""}`;
+                return `<tr>
+                    <td><strong class="vocab-name">${escapeHtml(item.name)}</strong><small class="vocab-subline">Version ${escapeHtml(item.version || "—")}</small></td>
+                    <td>${typeBadge(item)}</td>
+                    <td>${base ? escapeHtml(base.name) : "—"}</td>
+                    <td>${count}</td>
+                    <td class="usage-cell">${usage}</td>
+                    <td><div class="row-actions">${renderActions(item)}</div></td>
+                </tr>`;
+            }
+
+            function renderVocabCard(item) {
+                const base = item.type === "limited" ? getVocabulary(item.baseId) : null;
+                const count = item.type === "limited" ? `${allowedCount(item)} / ${countConcepts(item)}` : String(countConcepts(item));
+                return `<article class="surface vocab-card">
+                    <div class="vocab-card-head"><div><h2>${escapeHtml(item.name)}</h2><small class="vocab-subline">Version ${escapeHtml(item.version || "—")}</small></div>${typeBadge(item)}</div>
+                    <div class="vocab-card-meta">
+                        <div class="mini-fact"><small>Base vocabulary</small><strong>${base ? escapeHtml(base.name) : "Base vocabulary"}</strong></div>
+                        <div class="mini-fact"><small>Allowed concepts</small><strong>${count}</strong></div>
+                        <div class="mini-fact"><small>Publication use</small><strong>${item.publications}</strong></div>
+                        <div class="mini-fact"><small>Derived vocabularies</small><strong>${getDerived(item).length}</strong></div>
+                    </div>
+                    <div class="row-actions">${renderActions(item)}</div>
+                </article>`;
+            }
+
+
+            function renderList() {
+                const query = state.listQuery.trim().toLocaleLowerCase();
+                const visible = vocabularies.filter((item) => {
+                    const kindMatches = state.listKind === "all" || item.type === state.listKind;
+                    const base = item.type === "limited" ? getVocabulary(item.baseId) : null;
+                    const text = `${item.name} ${item.version} ${base?.name || ""}`.toLocaleLowerCase();
+                    return kindMatches && (!query || text.includes(query));
+                });
+                document.getElementById("list-count").textContent = `${visible.length} vocabular${visible.length === 1 ? "y" : "ies"} · ${vocabularies.filter((item) => item.type === "base").length} base · ${vocabularies.filter((item) => item.type === "limited").length} limited`;
+                if (!visible.length) {
+                    listHost.innerHTML = `<div class="surface empty-state">No vocabularies match this search.</div>`;
+                    return;
+                }
+                if (state.variant === "split") {
+                    listHost.innerHTML = `<div class="surface table-wrap"><table class="vocab-table"><thead><tr><th>Vocabulary</th><th>Type</th><th>Base</th><th>Allowed concepts</th><th>Usage</th><th>Actions</th></tr></thead><tbody>${visible.map(renderListRow).join("")}</tbody></table></div>`;
+                    return;
+                }
+                if (state.variant === "tabs" || state.variant === "ledger") {
+                    listHost.innerHTML = `<div class="vocab-card-grid">${visible.map(renderVocabCard).join("")}</div>`;
+                }
+            }
+
+            function openCreateLimited(sourceId) {
+                const source = getVocabulary(sourceId);
+                if (!source) return;
+                const root = rootVocabulary(source);
+                const inherited = source.type === "limited" ? effectiveDisallowed(source) : new Set();
+                state.editor = {
+                    mode: "create",
+                    id: null,
+                    baseId: source.id,
+                    rootId: root.id,
+                    baseName: source.name,
+                    name: `${source.name} (limited)`,
+                    disallowed: new Set(inherited),
+                    locked: new Set(inherited),
+                    activeTab: "allowed",
+                    selected: new Set(),
+                    ledgerFilter: "all",
+                    ledgerQuery: "",
+                };
+                state.screen = "editor";
+                render();
+            }
+
+            function openEditLimited(vocabularyId) {
+                const item = getVocabulary(vocabularyId);
+                if (!item || item.type !== "limited") return;
+                const parent = getVocabulary(item.baseId);
+                const root = rootVocabulary(item);
+                const locked = parent?.type === "limited" ? effectiveDisallowed(parent) : new Set();
+                state.editor = {
+                    mode: "edit",
+                    id: item.id,
+                    baseId: item.baseId,
+                    rootId: root.id,
+                    baseName: parent?.name || root.name,
+                    name: item.name,
+                    disallowed: effectiveDisallowed(item),
+                    locked,
+                    activeTab: "allowed",
+                    selected: new Set(),
+                    ledgerFilter: "all",
+                    ledgerQuery: "",
+                };
+                state.screen = "editor";
+                render();
+            }
+
+
+            function escapeAttr(value) {
+                return escapeHtml(value).replaceAll("`", "&#96;");
+            }
+
+            function renderHiddenConcepts(editor, nodes) {
+                const flat = flattenTree(nodes);
+                const allowed = flat.filter((item) => !editor.disallowed.has(item.id));
+                const forbidden = flat.filter((item) => editor.disallowed.has(item.id));
+                return `<div hidden aria-hidden="true">${allowed.map((item) => `<input type="hidden" name="allowed_concepts" value="${escapeAttr(item.id)}">`).join("")}${forbidden.map((item) => `<input type="hidden" name="disallowed_concepts" value="${escapeAttr(item.id)}">`).join("")}</div>`;
+            }
+
+
+            function renderPartitionNode(node, wanted, editor, level = 1) {
+                const isAllowed = !editor.disallowed.has(node.id);
+                const isSelectable = (wanted === "allowed" && isAllowed) || (wanted === "forbidden" && !isAllowed);
+                const childMarkup = (node.children || []).map((child) => renderPartitionNode(child, wanted, editor, level + 1)).filter(Boolean).join("");
+                if (!isSelectable && !childMarkup) return "";
+                const name = escapeHtml(node.name);
+                const locked = editor.locked.has(node.id);
+                const selected = editor.selected?.has(node.id);
+                const inputName = wanted === "allowed" ? "allowed_concepts_check" : "disallowed_concepts_check";
+                const row = isSelectable
+                    ? `<label class="concept-label"><input type="checkbox" name="${inputName}" value="${escapeAttr(node.id)}" data-concept-id="${escapeAttr(node.id)}" data-level="${level}" ${locked ? "disabled" : ""} ${selected ? "checked" : ""}><span class="concept-name">${name}</span></label><span class="access-pill ${isAllowed ? "allowed" : "forbidden"}">${isAllowed ? "Allowed" : "Not allowed"}</span>`
+                    : `<span class="context-label">${name}<small class="context-note">hierarchy context</small></span>`;
+                return `<li class="concept-node" data-concept-node data-search-text="${escapeAttr(node.name.toLocaleLowerCase())}" data-level="${level}"><div class="concept-row">${row}</div>${childMarkup ? `<ul>${childMarkup}</ul>` : ""}</li>`;
+            }
+
+            function renderTree(nodes, wanted, editor) {
+                return `<ul class="concept-tree">${nodes.map((node) => renderPartitionNode(node, wanted, editor)).filter(Boolean).join("")}</ul>`;
+            }
+
+            function renderLevelSelect(status) {
+                const forbidden = status === "forbidden";
+                const prefix = forbidden ? "disallowed" : "allowed";
+                const levels = new Set(flattenTree(trees[state.editor.rootId]).map((node) => node.depth));
+                return `<details class="dropdown level-select" id="${prefix}-levels-dropdown"><summary>Select levels...</summary><div class="level-options">${[...levels].sort().map((level) => `<label><input type="checkbox" name="level-${level}" data-level-select="${level}"> Level ${level}</label>`).join("")}</div></details><button type="button" class="btn btn-ghost btn-xs" id="${prefix}-levels-select-button" data-action="select-levels" data-status="${status}">Select</button>`;
+            }
+
+            function renderPane(status) {
+                const allowed = status === "allowed";
+                const listId = allowed ? "allowed-checkboxes" : "forbidden-checkboxes";
+                const filterId = allowed ? "allowed-filter" : "forbidden-filter";
+                const title = allowed ? "Allowed" : "Not allowed";
+                const count = flattenTree(trees[state.editor.rootId]).filter((node) => allowed ? !state.editor.disallowed.has(node.id) : state.editor.disallowed.has(node.id)).length;
+                const allId = allowed ? "select-all-allowed" : "select-all-forbidden";
+                const noneId = allowed ? "deselect-all-allowed" : "deselect-all-forbidden";
+                return `<section class="concept-pane" aria-label="${title} concepts">
+                    <header class="pane-header"><div><h3>${title}</h3><p>${count} concepts</p></div><span class="badge badge-outline">${count}</span></header>
+                    <div class="pane-controls">
+                        <input class="input input-bordered input-xs pane-search" id="${filterId}" name="search" type="search" placeholder="Begin typing to search..." data-target="#${listId}" aria-label="Filter ${title.toLocaleLowerCase()} concepts">
+                        <div class="selection-tools"><button type="button" class="btn btn-ghost btn-xs" id="${allId}" data-action="select-all" data-status="${status}">All</button><button type="button" class="btn btn-ghost btn-xs" id="${noneId}" data-action="select-none" data-status="${status}">None</button>${renderLevelSelect(status)}</div>
+                    </div>
+                    <div class="tree-scroll"><fieldset id="${listId}" class="concept-tree-fieldset" aria-label="${title} vocabulary terms">${renderTree(trees[state.editor.rootId], status, state.editor)}</fieldset></div>
+                </section>`;
+            }
+
+            function moveButton(status) {
+                const disallow = status === "allowed";
+                const id = disallow ? "disallow-button" : "allow-button";
+                const action = disallow ? "move-disallowed" : "move-allowed";
+                const hxUrl = disallow ? "/publications/vocabulary/edit/move-to-forbidden" : "/publications/vocabulary/edit/move-to-allow";
+                const included = disallow
+                    ? "[name='allowed_concepts'], [name='disallowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #allowed-checkboxes input:checked"
+                    : "[name='disallowed_concepts'], [name='allowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #forbidden-checkboxes input:checked";
+                const text = disallow ? "Move to Not allowed" : "Move to Allowed";
+                return `<button id="${id}" type="button" class="btn btn-primary btn-sm" data-action="${action}" data-group="${disallow ? "disallow" : "allow"}" name="${disallow ? "disallow" : "allow"}" hx-post="${hxUrl}" hx-include="${included}" hx-target="#vocabulary-table" hx-swap="outerHTML">${text}</button>`;
+            }
+
+            function renderSplitEditor(editor) {
+                return `<div id="vocabulary-table" class="split-editor" aria-label="Allowed and not allowed vocabulary concepts">
+                    ${renderPane("allowed")}
+                    <div class="move-controls" aria-label="Change concept access">${moveButton("allowed")}${moveButton("forbidden")}</div>
+                    ${renderPane("forbidden")}
+                    ${renderHiddenConcepts(editor, trees[editor.rootId])}
+                </div>`;
+            }
+
+            function renderTabbedEditor(editor) {
+                const active = editor.activeTab || "allowed";
+                return `<div id="vocabulary-table" class="tabbed-editor">
+                    <div class="editor-tabs" role="tablist" aria-label="Concept access status">
+                        <button type="button" class="btn ${active === "allowed" ? "btn-primary" : "btn-ghost"}" role="tab" aria-selected="${active === "allowed"}" data-action="editor-tab" data-tab="allowed">Allowed <span class="tab-count">${flattenTree(trees[editor.rootId]).filter((node) => !editor.disallowed.has(node.id)).length}</span></button>
+                        <button type="button" class="btn ${active === "forbidden" ? "btn-primary" : "btn-ghost"}" role="tab" aria-selected="${active === "forbidden"}" data-action="editor-tab" data-tab="forbidden">Not allowed <span class="tab-count">${flattenTree(trees[editor.rootId]).filter((node) => editor.disallowed.has(node.id)).length}</span></button>
+                    </div>
+                    <section class="single-tree" role="tabpanel" aria-label="${active === "allowed" ? "Allowed" : "Not allowed"} concepts">
+                        ${renderPane(active)}
+                        <div class="tab-actions"><p>Switch tabs to review the other side of this limited vocabulary.</p>${moveButton(active)}</div>
+                    </section>
+                    ${renderHiddenConcepts(editor, trees[editor.rootId])}
+                </div>`;
+            }
+
+            function renderLedgerLevelControl(editor) {
+                const levels = new Set(flattenTree(trees[editor.rootId]).map((node) => node.depth));
+                return `<div class="ledger-level-control"><details class="dropdown level-select" id="allowed-levels-dropdown"><summary>Select by level</summary><div class="level-options">${[...levels].sort().map((level) => `<label><input type="checkbox" name="level-${level}" data-level-select="${level}"> Level ${level}</label>`).join("")}</div></details><button type="button" class="btn btn-ghost btn-xs" id="allowed-levels-select-button" data-action="select-ledger-level">Select level</button></div>`;
+            }
+
+            function renderLedgerEditor(editor) {
+                const flat = flattenTree(trees[editor.rootId]);
+                const allowedNodes = flat.filter((node) => !editor.disallowed.has(node.id));
+                const forbiddenNodes = flat.filter((node) => editor.disallowed.has(node.id));
+                const filter = editor.ledgerFilter || "all";
+                const filterId = filter === "forbidden" ? "forbidden-filter" : "allowed-filter";
+                const hiddenAllowed = filter === "forbidden" ? "hidden" : "";
+                const hiddenForbidden = filter === "allowed" ? "hidden" : "";
+                const statusButton = (key, label, count) => `<button type="button" class="ledger-status-button" data-action="ledger-status" data-ledger-filter="${key}" aria-pressed="${filter === key}">${label}<span>${count}</span></button>`;
+                return `<div id="vocabulary-table" class="ledger-editor">
+                    <div class="ledger-filter-bar">
+                        <div class="ledger-search-control">
+                            <label for="${filterId}">Find a concept</label>
+                            <input class="input input-bordered input-sm" id="${filterId}" name="search" type="search" placeholder="Search names and hierarchy paths" value="${escapeAttr(editor.ledgerQuery || "")}" data-target="#vocabulary-table">
+                            <div class="ledger-search-hint"><small id="ledger-result-count" aria-live="polite"></small><small>Search keeps parent paths visible.</small></div>
+                        </div>
+                        <div class="ledger-status-filters" role="group" aria-label="Filter concepts by access state">
+                            ${statusButton("all", "All concepts", flat.length)}${statusButton("allowed", "Allowed", allowedNodes.length)}${statusButton("forbidden", "Not allowed", forbiddenNodes.length)}
+                        </div>
+                    </div>
+                    <div class="ledger-selection-toolbar">
+                        <div class="selection-overview"><strong id="ledger-selection-summary" aria-live="polite">No concepts selected</strong><small id="ledger-selection-note">Selection stays while filtering; bulk actions affect selected concepts in the current view.</small></div>
+                        <div class="ledger-selection-actions"><button type="button" class="btn btn-outline btn-xs" id="select-visible-concepts" data-action="select-visible">Select visible</button><button type="button" class="btn btn-ghost btn-xs" id="clear-concept-selection" data-action="clear-selection">Clear selection</button>${renderLedgerLevelControl(editor)}</div>
+                        <div class="ledger-actions">${moveButton("allowed")}${moveButton("forbidden")}</div>
+                    </div>
+                    <div class="ledger-table-wrap">
+                        <table class="ledger-table" aria-label="Vocabulary concept access ledger">
+                            <thead><tr><th>Selection</th><th>Concept</th><th>Hierarchy path</th><th>Access</th></tr></thead>
+                            <tbody id="allowed-checkboxes" aria-label="Allowed concepts" ${hiddenAllowed}><tr class="ledger-group-row"><td colspan="4">Allowed concepts <span class="ledger-group-count">${allowedNodes.length}</span></td></tr>${allowedNodes.map((node) => renderLedgerRow(node, "allowed", editor)).join("")}</tbody>
+                            <tbody id="forbidden-checkboxes" aria-label="Not allowed concepts" ${hiddenForbidden}><tr class="ledger-group-row"><td colspan="4">Not allowed concepts <span class="ledger-group-count">${forbiddenNodes.length}</span></td></tr>${forbiddenNodes.map((node) => renderLedgerRow(node, "forbidden", editor)).join("")}</tbody>
+                        </table>
+                    </div>
+                    ${renderHiddenConcepts(editor, trees[editor.rootId])}
+                </div>`;
+            }
+
+            function renderLedgerRow(node, status, editor) {
+                const isAllowed = status === "allowed";
+                const inputName = isAllowed ? "allowed_concepts_check" : "disallowed_concepts_check";
+                const locked = editor.locked.has(node.id);
+                const selected = editor.selected?.has(node.id);
+                return `<tr class="concept-node" data-concept-node data-search-text="${escapeAttr(`${node.name} ${node.path}`.toLocaleLowerCase())}" data-level="${node.depth}">
+                    <td><input type="checkbox" name="${inputName}" value="${escapeAttr(node.id)}" data-concept-id="${escapeAttr(node.id)}" data-level="${node.depth}" ${locked ? "disabled" : ""} ${selected ? "checked" : ""} aria-label="Select ${escapeAttr(node.name)}"></td>
+                    <td class="ledger-concept"><span class="ledger-level" style="--depth:${node.depth - 1}">${escapeHtml(node.name)}</span>${locked ? `<span class="badge badge-ghost">Inherited</span>` : ""}</td>
+                    <td class="ledger-path">${escapeHtml(node.path)}</td>
+                    <td><span class="access-pill ${isAllowed ? "allowed" : "forbidden"}">${isAllowed ? "Allowed" : "Not allowed"}</span></td>
+                </tr>`;
+            }
+
+            function updateLedgerSelection() {
+                if (state.variant !== "ledger" || !state.editor) return;
+                const selected = state.editor.selected;
+                const visibleAllowed = new Set(getVisibleCheckboxes("allowed").map((input) => input.dataset.conceptId));
+                const visibleForbidden = new Set(getVisibleCheckboxes("forbidden").map((input) => input.dataset.conceptId));
+                const selectedAllowed = [...selected].filter((id) => visibleAllowed.has(id)).length;
+                const selectedForbidden = [...selected].filter((id) => visibleForbidden.has(id)).length;
+                const visibleTotal = visibleAllowed.size + visibleForbidden.size;
+                const visibleSelected = selectedAllowed + selectedForbidden;
+                const hiddenSelected = selected.size - visibleSelected;
+                const visibleRows = [...document.querySelectorAll("#vocabulary-table tr[data-concept-node]")].filter((row) => !row.hidden && !row.closest("tbody")?.hidden);
+                const resultCount = document.getElementById("ledger-result-count");
+                if (resultCount) resultCount.textContent = state.editor.ledgerQuery ? `${visibleRows.length} matching ${visibleRows.length === 1 ? "concept" : "concepts"}` : `${visibleRows.length} ${visibleRows.length === 1 ? "concept" : "concepts"} shown`;
+                const summary = document.getElementById("ledger-selection-summary");
+                if (summary) summary.textContent = selected.size ? `${selected.size} selected · ${selectedAllowed} allowed / ${selectedForbidden} not allowed in view${hiddenSelected ? ` · ${hiddenSelected} outside view` : ""}` : "No concepts selected";
+                const selectVisible = document.getElementById("select-visible-concepts");
+                if (selectVisible) {
+                    selectVisible.textContent = `Select ${visibleTotal} visible`;
+                    selectVisible.disabled = visibleTotal === 0 || visibleSelected === visibleTotal;
+                }
+                const clearSelection = document.getElementById("clear-concept-selection");
+                if (clearSelection) clearSelection.disabled = selected.size === 0;
+                const disallow = document.getElementById("disallow-button");
+                if (disallow) {
+                    disallow.textContent = `Move ${selectedAllowed} to Not allowed`;
+                    disallow.disabled = selectedAllowed === 0;
+                }
+                const allow = document.getElementById("allow-button");
+                if (allow) {
+                    allow.textContent = `Move ${selectedForbidden} to Allowed`;
+                    allow.disabled = selectedForbidden === 0;
+                }
+                const levelDropdown = document.getElementById("allowed-levels-dropdown");
+                const levelButton = document.getElementById("allowed-levels-select-button");
+                if (levelButton) levelButton.disabled = !levelDropdown?.querySelector('input[type="checkbox"]:checked');
+            }
+
+            function renderEditor() {
+                if (!state.editor) return;
+                const editor = state.editor;
+                const base = getVocabulary(editor.baseId);
+                const root = getVocabulary(editor.rootId);
+                document.getElementById("editor-mode-label").textContent = editor.mode === "create" ? "Create Limited Vocabulary" : "Edit Limited Vocabulary";
+                document.getElementById("editor-heading").textContent = editor.mode === "create" ? "New limited vocabulary" : editor.name;
+                document.getElementById("editor-context").textContent = editor.mode === "create" ? `Choose which concepts from ${base?.name || root.name} are available.` : `Allowed concepts inherit from ${base?.name || root.name}; edit the limited term set below.`;
+                renderEditorHost();
+                const total = flattenTree(trees[editor.rootId]).length;
+                const allowed = total - editor.disallowed.size;
+                document.getElementById("editor-stats").innerHTML = `<span class="badge badge-success">${allowed} allowed</span><span class="badge badge-outline">${editor.disallowed.size} not allowed</span><span class="badge badge-outline">${total} total concepts</span>`;
+                const host = document.getElementById("vocabulary-table-host");
+                host.innerHTML = state.variant === "split" ? renderSplitEditor(editor) : state.variant === "tabs" ? renderTabbedEditor(editor) : renderLedgerEditor(editor);
+                if (state.variant === "ledger") {
+                    const search = host.querySelector("#allowed-filter, #forbidden-filter");
+                    if (search && search.value) applyFilter(search);
+                    updateLedgerSelection();
+                }
+            }
+
+            function render() {
+                listScreen.hidden = state.screen !== "list";
+                editorScreen.hidden = state.screen !== "editor";
+                variantName.textContent = variantNames[state.variant];
+                if (state.screen === "list") renderList();
+                else renderEditor();
+            }
+
+            function setVariant(next) {
+                const index = variants.indexOf(state.variant);
+                state.variant = variants.includes(next) ? next : variants[(index + variants.length + 1) % variants.length];
+                const url = new URL(location.href);
+                url.searchParams.set("variant", state.variant);
+                history.replaceState(null, "", url);
+                render();
+            }
+
+            function setFlash(message) {
+                flashMessage.textContent = message;
+                flashMessage.hidden = false;
+                clearTimeout(flashTimeout);
+                flashTimeout = setTimeout(() => { flashMessage.hidden = true; }, 3600);
+            }
+
+            function getVisibleCheckboxes(status) {
+                const id = status === "allowed" ? "allowed-checkboxes" : "forbidden-checkboxes";
+                const container = document.getElementById(id);
+                if (!container || container.hidden) return [];
+                return [...container.querySelectorAll('input[type="checkbox"][data-concept-id]')].filter((input) => {
+                    if (input.disabled) return false;
+                    let node = input.closest("[data-concept-node]");
+                    while (node) {
+                        if (node.hidden) return false;
+                        node = node.parentElement?.closest("[data-concept-node]") || null;
+                    }
+                    return true;
+                });
+            }
+
+            function selectAll(status, selected) {
+                for (const input of getVisibleCheckboxes(status)) {
+                    input.checked = selected;
+                    if (selected) state.editor.selected.add(input.dataset.conceptId);
+                    else state.editor.selected.delete(input.dataset.conceptId);
+                }
+                updateLedgerSelection();
+            }
+
+            function selectLevels(status) {
+                const prefix = status === "allowed" ? "allowed" : "disallowed";
+                const dropdown = document.getElementById(`${prefix}-levels-dropdown`);
+                if (!dropdown) return;
+                const levels = new Set([...dropdown.querySelectorAll('input[type="checkbox"]:checked')].map((input) => Number(input.dataset.levelSelect)));
+                if (!levels.size) return;
+                for (const input of getVisibleCheckboxes(status)) {
+                    if (!levels.has(Number(input.dataset.level))) continue;
+                    input.checked = true;
+                    state.editor.selected.add(input.dataset.conceptId);
+                }
+                dropdown.open = false;
+                updateLedgerSelection();
+            }
+
+            function selectVisibleLedger() {
+                for (const status of ["allowed", "forbidden"]) {
+                    for (const input of getVisibleCheckboxes(status)) {
+                        input.checked = true;
+                        state.editor.selected.add(input.dataset.conceptId);
+                    }
+                }
+                updateLedgerSelection();
+            }
+
+            function clearLedgerSelection() {
+                state.editor.selected.clear();
+                document.querySelectorAll("#vocabulary-table input[data-concept-id]").forEach((input) => { input.checked = false; });
+                updateLedgerSelection();
+            }
+
+            function selectLedgerLevel() {
+                const dropdown = document.getElementById("allowed-levels-dropdown");
+                if (!dropdown) return;
+                const levels = new Set([...dropdown.querySelectorAll('input[type="checkbox"]:checked')].map((input) => Number(input.dataset.levelSelect)));
+                if (!levels.size) return;
+                for (const status of ["allowed", "forbidden"]) {
+                    for (const input of getVisibleCheckboxes(status)) {
+                        if (!levels.has(Number(input.dataset.level))) continue;
+                        input.checked = true;
+                        state.editor.selected.add(input.dataset.conceptId);
+                    }
+                }
+                dropdown.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+                dropdown.open = false;
+                updateLedgerSelection();
+            }
+
+            function moveSelected(fromStatus) {
+                const toStatus = fromStatus === "allowed" ? "forbidden" : "allowed";
+                const selected = getVisibleCheckboxes(fromStatus).filter((input) => input.checked).map((input) => input.dataset.conceptId);
+                const moved = selected.filter((conceptId) => !state.editor.locked.has(conceptId));
+                for (const conceptId of moved) {
+                    if (toStatus === "forbidden") state.editor.disallowed.add(conceptId);
+                    else state.editor.disallowed.delete(conceptId);
+                    state.editor.selected.delete(conceptId);
+                }
+                if (state.variant === "tabs") state.editor.activeTab = toStatus;
+                if (state.variant === "ledger") state.editor.ledgerFilter = toStatus;
+                renderEditor();
+                if (moved.length) setFlash(`${moved.length} concept${moved.length === 1 ? "" : "s"} moved to ${toStatus === "allowed" ? "Allowed" : "Not allowed"}.`);
+            }
+
+            function applyFilter(input) {
+                const selector = input.dataset.target;
+                const container = selector ? document.querySelector(selector) : null;
+                if (!container) return;
+                const query = input.value.trim().toLocaleLowerCase();
+                const rows = [...container.querySelectorAll("[data-concept-node]")];
+                for (const row of rows) row.hidden = true;
+                if (!query) {
+                    for (const row of rows) row.hidden = false;
+                    return;
+                }
+                for (const row of rows) {
+                    if (!row.dataset.searchText.includes(query)) continue;
+                    let current = row;
+                    while (current && container.contains(current)) {
+                        current.hidden = false;
+                        current = current.parentElement?.closest("[data-concept-node]") || null;
+                    }
+                }
+            }
+
+            function openDeleteDialog(vocabularyId) {
+                const item = getVocabulary(vocabularyId);
+                if (!item) return;
+                const derived = getDerived(item);
+                const blockedByDerived = derived.length > 0;
+                const blockedByUsage = item.type === "base" && item.publications > 0;
+                const canDelete = !blockedByDerived && !blockedByUsage;
+                if (!canDelete) {
+                    const reasons = [];
+                    if (blockedByDerived) reasons.push(`<li><strong>${derived.length} ${derived.length === 1 ? "limited vocabulary derives" : "limited vocabularies derive"}</strong> from this vocabulary: ${derived.map((v) => escapeHtml(v.name)).join(", ")}.</li>`);
+                    if (blockedByUsage) reasons.push(`<li>This base vocabulary is used by <strong>${item.publications} publications</strong>.</li>`);
+                    document.getElementById("delete-dialog").innerHTML = `<div class="modal-box"><h2 id="delete-dialog-title">Cannot delete ${escapeHtml(item.name)}</h2><p>This vocabulary still has dependencies:</p><ul>${reasons.join("")}</ul><p>Remove those dependencies before deleting the base vocabulary.</p><div class="modal-actions"><button class="btn btn-primary btn-sm" type="button" data-action="close-delete">Close</button></div></div>`;
+                    deleteDialog.showModal();
+                    return;
+                }
+                if (item.type === "limited" && item.publications > 0) {
+                    const base = getVocabulary(item.baseId);
+                    state.deleteTargetId = item.id;
+                    document.getElementById("delete-dialog").innerHTML = `<div class="modal-box"><h2 id="delete-dialog-title">Delete ${escapeHtml(item.name)}?</h2><p>This limited vocabulary is used by <strong>${item.publications} publications</strong>.</p><p>Deleting it will migrate those publications to the base vocabulary <strong>${escapeHtml(base?.name || "the parent vocabulary")}</strong>.</p><div class="modal-actions"><button class="btn btn-ghost btn-sm" type="button" data-action="close-delete">Cancel</button><button class="btn btn-error btn-sm" type="button" hx-delete="/publications/vocabularies/delete/${encodeURIComponent(item.id)}" hx-target="closest dialog" data-action="confirm-delete">Delete and migrate</button></div></div>`;
+                    deleteDialog.showModal();
+                    return;
+                }
+                deleteVocabulary(item.id);
+            }
+
+            function deleteVocabulary(vocabularyId) {
+                const item = getVocabulary(vocabularyId);
+                if (!item) return;
+                if (item.type === "limited" && item.publications > 0) {
+                    const base = getVocabulary(item.baseId);
+                    if (base) base.publications += item.publications;
+                }
+                const name = item.name;
+                const index = vocabularies.indexOf(item);
+                if (index >= 0) vocabularies.splice(index, 1);
+                state.deleteTargetId = null;
+                if (deleteDialog.open) deleteDialog.close();
+                renderList();
+                setFlash(`${name} deleted in this prototype${item.type === "limited" && item.publications > 0 ? "; publication references returned to the base vocabulary" : ""}.`);
+            }
+
+            function saveEditor() {
+                const name = document.getElementById("vocabulary_name").value.trim();
+                if (!name) {
+                    document.getElementById("vocabulary_name").focus();
+                    setFlash("Enter a name for the limited vocabulary before saving.");
+                    return;
+                }
+                const editor = state.editor;
+                if (editor.mode === "create") {
+                    vocabularies.push({
+                        id: String(state.nextId++),
+                        type: "limited",
+                        name,
+                        version: getVocabulary(editor.baseId)?.version || "1.0",
+                        baseId: editor.baseId,
+                        treeId: editor.rootId,
+                        disallowed: [...editor.disallowed],
+                        publications: 0,
+                    });
+                    setFlash(`${name} created from ${editor.baseName}.`);
+                } else {
+                    const item = getVocabulary(editor.id);
+                    if (item) {
+                        item.name = name;
+                        item.disallowed = [...editor.disallowed];
+                    }
+                    setFlash(`${name} updated in this prototype.`);
+                }
+                state.editor = null;
+                state.screen = "list";
+                render();
+            }
+
+            function renderEditorHost() {
+                document.getElementById("vocabulary_id").value = state.editor?.id || "None";
+                document.getElementById("base_vocabulary_id").value = state.editor?.baseId || "";
+                document.getElementById("vocabulary_name").value = state.editor?.name || "";
+                document.getElementById("base_vocabulary_name").value = state.editor?.baseName || "";
+            }
+
+            function setSidebarOpen(open) {
+                appSidebar.dataset.open = String(open);
+                sidebarBackdrop.hidden = !open;
+                mobileNavToggle.setAttribute("aria-expanded", String(open));
+            }
+
+            document.addEventListener("click", (event) => {
+                const target = event.target.closest("button, a");
+                if (!target) return;
+                const action = target.dataset.action;
+                if (action === "create-limited") {
+                    event.preventDefault();
+                    openCreateLimited(target.dataset.vocabularyId);
+                    return;
+                }
+                if (action === "edit-limited") {
+                    event.preventDefault();
+                    openEditLimited(target.dataset.vocabularyId);
+                    return;
+                }
+                if (action === "request-delete") {
+                    event.preventDefault();
+                    openDeleteDialog(target.dataset.vocabularyId);
+                    return;
+                }
+                if (action === "confirm-delete") {
+                    event.preventDefault();
+                    deleteVocabulary(state.deleteTargetId);
+                    return;
+                }
+                if (action === "close-delete") {
+                    deleteDialog.close();
+                    return;
+                }
+                if (action === "cancel-editor") {
+                    event.preventDefault();
+                    state.editor = null;
+                    state.screen = "list";
+                    render();
+                    return;
+                }
+                if (action === "editor-tab") {
+                    state.editor.activeTab = target.dataset.tab;
+                    renderEditor();
+                    return;
+                }
+                if (action === "ledger-status") {
+                    state.editor.ledgerFilter = target.dataset.ledgerFilter;
+                    renderEditor();
+                    return;
+                }
+                if (action === "select-visible") {
+                    selectVisibleLedger();
+                    return;
+                }
+                if (action === "clear-selection") {
+                    clearLedgerSelection();
+                    return;
+                }
+                if (action === "select-ledger-level") {
+                    selectLedgerLevel();
+                    return;
+                }
+                if (action === "select-all" || action === "select-none") {
+                    selectAll(target.dataset.status, action === "select-all");
+                    return;
+                }
+                if (action === "select-levels") {
+                    selectLevels(target.dataset.status);
+                    return;
+                }
+                if (action === "move-disallowed") {
+                    moveSelected("allowed");
+                    return;
+                }
+                if (action === "move-allowed") {
+                    moveSelected("forbidden");
+                    return;
+                }
+                if (target.dataset.variantStep) {
+                    const index = variants.indexOf(state.variant);
+                    const step = Number(target.dataset.variantStep);
+                    setVariant(variants[(index + step + variants.length) % variants.length]);
+                }
+            });
+
+            document.addEventListener("input", (event) => {
+                if (event.target.id === "vocabulary-search") {
+                    state.listQuery = event.target.value;
+                    renderList();
+                    return;
+                }
+                if (event.target.id === "kind-filter") {
+                    state.listKind = event.target.value;
+                    renderList();
+                    return;
+                }
+                if (event.target.id === "vocabulary_name" && state.editor) {
+                    state.editor.name = event.target.value;
+                    return;
+                }
+                if (event.target.matches("#allowed-filter, #forbidden-filter")) {
+                    if (state.variant === "ledger" && state.editor) state.editor.ledgerQuery = event.target.value;
+                    applyFilter(event.target);
+                    updateLedgerSelection();
+                }
+            });
+
+            document.addEventListener("change", (event) => {
+                if (event.target.matches('input[type="checkbox"][data-concept-id]') && state.editor) {
+                    const conceptId = event.target.dataset.conceptId;
+                    if (event.target.checked) state.editor.selected.add(conceptId);
+                    else state.editor.selected.delete(conceptId);
+                    updateLedgerSelection();
+                    return;
+                }
+                if (event.target.id === "kind-filter") {
+                    state.listKind = event.target.value;
+                    renderList();
+                }
+            });
+
+            document.addEventListener("submit", (event) => {
+                if (event.target.matches("#vocabularies_form")) {
+                    event.preventDefault();
+                    saveEditor();
+                }
+            });
+
+            document.getElementById("variant-prev").addEventListener("click", () => {
+                const index = variants.indexOf(state.variant);
+                setVariant(variants[(index + variants.length - 1) % variants.length]);
+            });
+            document.getElementById("variant-next").addEventListener("click", () => {
+                const index = variants.indexOf(state.variant);
+                setVariant(variants[(index + 1) % variants.length]);
+            });
+            document.getElementById("theme-toggle").addEventListener("click", (event) => {
+                const dark = document.documentElement.dataset.theme !== "dark";
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+                event.currentTarget.setAttribute("aria-pressed", String(dark));
+                event.currentTarget.textContent = dark ? "Use light theme" : "Use dark theme";
+            });
+            mobileNavToggle.addEventListener("click", () => setSidebarOpen(appSidebar.dataset.open !== "true"));
+            sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+            document.querySelectorAll(".side-link").forEach((link) => link.addEventListener("click", (event) => event.preventDefault()));
+            document.addEventListener("keydown", (event) => {
+                if (event.target.matches("input, textarea, select, [contenteditable='true']")) return;
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    const index = variants.indexOf(state.variant);
+                    const step = event.key === "ArrowRight" ? 1 : -1;
+                    setVariant(variants[(index + step + variants.length) % variants.length]);
+                }
+            });
+
+            function setVariant(next) {
+                state.variant = next;
+                const url = new URL(location.href);
+                url.searchParams.set("variant", state.variant);
+                history.replaceState(null, "", url);
+                render();
+            }
+
+            render();
+        })();
+    </script>
+</body>
+</html>

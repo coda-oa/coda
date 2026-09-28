@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CODA — Institution administration (prototype)</title>
+    <!--
+      Ticket: .scratch/daisyui-django-template-migration/issues/10-prototype-institution-administration.md
+      Two directory/detail hierarchies: ?variant=tree and ?variant=register.
+      Preview only. DaisyUI CDN and sample data are not production assets; actions are inert.
+    -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+    <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #ffffff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #ffffff;
+            --color-neutral: #253248;
+            --color-neutral-content: #f5f7fa;
+            --color-warning: #a56709;
+            --color-warning-content: #ffffff;
+            --color-error: #b42318;
+            --color-error-content: #ffffff;
+            --color-success: #28794b;
+            --color-success-content: #ffffff;
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-neutral: #202a38;
+            --color-neutral-content: #f5f7fa;
+            --color-warning: #f2bc67;
+            --color-warning-content: #281a08;
+            --color-error: #f08a82;
+            --color-error-content: #22100f;
+            --color-success: #65bf88;
+            --color-success-content: #102418;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding-bottom: 5rem;
+            background: var(--color-base-200);
+            color: var(--color-base-content);
+            font-family: Montserrat, system-ui, sans-serif;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        button, input, select, textarea { font: inherit; }
+        button { cursor: pointer; }
+        a { color: var(--color-primary); }
+        .topbar {
+            min-height: 3.7rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0 clamp(1rem, 4vw, 3rem);
+            background: var(--color-base-100);
+            border-bottom: 1px solid var(--color-base-300);
+        }
+        .brand { color: var(--color-primary); font-size: 1.05rem; font-weight: 750; letter-spacing: -0.04em; text-decoration: none; }
+        .topbar nav { display: flex; gap: 1.2rem; color: color-mix(in oklab, var(--color-base-content) 66%, transparent); font-size: 0.82rem; }
+        .prototype-label { margin-left: auto; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.7rem; }
+        .page { width: min(1380px, calc(100% - 2.5rem)); margin: 0 auto; }
+        .breadcrumbs { padding: 1rem 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.76rem; }
+        .page-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.85rem; }
+        .page-titlebar h1 { margin: 0; font-size: clamp(1.45rem, 2.1vw, 1.9rem); font-weight: 650; letter-spacing: -0.035em; }
+        .page-titlebar p { margin: 0.25rem 0 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.78rem; }
+        .prototype-note { margin: 0 0 1rem; padding: 0.65rem 0.8rem; border-left: 3px solid var(--color-primary); background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 68%, transparent); font-size: 0.72rem; }
+        .directory-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+        .filter-tools, .action-tools, .inline-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+        .filter-tools { flex: 1; }
+        .search-field { width: min(26rem, 100%); }
+        .search-field .input { width: 100%; }
+        .include-archived { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; border: 1px solid var(--color-base-300); border-radius: 0.45rem; background: var(--color-base-100); font-size: 0.76rem; white-space: nowrap; }
+        .include-archived .toggle { --tglbg: var(--color-base-300); }
+        .variant { min-width: 0; }
+        .variant-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.75rem; }
+        .variant-heading p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.74rem; }
+        .variant-heading strong { font-size: 0.82rem; }
+        .surface { border: 1px solid var(--color-base-300); border-radius: 0.55rem; background: var(--color-base-100); }
+        .surface-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 0.95rem; border-bottom: 1px solid var(--color-base-300); }
+        .surface-header h2, .surface-header h3 { margin: 0; font-size: 0.91rem; font-weight: 650; }
+        .surface-header p { margin: 0.15rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.7rem; }
+        .tree-board { display: grid; grid-template-columns: minmax(17rem, 0.82fr) minmax(0, 1.75fr); align-items: start; gap: 0.85rem; }
+        .tree-rail { overflow: hidden; }
+        .tree-list, .tree-list ul { margin: 0; padding: 0; list-style: none; }
+        .tree-list { padding: 0.35rem 0.65rem 0.85rem; }
+        .tree-list ul { margin: 0.1rem 0 0.25rem 0.8rem; padding-left: 0.7rem; border-left: 1px solid var(--color-base-300); }
+        .tree-list li { min-width: 0; }
+        .tree-row.is-match { background: color-mix(in oklab, var(--color-primary) 9%, var(--color-base-100)); box-shadow: inset 3px 0 var(--color-primary); }
+        .tree-row.is-context { opacity: 0.72; }
+        .tree-row.is-context .tree-link { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-style: italic; }
+        .tree-context-label { flex: 0 0 auto; font-size: 0.58rem; }
+        .tree-search-hint { margin: 0; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--color-base-300); color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.66rem; }
+        .tree-search-summary { margin: 0; padding: 0.42rem 0.8rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.65rem; }
+        .tree-search-empty { margin: 0.7rem 0.85rem; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.72rem; }
+        .tree-no-results { border: 1px dashed var(--color-base-300); border-radius: 0.4rem; padding: 0.75rem; }
+        .tree-row { display: flex; align-items: center; gap: 0.42rem; min-width: 0; padding: 0.38rem 0.18rem; border-radius: 0.35rem; }
+        .tree-row.is-selected { background: color-mix(in oklab, var(--color-primary) 10%, var(--color-base-100)); }
+        .tree-link { min-width: 0; flex: 1; overflow: hidden; border: 0; background: none; color: var(--color-base-content); text-align: left; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; }
+        .tree-link:hover { color: var(--color-primary); text-decoration: underline; }
+        .tree-marker { width: 0.48rem; height: 0.48rem; flex: 0 0 auto; border: 1px solid color-mix(in oklab, var(--color-base-content) 28%, transparent); border-radius: 50%; }
+        .tree-marker.is-active { border-color: var(--color-success); background: var(--color-success); }
+        .tree-marker.is-virtual { border-color: var(--color-warning); background: transparent; }
+        .tree-marker.is-archived { border-color: var(--color-error); background: var(--color-error); }
+        .tree-meta { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.64rem; white-space: nowrap; }
+        .tree-actions { display: flex; gap: 0.25rem; margin-left: auto; }
+        .tree-actions .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.4rem; font-size: 0.65rem; }
+        .record-preview { overflow: hidden; }
+        .record-top { padding: 1.05rem 1.1rem 0.95rem; }
+        .record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; }
+        .record-heading h2 { margin: 0; font-size: 1.12rem; font-weight: 680; letter-spacing: -0.025em; }
+        .record-heading p { margin: 0.3rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.74rem; }
+        .eyebrow { margin: 0 0 0.24rem; color: color-mix(in oklab, var(--color-base-content) 54%, transparent); font-size: 0.65rem; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+        .badge { font-size: 0.64rem; font-weight: 650; }
+        .status-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.42rem; margin-top: 0.55rem; }
+        .record-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; margin-top: 0.9rem; }
+        .fact { min-width: 0; padding: 0.65rem 0.7rem; border: 1px solid var(--color-base-300); border-radius: 0.4rem; background: color-mix(in oklab, var(--color-base-200) 72%, transparent); }
+        .fact-label { display: block; margin-bottom: 0.22rem; color: color-mix(in oklab, var(--color-base-content) 57%, transparent); font-size: 0.64rem; }
+        .fact-value { display: block; overflow-wrap: anywhere; font-size: 0.76rem; font-weight: 600; }
+        .quick-children { padding: 0.85rem 1.1rem; border-top: 1px solid var(--color-base-300); }
+        .quick-children h3 { margin: 0 0 0.55rem; font-size: 0.79rem; }
+        .child-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .child-chip { padding: 0.34rem 0.52rem; border: 1px solid var(--color-base-300); border-radius: 999px; font-size: 0.66rem; }
+        .preview-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; padding: 0.7rem 1.1rem; border-top: 1px solid var(--color-base-300); }
+        .preview-foot p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.68rem; }
+        .detail-layout-a { display: grid; grid-template-columns: minmax(15rem, 0.72fr) minmax(0, 1.8fr); align-items: start; gap: 0.85rem; }
+        .identity-card { padding: 1rem; position: sticky; top: 1rem; }
+        .identity-card h2 { margin: 0; font-size: 1.08rem; }
+        .identity-card dl { display: grid; grid-template-columns: minmax(6rem, 0.8fr) minmax(0, 1.2fr); gap: 0.5rem 0.65rem; margin: 1rem 0 0; font-size: 0.72rem; }
+        .identity-card dt { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+        .identity-card dd { margin: 0; font-weight: 550; overflow-wrap: anywhere; }
+        .identity-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-top: 1rem; }
+        .identity-actions .btn { min-height: 2rem; height: auto; padding: 0.35rem 0.5rem; font-size: 0.69rem; }
+        .relationships-a { overflow: hidden; }
+        .relationship-tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--color-base-300); }
+        .relationship-tabs .btn { min-height: 1.8rem; height: 1.8rem; padding-inline: 0.55rem; border-color: transparent; font-size: 0.67rem; }
+        .relationship-tabs .btn[aria-pressed="true"] { background: var(--color-primary); color: var(--color-primary-content); }
+        .relationship-pane { padding: 0.85rem 0.95rem 1rem; }
+        .relationship-pane h3 { margin: 0 0 0.65rem; font-size: 0.82rem; }
+        .relationship-pane p { margin: 0.4rem 0; font-size: 0.72rem; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        .data-table th, .data-table td { padding: 0.52rem 0.55rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: top; }
+        .data-table th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.63rem; font-weight: 650; }
+        .data-table tr:last-child td { border-bottom: 0; }
+        .nowrap { white-space: nowrap; }
+        .record-status { margin: 0.6rem 0 0; padding: 0.58rem 0.7rem; border-radius: 0.4rem; background: color-mix(in oklab, var(--color-warning) 12%, var(--color-base-100)); color: var(--color-base-content); font-size: 0.7rem; }
+        .register-wrap { overflow-x: auto; }
+        .register-table { min-width: 920px; }
+        .register-table td:first-child { min-width: 15rem; }
+        .register-name { display: flex; align-items: flex-start; gap: 0.5rem; }
+        .register-name button { border: 0; padding: 0; background: none; color: var(--color-primary); text-align: left; font-weight: 650; }
+        .register-name small { display: block; margin-top: 0.15rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.63rem; }
+        .register-actions { display: flex; align-items: center; gap: 0.25rem; }
+        .register-actions .btn { min-height: 1.75rem; height: 1.75rem; padding-inline: 0.45rem; font-size: 0.64rem; }
+        .switch-label { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; font-size: 0.65rem; }
+        .register-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.05rem; border-bottom: 1px solid var(--color-base-300); }
+        .register-detail-head h2 { margin: 0; font-size: 1.2rem; letter-spacing: -0.025em; }
+        .register-detail-head p { margin: 0.25rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.72rem; }
+        .register-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--color-base-300); }
+        .register-summary .fact { background: transparent; }
+        .register-detail-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.7rem; padding: 0.8rem; }
+        .detail-section { overflow: hidden; }
+        .detail-section.wide { grid-column: 1 / -1; }
+        .detail-section .section-body { padding: 0.75rem 0.9rem; }
+        .section-body h3 { margin: 0 0 0.55rem; font-size: 0.78rem; }
+        .section-body ul { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.71rem; }
+        .archived-row { background: color-mix(in oklab, var(--color-base-200) 65%, transparent); }
+        .section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--color-base-300); }
+        .section-head h3 { margin: 0; font-size: 0.8rem; }
+        .section-head span { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.65rem; }
+        .aux-screen { max-width: 940px; margin: 0 auto; }
+        .aux-screen-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.9rem; }
+        .aux-screen-header h2 { margin: 0; font-size: 1.22rem; }
+        .aux-screen-header p { margin: 0.2rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.74rem; }
+        .form-panel { padding: 1rem; }
+        .form-panel h3 { margin: 0 0 0.75rem; font-size: 0.86rem; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+        .field { min-width: 0; }
+        .field label { display: block; margin-bottom: 0.3rem; font-size: 0.7rem; font-weight: 620; }
+        .field .input, .field .select { width: 100%; max-width: none; }
+        .field .help { display: block; margin-top: 0.25rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.64rem; }
+        .mock-search-select { display: block; min-height: 2.5rem; padding: 0.55rem 2.4rem 0.55rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.5rem; background: var(--color-base-100); position: relative; }
+        .mock-search-select::after { content: ""; position: absolute; right: 0.85rem; top: 50%; width: 0.42rem; height: 0.42rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-70%) rotate(45deg); }
+        .mock-search-select li { display: none; list-style: none; }
+        .mock-search-select li[selected] { display: block; font-size: 0.78rem; }
+        .identifier-table { margin-top: 0.4rem; }
+        .identifier-table .input, .identifier-table .select { width: 100%; min-width: 7rem; }
+        .form-actions { display: flex; justify-content: space-between; gap: 0.7rem; margin-top: 1rem; }
+        .form-actions .right-actions { display: flex; gap: 0.45rem; }
+        .upload-panel { padding: 1rem; }
+        .upload-panel p { color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.74rem; }
+        .upload-drop { display: grid; place-items: center; min-height: 11rem; margin: 1rem 0; padding: 1.2rem; border: 1.5px dashed color-mix(in oklab, var(--color-primary) 50%, var(--color-base-300)); border-radius: 0.55rem; background: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-100)); text-align: center; }
+        .upload-drop strong { display: block; margin-bottom: 0.35rem; }
+        .upload-drop small { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.68rem; }
+        .variant-switcher { position: fixed; z-index: 100; left: 50%; bottom: 0.8rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.4rem; max-width: calc(100% - 1rem); padding: 0.27rem 0.4rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 28px #0004; }
+        .variant-switcher .btn { min-height: 1.75rem; height: 1.75rem; padding-inline: 0.48rem; border-color: transparent; color: inherit; font-size: 0.68rem; }
+        .variant-name { min-width: 11.5rem; text-align: center; font-size: 0.7rem; font-weight: 620; }
+        .prototype-dialog { width: min(600px, calc(100% - 1.5rem)); max-width: none; max-height: min(90vh, 820px); overflow: auto; padding: 0; border: 1px solid var(--color-base-300); border-radius: 0.75rem; background: var(--color-base-100); color: var(--color-base-content); box-shadow: 0 24px 80px #0007; }
+        .prototype-dialog::backdrop { background: #0a1424a8; backdrop-filter: blur(2px); }
+        .dialog-content { padding: 1rem 1.1rem; }
+        .dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--color-base-300); }
+        .dialog-header h2 { margin: 0; font-size: 1.08rem; }
+        .dialog-header .btn { min-height: 1.85rem; height: 1.85rem; }
+        .dialog-copy { margin: 0.8rem 0; font-size: 0.75rem; }
+        .notice { margin: 0.65rem 0; padding: 0.65rem 0.75rem; border-left: 3px solid var(--color-warning); border-radius: 0.25rem; background: color-mix(in oklab, var(--color-warning) 10%, var(--color-base-100)); font-size: 0.71rem; }
+        .radio-stack { display: grid; gap: 0.55rem; margin: 0.8rem 0; padding: 0.7rem 0.8rem; border: 1px solid var(--color-base-300); border-radius: 0.45rem; }
+        .radio-stack legend { padding: 0 0.25rem; font-size: 0.7rem; font-weight: 650; }
+        .radio-option { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.72rem; }
+        .radio-option small { display: block; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.64rem; }
+        .dialog-field { margin: 0.75rem 0; }
+        .dialog-field label { display: block; margin-bottom: 0.28rem; font-size: 0.7rem; font-weight: 620; }
+        .dialog-field .input, .dialog-field .select { width: 100%; max-width: none; }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-base-300); }
+        .dialog-actions .btn { min-height: 2.1rem; height: auto; font-size: 0.72rem; }
+        .delete-reasons { margin: 0.7rem 0; padding: 0.65rem 0.8rem; border-radius: 0.4rem; background: color-mix(in oklab, var(--color-error) 9%, var(--color-base-100)); font-size: 0.7rem; }
+        .delete-reasons ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        @media (max-width: 920px) {
+            .directory-toolbar { align-items: flex-start; flex-direction: column; }
+            .filter-tools, .search-field { width: 100%; }
+            .tree-board { grid-template-columns: minmax(15rem, 0.9fr) minmax(0, 1.4fr); }
+            .record-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .register-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 700px) {
+            .page { width: calc(100% - 1.1rem); }
+            .topbar nav { display: none; }
+            .prototype-label { font-size: 0.62rem; }
+            .page-titlebar { align-items: flex-start; flex-direction: column; }
+            .variant-heading { align-items: flex-start; flex-direction: column; }
+            .tree-board, .detail-layout-a { grid-template-columns: minmax(0, 1fr); }
+            .tree-list { max-height: 20rem; overflow-y: auto; }
+            .identity-card { position: static; }
+            .register-detail-body { grid-template-columns: minmax(0, 1fr); }
+            .detail-section.wide { grid-column: auto; }
+            .record-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .variant-switcher { bottom: 0.5rem; }
+            .variant-name { min-width: 0; }
+        }
+        @media (max-width: 460px) {
+            .action-tools { width: 100%; }
+            .action-tools .btn { flex: 1; }
+            .record-heading { flex-direction: column; }
+            .record-facts, .register-summary, .form-grid { grid-template-columns: minmax(0, 1fr); }
+            .form-actions { align-items: stretch; flex-direction: column-reverse; }
+            .form-actions .right-actions { display: grid; grid-template-columns: 1fr 1fr; }
+            .variant-switcher .btn { padding-inline: 0.35rem; }
+            .variant-name { font-size: 0.64rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body data-app-screen="directory">
+    <header class="topbar">
+        <a class="brand" href="#" aria-label="CODA home">CODA</a>
+        <nav aria-label="Primary navigation"><span>Administration</span><span>Institutions</span></nav>
+        <span class="prototype-label">Static prototype · sample data · actions inert</span>
+    </header>
+    <main class="page">
+        <div class="breadcrumbs">Administration&nbsp; / &nbsp;Organization Structure&nbsp; / &nbsp;Institutions</div>
+        <header class="page-titlebar">
+            <div>
+                <h1>Institutions</h1>
+                <p>Manage organizational hierarchy, affiliation availability, and related CODA records.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" id="theme-toggle" type="button" aria-pressed="false">Use dark theme</button>
+        </header>
+        <p class="prototype-note">Compare the tree and register directories; both open the same sectioned institution detail. Preview archive, restore, delete, create/edit, and CSV import states. Search is simulated client-side here; production filtering will be server-side with HTMX. Forms and other actions do not submit.</p>
+
+        <div class="directory-toolbar" id="directory-toolbar">
+            <form class="filter-tools" id="entity-search-form" method="get" data-inert-form>
+                <label class="search-field" for="id-query">
+                    <span class="sr-only">Search institutions</span>
+                    <input class="input input-bordered input-sm" type="search" name="query" id="id-query" placeholder="Search institutions…" value="">
+                </label>
+                <label class="include-archived">
+                    <input class="toggle toggle-sm" type="checkbox" role="switch" name="include_archived" id="id-include-archived" aria-checked="true" checked>
+                    Include archived
+                </label>
+            </form>
+            <div class="action-tools" aria-label="Institution actions">
+                <button class="btn btn-primary btn-sm" type="button" data-open-form="new">New institution</button>
+                <button class="btn btn-outline btn-sm" type="button" data-open-screen="import">Import CSV</button>
+                <a class="btn btn-ghost btn-sm" href="/institutions/export/">Export CSV</a>
+            </div>
+        </div>
+
+        <section class="variant variant-tree" data-variant-root="tree" data-screen="directory" aria-label="Tree workspace layout">
+            <header class="variant-heading">
+                <p><strong>A · Tree workspace</strong> — browse hierarchy and inspect the selected organization side by side.</p>
+            </header>
+            <div data-screen-view="directory">
+                <div class="tree-board">
+                    <aside class="surface tree-rail" aria-label="Institution hierarchy">
+                        <div class="surface-header">
+                            <div><h2>Organization tree</h2><p class="tree-search-summary" id="tree-search-summary" aria-live="polite">6 active · 2 archived</p></div>
+                            <span class="badge badge-outline">Hierarchy</span>
+                        </div>
+                        <p class="tree-search-hint">Matching institutions stay in place. Nonmatching ancestors remain as muted <strong>Context</strong> rows; unrelated branches and siblings stay hidden. Context rows are not counted as results. Try “Digital Scholarship”.</p>
+                        <p class="tree-search-empty tree-no-results" id="tree-search-empty" hidden>No institutions match this search and archive filter.</p>
+                        <ul class="tree-list" role="tree" aria-label="Institutions">
+                            <li data-tree-node data-node-id="1" data-parent-id="" data-node-name="Northbridge University" data-archived="false" role="treeitem" aria-expanded="true">
+                                <div class="tree-row is-selected">
+                                    <span class="tree-marker is-active" aria-hidden="true"></span>
+                                    <button type="button" class="tree-link" data-open-record="home">Northbridge University</button>
+                                    <span class="badge badge-primary badge-sm">Home</span>
+                                    <span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span>
+                                </div>
+                                <ul role="group">
+                                    <li data-tree-node data-node-id="2" data-parent-id="1" data-node-name="Center for Digital Scholarship" data-archived="false" role="treeitem">
+                                        <div class="tree-row"><span class="tree-marker is-active" aria-hidden="true"></span><button type="button" class="tree-link" data-open-record="child" data-child-name="Center for Digital Scholarship" data-child-id="NB-014" data-child-parent="Northbridge University" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="0">Center for Digital Scholarship</button><span class="tree-meta">Available</span><span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span></div>
+                                    </li>
+                                    <li data-tree-node data-node-id="3" data-parent-id="1" data-node-name="Office of Research Services" data-archived="false" role="treeitem">
+                                        <div class="tree-row"><span class="tree-marker is-virtual" aria-hidden="true"></span><button type="button" class="tree-link" data-open-record="child" data-child-name="Office of Research Services" data-child-id="NB-015" data-child-parent="Northbridge University" data-child-affiliation="Not available · virtual" data-child-status="Active" data-child-children="0">Office of Research Services</button><span class="tree-meta">Virtual</span><span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span></div>
+                                    </li>
+                                    <li data-tree-node data-node-id="4" data-parent-id="1" data-node-name="Northbridge Library" data-archived="false" role="treeitem">
+                                        <div class="tree-row"><span class="tree-marker is-active" aria-hidden="true"></span><button type="button" class="tree-link" data-open-record="child" data-child-name="Northbridge Library" data-child-id="NB-021" data-child-parent="Northbridge University" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="0">Northbridge Library</button><span class="tree-meta">Available</span><span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span></div>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li data-tree-node data-node-id="5" data-parent-id="" data-node-name="Westland University" data-archived="false" role="treeitem" aria-expanded="true">
+                                <div class="tree-row">
+                                    <span class="tree-marker is-active" aria-hidden="true"></span>
+                                    <button type="button" class="tree-link" data-open-record="child" data-child-name="Westland University" data-child-id="WL-001" data-child-parent="None · top level" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="1">Westland University</button>
+                                    <span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span>
+                                </div>
+                                <ul role="group">
+                                    <li data-tree-node data-node-id="6" data-parent-id="5" data-node-name="Westland Health Sciences" data-archived="false" role="treeitem"><div class="tree-row"><span class="tree-marker is-active" aria-hidden="true"></span><button type="button" class="tree-link" data-open-record="child" data-child-name="Westland Health Sciences" data-child-id="WL-020" data-child-parent="Westland University" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="0">Westland Health Sciences</button><span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span></div></li>
+                                </ul>
+                            </li>
+                            <li data-tree-node data-node-id="7" data-parent-id="" data-node-name="Tidal Research Station" data-archived="true" role="treeitem" aria-expanded="true">
+                                <div class="tree-row">
+                                    <span class="tree-marker is-archived" aria-hidden="true"></span>
+                                    <button type="button" class="tree-link" data-open-record="archived">Tidal Research Station</button>
+                                    <span class="badge badge-error badge-outline badge-sm">Archived</span>
+                                    <span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span>
+                                </div>
+                                <ul role="group">
+                                    <li data-tree-node data-node-id="8" data-parent-id="7" data-node-name="Coastal Data Observatory" data-archived="true" role="treeitem"><div class="tree-row"><span class="tree-marker is-archived" aria-hidden="true"></span><button type="button" class="tree-link" data-open-record="child" data-child-name="Coastal Data Observatory" data-child-id="TR-010" data-child-parent="Tidal Research Station" data-child-affiliation="Unavailable" data-child-status="Archived" data-child-children="0">Coastal Data Observatory</button><span class="tree-meta">Archived child</span><span class="badge badge-outline badge-sm tree-context-label" data-context-label hidden>Context</span></div></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </aside>
+                    <article class="surface record-preview" data-record-panel="home">
+                        <div class="record-top">
+                            <div class="record-heading">
+                                <div>
+                                    <p class="eyebrow">Selected institution · Northbridge University</p>
+                                    <h2>Northbridge University</h2>
+                                    <p>Top-level institution · sample record NB-001</p>
+                                </div>
+                                <div class="inline-actions">
+                                    <button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button>
+                                    <button class="btn btn-ghost btn-sm" type="button" data-open-dialog="archive-dialog" hx-get="/institutions/1/request-set-successor/" hx-target="body" hx-swap="beforeend">Archive</button>
+                                </div>
+                            </div>
+                            <div class="status-row"><span class="badge badge-success badge-outline">Active</span><span class="badge badge-primary badge-outline">Home institution</span><span class="badge badge-success">Available as author affiliation</span></div>
+                            <div class="record-facts">
+                                <div class="fact"><span class="fact-label">Internal ID</span><span class="fact-value">NB-001</span></div>
+                                <div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value">None · top level</span></div>
+                                <div class="fact"><span class="fact-label">Children</span><span class="fact-value">3 direct institutions</span></div>
+                            </div>
+                        </div>
+                        <div class="quick-children">
+                            <h3>Direct children</h3>
+                            <div class="child-chips"><span class="child-chip">Center for Digital Scholarship · available</span><span class="child-chip">Office of Research Services · virtual</span><span class="child-chip">Northbridge Library · available</span></div>
+                        </div>
+                        <div class="preview-foot">
+                            <p>3 funding requests · 2 invoices · 2 identifiers</p>
+                            <button class="btn btn-primary btn-sm" type="button" data-screen-target="detail">Open full profile</button>
+                        </div>
+                    </article>
+                    <article class="surface record-preview" data-record-panel="archived" hidden>
+                        <div class="record-top">
+                            <div class="record-heading">
+                                <div><p class="eyebrow">Selected institution · archived</p><h2>Tidal Research Station</h2><p>Root institution · sample record TR-009</p></div>
+                                <span class="badge badge-error">Archived</span>
+                            </div>
+                            <div class="status-row"><span class="badge badge-error badge-outline">Unavailable for affiliation</span><span class="badge badge-outline">Archived 18 Aug 2026</span></div>
+                            <div class="record-facts">
+                                <div class="fact"><span class="fact-label">Internal ID</span><span class="fact-value">TR-009</span></div>
+                                <div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value">None · root</span></div>
+                                <div class="fact"><span class="fact-label">Archived children</span><span class="fact-value">1 · Coastal Data Observatory</span></div>
+                            </div>
+                        </div>
+                        <div class="notice">Restoring this root requires choosing an active parent if it should rejoin the hierarchy. You can restore it alone or with its archived child.</div>
+                        <div class="preview-foot"><p>Archived records remain visible in historical data.</p><button class="btn btn-success btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button></div>
+                    </article>
+                    <article class="surface record-preview" data-record-panel="child" hidden>
+                        <div class="record-top">
+                            <div class="record-heading"><div><p class="eyebrow">Selected institution · child record</p><h2 data-child-name-output>Center for Digital Scholarship</h2><p><span data-child-id-output>NB-014</span> · Parent: <span data-child-parent-output>Northbridge University</span></p></div><span class="badge badge-success badge-outline" data-child-status-badge>Active</span></div>
+                            <div class="status-row"><span class="badge badge-success" data-child-affiliation-output>Available as author affiliation</span></div>
+                            <div class="record-facts"><div class="fact"><span class="fact-label">Internal ID</span><span class="fact-value" data-child-id-output>NB-014</span></div><div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value" data-child-parent-output>Northbridge University</span></div><div class="fact"><span class="fact-label">Direct children</span><span class="fact-value" data-child-children-output>0</span></div></div>
+                        </div>
+                        <div class="preview-foot"><p>Selected from the filtered institution tree.</p><button class="btn btn-primary btn-sm" type="button" data-screen-target="detail">Open full profile</button></div>
+                    </article>
+                </div>
+            </div>
+            <div data-screen-view="detail" hidden>
+                <article class="surface" data-record-panel="home">
+                    <header class="register-detail-head">
+                        <div><p class="eyebrow">Institution · Organization Structure</p><h2>Northbridge University</h2><p>Top-level institution · Internal ID NB-001</p><div class="status-row"><span class="badge badge-success badge-outline">Active</span><span class="badge badge-primary badge-outline">Home institution</span><span class="badge badge-success">Usable as author affiliation</span></div></div>
+                        <div class="inline-actions"><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button><button class="btn btn-outline btn-sm" type="button" data-open-dialog="archive-dialog" hx-get="/institutions/1/request-set-successor/" hx-target="body" hx-swap="beforeend">Archive</button><button class="btn btn-error btn-outline btn-sm" type="button" data-open-dialog="delete-dialog" hx-get="/institutions/1/request-delete/" hx-target="body" hx-swap="beforeend">Delete</button></div>
+                    </header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value">None · top level</span></div><div class="fact"><span class="fact-label">Child institutions</span><span class="fact-value">3 direct</span></div><div class="fact"><span class="fact-label">Funding requests</span><span class="fact-value">3 author affiliations</span></div><div class="fact"><span class="fact-label">Invoices</span><span class="fact-value">2 linked</span></div></div>
+                    <div class="register-detail-body">
+                        <section class="surface detail-section wide"><div class="section-head"><h3>Institution hierarchy</h3><span>3 direct children</span></div><div class="section-body"><ul><li>Center for Digital Scholarship <span class="badge badge-success badge-outline">Active · affiliation available</span></li><li>Office of Research Services <span class="badge badge-warning badge-outline">Active · virtual</span></li><li>Northbridge Library <span class="badge badge-success badge-outline">Active · affiliation available</span></li></ul></div></section>
+                        <section class="surface detail-section"><div class="section-head"><h3>Funding requests</h3><span>3</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Request ID</th><th>Date</th><th>Publication</th></tr></thead><tbody><tr><td><a href="#">FR-2026-0412</a></td><td>12 Aug 2026</td><td>Open scholarship workflows in institutional repositories</td></tr><tr><td><a href="#">FR-2026-0388</a></td><td>29 Jul 2026</td><td>Research data infrastructure for universities</td></tr><tr><td><a href="#">FR-2026-0316</a></td><td>04 Jun 2026</td><td>Digital access and scholarly communication</td></tr></tbody></table></div></section>
+                        <section class="surface detail-section"><div class="section-head"><h3>Invoices</h3><span>2</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Number</th><th>Date</th><th>Creditor</th></tr></thead><tbody><tr><td><a href="#">INV-2026-0142</a></td><td>19 Aug 2026</td><td>Example University Press</td></tr><tr><td><a href="#">INV-2026-0118</a></td><td>07 Jul 2026</td><td>Open Research Services GmbH</td></tr></tbody></table></div></section>
+                        <section class="surface detail-section wide"><div class="section-head"><h3>Identifiers</h3><span>2 links</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Type</th><th>Value</th></tr></thead><tbody><tr><td>ROR</td><td><code>00northbridge01</code></td></tr><tr><td>ISNI</td><td><code>0000 0001 2345 6789</code></td></tr></tbody></table><p>Sample identifiers for layout review.</p></div></section>
+                    </div>
+                    <div class="preview-foot"><p>Relationship sections remain visible in one scrollable record.</p><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to tree</button></div>
+                </article>
+                <article class="surface" data-record-panel="archived" hidden>
+                    <header class="register-detail-head"><div><p class="eyebrow">Institution · archived record</p><h2>Tidal Research Station</h2><p>Root institution · Internal ID TR-009</p><div class="status-row"><span class="badge badge-error">Archived</span><span class="badge badge-error badge-outline">Unavailable as affiliation</span></div></div><button class="btn btn-success btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button></header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent</span><span class="fact-value">None · root</span></div><div class="fact"><span class="fact-label">Archived at</span><span class="fact-value">18 Aug 2026</span></div><div class="fact"><span class="fact-label">Archived children</span><span class="fact-value">1</span></div><div class="fact"><span class="fact-label">Author affiliation</span><span class="fact-value">Unavailable</span></div></div>
+                    <div class="register-detail-body"><section class="surface detail-section wide"><div class="section-head"><h3>Archived hierarchy</h3><span>Restore with or without child</span></div><div class="section-body"><ul><li>Tidal Research Station · TR-009</li><li>Coastal Data Observatory · TR-010 <span class="badge badge-error badge-outline">Archived child</span></li></ul><p>The root has no active parent. Choose an active parent in the restore dialog if it should rejoin an existing branch.</p><button class="btn btn-success btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore institution</button></div></section></div>
+                    <div class="preview-foot"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to tree</button></div>
+                </article>
+                <article class="surface" data-record-panel="child" hidden>
+                    <header class="register-detail-head"><div><p class="eyebrow">Institution · Organization Structure</p><h2 data-child-name-output>Center for Digital Scholarship</h2><p>Internal ID <span data-child-id-output>NB-014</span> · Parent: <span data-child-parent-output>Northbridge University</span></p><div class="status-row"><span class="badge badge-success badge-outline" data-child-status-badge>Active</span><span data-child-affiliation-output>Available as author affiliation</span></div></div></header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value" data-child-parent-output>Northbridge University</span></div><div class="fact"><span class="fact-label">Author affiliation</span><span class="fact-value" data-child-affiliation-output>Available as author affiliation</span></div><div class="fact"><span class="fact-label">Direct children</span><span class="fact-value" data-child-children-output>0</span></div><div class="fact"><span class="fact-label">Status</span><span class="fact-value" data-child-status-output>Active</span></div></div>
+                    <div class="register-detail-body"><section class="surface detail-section wide"><div class="section-head"><h3>Relationships</h3><span>Sample data</span></div><div class="section-body"><p>No funding requests, invoices, or identifiers are linked to this sample child institution.</p></div></section></div>
+                    <div class="preview-foot"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to tree</button></div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-register" data-variant-root="register" data-screen="directory" aria-label="Registry layout" hidden>
+            <header class="variant-heading">
+                <p><strong>B · Registry + record</strong> — scan affiliation status and parentage in a full-width register, then open a structured record.</p>
+            </header>
+            <div data-screen-view="directory">
+                <div class="surface register-wrap">
+                    <table class="data-table register-table">
+                        <thead><tr><th>Institution</th><th>Parent</th><th>Usable as author affiliation</th><th>Child institutions</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <tr data-institution-name="Northbridge University" data-archived="false">
+                                <td><div class="register-name"><span class="tree-marker is-active" aria-hidden="true"></span><div><button type="button" data-open-record="home" data-open-detail="true">Northbridge University</button><small>NB-001 · Home institution</small></div></div></td>
+                                <td>—</td>
+                                <td><label class="switch-label" for="id-institution-selectable-1"><input class="toggle toggle-sm" type="checkbox" role="switch" id="id-institution-selectable-1" name="institution-selectable" hx-post="/institutions/toggle-selectable/1" hx-swap="none" checked><span>Yes</span></label></td>
+                                <td>3</td><td><span class="badge badge-success badge-outline">Active</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="home" data-open-detail="true">View</button><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button><button class="btn btn-ghost btn-sm" type="button" data-open-dialog="archive-dialog" hx-get="/institutions/1/request-set-successor/" hx-target="body" hx-swap="beforeend">Archive</button></div></td>
+                            </tr>
+                            <tr data-institution-name="Center for Digital Scholarship" data-archived="false" data-child-name="Center for Digital Scholarship" data-child-id="NB-014" data-child-parent="Northbridge University" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="0">
+                                <td><div class="register-name"><span class="tree-marker is-active" aria-hidden="true"></span><div><button type="button" data-open-record="child" data-open-detail="true">Center for Digital Scholarship</button><small>NB-014</small></div></div></td>
+                                <td>Northbridge University</td>
+                                <td><label class="switch-label" for="id-institution-selectable-2"><input class="toggle toggle-sm" type="checkbox" role="switch" id="id-institution-selectable-2" name="institution-selectable" hx-post="/institutions/toggle-selectable/2" hx-swap="none" checked><span>Yes</span></label></td>
+                                <td>0</td><td><span class="badge badge-success badge-outline">Active</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="child" data-open-detail="true">View</button><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button></div></td>
+                            </tr>
+                            <tr data-institution-name="Office of Research Services" data-archived="false" data-child-name="Office of Research Services" data-child-id="NB-015" data-child-parent="Northbridge University" data-child-affiliation="Not available · virtual" data-child-status="Active" data-child-children="0">
+                                <td><div class="register-name"><span class="tree-marker is-virtual" aria-hidden="true"></span><div><button type="button" data-open-record="child" data-open-detail="true">Office of Research Services</button><small>NB-015</small></div></div></td>
+                                <td>Northbridge University</td>
+                                <td><label class="switch-label" for="id-institution-selectable-3"><input class="toggle toggle-sm" type="checkbox" role="switch" id="id-institution-selectable-3" name="institution-selectable" hx-post="/institutions/toggle-selectable/3" hx-swap="none"><span>No · virtual</span></label></td>
+                                <td>0</td><td><span class="badge badge-success badge-outline">Active</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="child" data-open-detail="true">View</button><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button></div></td>
+                            </tr>
+                            <tr data-institution-name="Northbridge Library" data-archived="false" data-child-name="Northbridge Library" data-child-id="NB-021" data-child-parent="Northbridge University" data-child-affiliation="Available as author affiliation" data-child-status="Active" data-child-children="0">
+                                <td><div class="register-name"><span class="tree-marker is-active" aria-hidden="true"></span><div><button type="button" data-open-record="child" data-open-detail="true">Northbridge Library</button><small>NB-021</small></div></div></td>
+                                <td>Northbridge University</td>
+                                <td><label class="switch-label" for="id-institution-selectable-4"><input class="toggle toggle-sm" type="checkbox" role="switch" id="id-institution-selectable-4" name="institution-selectable" hx-post="/institutions/toggle-selectable/4" hx-swap="none" checked><span>Yes</span></label></td>
+                                <td>0</td><td><span class="badge badge-success badge-outline">Active</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="child" data-open-detail="true">View</button><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button></div></td>
+                            </tr>
+                            <tr data-institution-name="Tidal Research Station" data-archived="true">
+                                <td><div class="register-name"><span class="tree-marker is-archived" aria-hidden="true"></span><div><button type="button" data-open-record="archived" data-open-detail="true">Tidal Research Station</button><small>TR-009 · 1 archived child</small></div></div></td>
+                                <td>—</td>
+                                <td><label class="switch-label" for="id-institution-selectable-7"><input class="toggle toggle-sm" type="checkbox" role="switch" id="id-institution-selectable-7" name="institution-selectable" hx-post="/institutions/toggle-selectable/7" hx-swap="none"><span>No · archived</span></label></td>
+                                <td>1 archived</td><td><span class="badge badge-error badge-outline">Archived</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="archived" data-open-detail="true">View</button><button class="btn btn-success btn-outline btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button></div></td>
+                            </tr>
+                            <tr class="archived-row" data-institution-name="Coastal Data Observatory" data-archived="true" data-child-name="Coastal Data Observatory" data-child-id="TR-010" data-child-parent="Tidal Research Station" data-child-affiliation="Unavailable" data-child-status="Archived" data-child-children="0">
+                                <td><div class="register-name"><span class="tree-marker is-archived" aria-hidden="true"></span><div><button type="button" data-open-record="child" data-open-detail="true">Coastal Data Observatory</button><small>TR-010 · Child of Tidal Research Station</small></div></div></td>
+                                <td>Tidal Research Station</td><td>—</td><td>0</td><td><span class="badge badge-error badge-outline">Archived child</span></td>
+                                <td><div class="register-actions"><button class="btn btn-ghost btn-sm" type="button" data-open-record="child" data-open-detail="true">View</button></div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="prototype-note" style="margin-top:0.7rem">The table keeps parentage, affiliation availability, archived state, and row actions on one scan line. On narrow screens it becomes a horizontal register rather than hiding columns.</p>
+            </div>
+            <div data-screen-view="detail" hidden>
+                <article class="surface" data-record-panel="home">
+                    <header class="register-detail-head">
+                        <div><p class="eyebrow">Institution · Organization Structure</p><h2>Northbridge University</h2><p>Top-level institution · Internal ID NB-001</p><div class="status-row"><span class="badge badge-success badge-outline">Active</span><span class="badge badge-primary badge-outline">Home institution</span><span class="badge badge-success">Usable as author affiliation</span></div></div>
+                        <div class="inline-actions"><button class="btn btn-outline btn-sm" type="button" data-open-form="edit">Edit</button><button class="btn btn-outline btn-sm" type="button" data-open-dialog="archive-dialog" hx-get="/institutions/1/request-set-successor/" hx-target="body" hx-swap="beforeend">Archive</button><button class="btn btn-error btn-outline btn-sm" type="button" data-open-dialog="delete-dialog" hx-get="/institutions/1/request-delete/" hx-target="body" hx-swap="beforeend">Delete</button></div>
+                    </header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value">None · top level</span></div><div class="fact"><span class="fact-label">Child institutions</span><span class="fact-value">3 direct</span></div><div class="fact"><span class="fact-label">Funding requests</span><span class="fact-value">3 author affiliations</span></div><div class="fact"><span class="fact-label">Invoices</span><span class="fact-value">2 linked</span></div></div>
+                    <div class="register-detail-body">
+                        <section class="surface detail-section wide"><div class="section-head"><h3>Institution hierarchy</h3><span>3 direct children</span></div><div class="section-body"><ul><li>Center for Digital Scholarship <span class="badge badge-success badge-outline">Active · affiliation available</span></li><li>Office of Research Services <span class="badge badge-warning badge-outline">Active · virtual</span></li><li>Northbridge Library <span class="badge badge-success badge-outline">Active · affiliation available</span></li></ul></div></section>
+                        <section class="surface detail-section"><div class="section-head"><h3>Funding requests</h3><span>3</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Request ID</th><th>Date</th><th>Publication</th></tr></thead><tbody><tr><td><a href="#">FR-2026-0412</a></td><td>12 Aug 2026</td><td>Open scholarship workflows in institutional repositories</td></tr><tr><td><a href="#">FR-2026-0388</a></td><td>29 Jul 2026</td><td>Research data infrastructure for universities</td></tr><tr><td><a href="#">FR-2026-0316</a></td><td>04 Jun 2026</td><td>Digital access and scholarly communication</td></tr></tbody></table></div></section>
+                        <section class="surface detail-section"><div class="section-head"><h3>Invoices</h3><span>2</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Number</th><th>Date</th><th>Creditor</th></tr></thead><tbody><tr><td><a href="#">INV-2026-0142</a></td><td>19 Aug 2026</td><td>Example University Press</td></tr><tr><td><a href="#">INV-2026-0118</a></td><td>07 Jul 2026</td><td>Open Research Services GmbH</td></tr></tbody></table></div></section>
+                        <section class="surface detail-section wide"><div class="section-head"><h3>Identifiers</h3><span>2 links</span></div><div class="section-body"><table class="data-table"><thead><tr><th>Type</th><th>Value</th></tr></thead><tbody><tr><td>ROR</td><td><code>00northbridge01</code></td></tr><tr><td>ISNI</td><td><code>0000 0001 2345 6789</code></td></tr></tbody></table><p>Sample identifiers for layout review.</p></div></section>
+                    </div>
+                    <div class="preview-foot"><p>Relationship sections remain visible in one scrollable record.</p><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to register</button></div>
+                </article>
+                <article class="surface" data-record-panel="archived" hidden>
+                    <header class="register-detail-head"><div><p class="eyebrow">Institution · archived record</p><h2>Tidal Research Station</h2><p>Root institution · Internal ID TR-009</p><div class="status-row"><span class="badge badge-error">Archived</span><span class="badge badge-error badge-outline">Unavailable as affiliation</span></div></div><button class="btn btn-success btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore</button></header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent</span><span class="fact-value">None · root</span></div><div class="fact"><span class="fact-label">Archived at</span><span class="fact-value">18 Aug 2026</span></div><div class="fact"><span class="fact-label">Archived children</span><span class="fact-value">1</span></div><div class="fact"><span class="fact-label">Author affiliation</span><span class="fact-value">Unavailable</span></div></div>
+                    <div class="register-detail-body"><section class="surface detail-section wide"><div class="section-head"><h3>Archived hierarchy</h3><span>Restore with or without child</span></div><div class="section-body"><ul><li>Tidal Research Station · TR-009</li><li>Coastal Data Observatory · TR-010 <span class="badge badge-error badge-outline">Archived child</span></li></ul><p>The root has no active parent. Choose an active parent in the restore dialog if it should rejoin an existing branch.</p><button class="btn btn-success btn-sm" type="button" data-open-dialog="restore-dialog" hx-get="/institutions/7/request-restore/" hx-target="body" hx-swap="beforeend">Restore institution</button></div></section></div>
+                    <div class="preview-foot"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to register</button></div>
+                </article>
+                <article class="surface" data-record-panel="child" hidden>
+                    <header class="register-detail-head"><div><p class="eyebrow">Institution · Organization Structure</p><h2 data-child-name-output>Center for Digital Scholarship</h2><p>Internal ID <span data-child-id-output>NB-014</span> · Parent: <span data-child-parent-output>Northbridge University</span></p><div class="status-row"><span class="badge badge-success badge-outline" data-child-status-badge>Active</span><span data-child-affiliation-output>Available as author affiliation</span></div></div></header>
+                    <div class="register-summary"><div class="fact"><span class="fact-label">Parent institution</span><span class="fact-value" data-child-parent-output>Northbridge University</span></div><div class="fact"><span class="fact-label">Author affiliation</span><span class="fact-value" data-child-affiliation-output>Available as author affiliation</span></div><div class="fact"><span class="fact-label">Direct children</span><span class="fact-value" data-child-children-output>0</span></div><div class="fact"><span class="fact-label">Status</span><span class="fact-value" data-child-status-output>Active</span></div></div>
+                    <div class="register-detail-body"><section class="surface detail-section wide"><div class="section-head"><h3>Relationships</h3><span>Sample data</span></div><div class="section-body"><p>No funding requests, invoices, or identifiers are linked to this sample child institution.</p></div></section></div>
+                    <div class="preview-foot"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to register</button></div>
+                </article>
+            </div>
+        </section>
+
+        <section class="aux-screen" id="editor-screen" hidden aria-labelledby="editor-heading">
+            <header class="aux-screen-header"><div><h2 id="editor-heading">New Institution</h2><p>Basic identity and external institution identifiers.</p></div><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to directory</button></header>
+            <form class="surface form-panel" id="institution-form" method="post" action="/institutions/create/" data-inert-form>
+                <h3>Basic information</h3>
+                <div class="form-grid">
+                    <div class="field"><label for="id_name">Name</label><input class="input input-bordered input-sm" type="text" id="id_name" name="name" value="Northbridge University"><span class="help">The institution name used in CODA.</span></div>
+                    <div class="field"><label for="id_parent">Parent institution</label><search-select class="mock-search-select" id="id_parent" name="parent" role="combobox" aria-label="Parent institution" aria-expanded="false"><li value="" selected>None · top level</li><li value="1">Northbridge University</li><li value="5">Westland University</li></search-select><span class="help">An institution can have one parent. Cycles are not allowed.</span></div>
+                    <div class="field"><label for="id_internal_id">Internal ID</label><input class="input input-bordered input-sm" type="text" id="id_internal_id" name="internal_id" value="NB-001"><span class="help">Stable identifier used for import/export matching.</span></div>
+                </div>
+                <h3 style="margin-top:1.25rem">Institution identifiers</h3>
+                <div class="register-wrap">
+                    <table class="data-table identifier-table">
+                        <thead><tr><th>Link type</th><th>Value</th><th><button class="btn btn-outline btn-xs" type="button" hx-post="/institutions/partial/add-institution-linkrow/" hx-target="#institution-linktable" hx-swap="beforeend">Add identifier</button></th></tr></thead>
+                        <tbody id="institution-linktable">
+                            <tr><td><select class="select select-bordered select-sm" name="link_type" aria-label="Link type"><option selected>ROR</option><option>ISNI</option><option>Ringgold</option></select></td><td><input class="input input-bordered input-sm" type="text" name="link_value" value="00northbridge01" aria-label="Identifier value"></td><td><button class="btn btn-ghost btn-xs" type="button">Remove</button></td></tr>
+                            <tr><td><select class="select select-bordered select-sm" name="link_type" aria-label="Link type"><option>ROR</option><option selected>ISNI</option><option>Ringgold</option></select></td><td><input class="input input-bordered input-sm" type="text" name="link_value" value="0000 0001 2345 6789" aria-label="Identifier value"></td><td><button class="btn btn-ghost btn-xs" type="button">Remove</button></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="form-actions"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Cancel</button><div class="right-actions"><button class="btn btn-primary btn-sm" type="submit">Save institution</button></div></div>
+            </form>
+        </section>
+
+        <section class="aux-screen" id="import-screen" hidden aria-labelledby="import-heading">
+            <header class="aux-screen-header"><div><h2 id="import-heading">Import Institutions</h2><p>Upload a CSV file to import or update institution records.</p></div><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Back to directory</button></header>
+            <form class="surface upload-panel" id="institution-import-form" action="/institutions/import-file/" method="post" enctype="multipart/form-data" data-inert-form>
+                <label class="upload-drop" for="id-institution-list"><span><strong>Choose a CSV file</strong><small>CSV only · import preview is not connected</small><input type="file" name="institution-list" id="id-institution-list" accept=".csv" class="file-input file-input-bordered file-input-sm" style="max-width:100%;margin-top:0.8rem"></span></label>
+                <p>Review the file before import. Import and export actions are represented for layout review only.</p>
+                <div class="form-actions"><button class="btn btn-ghost btn-sm" type="button" data-screen-target="directory">Cancel</button><button class="btn btn-primary btn-sm" type="submit">Import institutions</button></div>
+            </form>
+        </section>
+    </main>
+
+    <div class="variant-switcher" role="group" aria-label="Prototype layout variants">
+        <button class="btn btn-ghost btn-sm" id="variant-prev" type="button" aria-label="Previous layout">←</button>
+        <span class="variant-name" id="variant-name" aria-live="polite">A · Tree workspace</span>
+        <button class="btn btn-ghost btn-sm" id="variant-next" type="button" aria-label="Next layout">→</button>
+    </div>
+
+    <dialog class="prototype-dialog" id="archive-dialog" aria-labelledby="archive-heading">
+        <article class="dialog-content">
+            <header class="dialog-header"><h2 id="archive-heading">Archive Institution</h2><button class="btn btn-ghost btn-sm" type="button" aria-label="Close" data-close-dialog>×</button></header>
+            <p class="dialog-copy">This will archive <strong>Northbridge University</strong>. Archived institutions are no longer available for selection but remain visible in historical data.</p>
+            <p class="notice"><strong>Home institution:</strong> This institution is currently set as the home institution. You must choose a successor; it will become the new home institution.</p>
+            <p class="notice"><strong>Child institutions:</strong> This institution has three children. Without a successor, the children would also be archived. Choosing a successor reparents the children to that successor.</p>
+            <form id="successor-form" method="post" action="/institutions/1/set-successor/" hx-post="/institutions/1/set-successor/" hx-target="closest dialog" hx-swap="outerHTML" data-inert-form>
+                <fieldset class="radio-stack"><legend>Choose archiving option:</legend>
+                    <label class="radio-option" for="radio-create-new"><input type="radio" name="successor_type" value="create_new" id="radio-create-new" checked><span>Create new institution as successor<small>The new institution takes the current parent and affiliation availability.</small></span></label>
+                    <label class="radio-option" for="radio-select-existing"><input type="radio" name="successor_type" value="select_existing" id="radio-select-existing"><span>Select existing institution as successor<small>Move the children under an active institution.</small></span></label>
+                </fieldset>
+                <div class="dialog-field" id="new-name-field"><label for="new_name">New institution name</label><input class="input input-bordered input-sm" type="text" id="new_name" name="new_name" value="Northbridge University successor" placeholder="Enter new institution name"></div>
+                <div class="dialog-field" id="existing-selector-field" hidden><label for="successor_id">Select successor institution</label><select class="select select-bordered select-sm" id="successor_id" name="successor_id"><option value="">-- Select Institution --</option><option value="5">Westland University</option><option value="9">Central Research Consortium</option></select></div>
+                <footer class="dialog-actions"><button class="btn btn-ghost btn-sm" type="button" data-close-dialog>Cancel</button><button class="btn btn-primary btn-sm" type="submit">Archive</button></footer>
+            </form>
+        </article>
+    </dialog>
+
+    <dialog class="prototype-dialog" id="restore-dialog" aria-labelledby="restore-heading">
+        <article class="dialog-content">
+            <header class="dialog-header"><h2 id="restore-heading">Restore Institution</h2><button class="btn btn-ghost btn-sm" type="button" aria-label="Close" data-close-dialog>×</button></header>
+            <p class="dialog-copy">Restore <strong>Tidal Research Station</strong> from the archive. The institution will become available for selection again.</p>
+            <p class="notice"><strong>Archived child:</strong> Coastal Data Observatory is also archived. Choose whether to restore it with the parent or leave it archived.</p>
+            <form id="restore-form" method="post" action="/institutions/7/restore/" hx-post="/institutions/7/restore/" hx-target="closest dialog" hx-swap="outerHTML" data-inert-form>
+                <fieldset class="radio-stack"><legend>Choose restore option:</legend>
+                    <label class="radio-option" for="radio-without-children"><input type="radio" name="restore_type" value="without_children" id="radio-without-children"><span>Restore without children<small>Coastal Data Observatory remains archived.</small></span></label>
+                    <label class="radio-option" for="radio-with-children"><input type="radio" name="restore_type" value="with_children" id="radio-with-children" checked><span>Restore with children<small>Restore the archived child institution in the same action.</small></span></label>
+                </fieldset>
+                <div class="dialog-field" id="parent-selector-field"><label for="new_parent_id">Select parent institution</label><select class="select select-bordered select-sm" id="new_parent_id" name="new_parent_id" aria-describedby="parent-help"><option value="">-- Select Institution --</option><option value="5">Westland University</option><option value="9">Central Research Consortium</option></select><span class="help" id="parent-help">The original parent is missing or archived. Only active institutions are offered.</span></div>
+                <footer class="dialog-actions"><button class="btn btn-ghost btn-sm" type="button" data-close-dialog>Cancel</button><button class="btn btn-success btn-sm" type="submit">Restore</button></footer>
+            </form>
+        </article>
+    </dialog>
+
+    <dialog class="prototype-dialog" id="delete-dialog" aria-labelledby="delete-heading">
+        <article class="dialog-content">
+            <header class="dialog-header"><h2 id="delete-heading">Delete Institution?</h2><button class="btn btn-ghost btn-sm" type="button" aria-label="Close" data-close-dialog>×</button></header>
+            <p class="dialog-copy">Are you sure you want to permanently delete <strong>Northbridge University</strong>? <strong>This action cannot be undone.</strong></p>
+            <div class="delete-reasons"><strong>Cannot delete this institution:</strong><ul><li>3 child institution(s)</li><li>3 author affiliation(s)</li><li>2 identifier(s)/link(s)</li><li>set as home institution in preferences</li></ul></div>
+            <footer class="dialog-actions"><button class="btn btn-ghost btn-sm" type="button" data-close-dialog>Cancel</button><button class="btn btn-error btn-sm" type="button" disabled>Delete</button></footer>
+        </article>
+    </dialog>
+
+    <script>
+        (() => {
+            const variantNames = { tree: "A · Tree workspace", register: "B · Registry + record" };
+            const variants = Object.keys(variantNames);
+            const variantName = document.getElementById("variant-name");
+            const directoryToolbar = document.getElementById("directory-toolbar");
+            const editorScreen = document.getElementById("editor-screen");
+            const importScreen = document.getElementById("import-screen");
+            const editorHeading = document.getElementById("editor-heading");
+            const institutionForm = document.getElementById("institution-form");
+            const searchInput = document.getElementById("id-query");
+            const includeArchivedInput = document.getElementById("id-include-archived");
+            let activeVariant = new URLSearchParams(location.search).get("variant");
+            let activeRecord = "home";
+            let activeTreeNodeId = "1";
+            searchInput.value = new URLSearchParams(location.search).get("query") || "";
+            if (!variants.includes(activeVariant)) activeVariant = "tree";
+
+            function applyInstitutionSearch() {
+                const query = searchInput.value.trim().toLocaleLowerCase();
+                const includeArchived = includeArchivedInput.checked;
+                const nodes = Array.from(document.querySelectorAll('[data-variant-root="tree"] [data-tree-node]'));
+                const nodeById = new Map(nodes.map((node) => [node.dataset.nodeId, node]));
+                const matches = new Set(nodes.filter((node) => {
+                    const isAllowed = includeArchived || node.dataset.archived !== "true";
+                    return isAllowed && node.dataset.nodeName.toLocaleLowerCase().includes(query);
+                }).map((node) => node.dataset.nodeId));
+                const visible = new Set(matches);
+
+                matches.forEach((id) => {
+                    let parent = nodeById.get(id);
+                    let parentId = parent?.dataset.parentId;
+                    while (parentId) {
+                        visible.add(parentId);
+                        parent = nodeById.get(parentId);
+                        parentId = parent?.dataset.parentId;
+                    }
+                });
+
+                nodes.forEach((node) => {
+                    const id = node.dataset.nodeId;
+                    const included = visible.has(id);
+                    const matched = matches.has(id);
+                    const context = included && !matched;
+                    node.hidden = !included;
+                    const row = node.querySelector(":scope > .tree-row");
+                    row?.classList.toggle("is-match", Boolean(query) && matched);
+                    row?.classList.toggle("is-context", context);
+                    const contextLabel = row?.querySelector("[data-context-label]");
+                    if (contextLabel) {
+                        contextLabel.hidden = !context;
+                        contextLabel.textContent = node.dataset.archived === "true" ? "Archived context" : "Context";
+                    }
+                    const group = node.querySelector(':scope > ul[role="group"]');
+                    if (group) group.hidden = !Array.from(group.children).some((child) => visible.has(child.dataset.nodeId));
+                });
+
+                const contextCount = visible.size - matches.size;
+                const summary = document.getElementById("tree-search-summary");
+                const emptyState = document.getElementById("tree-search-empty");
+                const treeList = document.querySelector('[data-variant-root="tree"] .tree-list');
+                const archiveCount = nodes.filter((node) => node.dataset.archived === "true").length;
+                const activeCount = nodes.length - archiveCount;
+                if (query) {
+                    const matchLabel = `${matches.size} matching institution${matches.size === 1 ? "" : "s"}`;
+                    const contextLabel = `${contextCount} ancestor${contextCount === 1 ? "" : "s"} shown as context`;
+                    summary.textContent = contextCount ? `${matchLabel} · ${contextLabel}` : matchLabel;
+                } else {
+                    summary.textContent = includeArchived ? `${activeCount} active · ${archiveCount} archived` : `${activeCount} active institutions`;
+                }
+                emptyState.hidden = matches.size > 0;
+                treeList.hidden = matches.size === 0;
+
+                if (matches.size > 0 && !matches.has(activeTreeNodeId)) {
+                    const firstMatch = nodes.find((node) => matches.has(node.dataset.nodeId));
+                    const firstButton = firstMatch?.querySelector(":scope > .tree-row [data-open-record]");
+                    if (firstButton) openRecord(firstButton.dataset.openRecord, false, firstButton);
+                }
+
+                document.querySelectorAll('[data-variant-root="register"] [data-institution-name]').forEach((row) => {
+                    const nameMatches = row.dataset.institutionName.toLocaleLowerCase().includes(query);
+                    const archiveMatches = includeArchived || row.dataset.archived !== "true";
+                    row.hidden = !nameMatches || !archiveMatches;
+                });
+            }
+
+            function updateChildRecord(data) {
+                const values = {
+                    name: data.childName,
+                    id: data.childId,
+                    parent: data.childParent,
+                    affiliation: data.childAffiliation,
+                    status: data.childStatus,
+                    children: data.childChildren,
+                };
+                const outputSelectors = {
+                    name: "[data-child-name-output]",
+                    id: "[data-child-id-output]",
+                    parent: "[data-child-parent-output]",
+                    affiliation: "[data-child-affiliation-output]",
+                    status: "[data-child-status-output]",
+                    children: "[data-child-children-output]",
+                };
+                Object.entries(outputSelectors).forEach(([key, selector]) => {
+                    document.querySelectorAll(selector).forEach((element) => {
+                        element.textContent = values[key] || "—";
+                    });
+                });
+                const archived = values.status === "Archived";
+                document.querySelectorAll("[data-child-status-badge]").forEach((badge) => {
+                    badge.textContent = values.status || "Active";
+                    badge.classList.toggle("badge-error", archived);
+                    badge.classList.toggle("badge-success", !archived);
+                });
+                document.querySelectorAll("[data-child-affiliation-output].badge").forEach((badge) => {
+                    const unavailable = archived || values.affiliation?.startsWith("Not available") || values.affiliation === "Unavailable";
+                    badge.classList.toggle("badge-warning", !archived && unavailable);
+                    badge.classList.toggle("badge-error", archived);
+                    badge.classList.toggle("badge-success", !unavailable);
+                });
+            }
+
+            function setVariant(next, updateUrl = true) {
+                activeVariant = variants.includes(next) ? next : "tree";
+                document.querySelectorAll("[data-variant-root]").forEach((root) => {
+                    root.hidden = root.dataset.variantRoot !== activeVariant;
+                    if (!root.hidden) setScreen("directory", root);
+                });
+                variantName.textContent = variantNames[activeVariant];
+                if (updateUrl) {
+                    const url = new URL(location.href);
+                    url.searchParams.set("variant", activeVariant);
+                    history.replaceState(null, "", url);
+                }
+                setAppScreen("directory");
+                updateRecordPanels();
+                applyInstitutionSearch();
+            }
+
+            function setScreen(screen, root = document.querySelector(`[data-variant-root="${activeVariant}"]`)) {
+                if (!root) return;
+                root.dataset.screen = screen;
+                root.querySelectorAll("[data-screen-view]").forEach((view) => {
+                    view.hidden = view.dataset.screenView !== screen;
+                });
+                setAppScreen(screen === "directory" ? "directory" : "variant-detail");
+            }
+
+            function setAppScreen(screen) {
+                document.body.dataset.appScreen = screen;
+                directoryToolbar.hidden = screen !== "directory";
+                const showVariant = screen === "directory" || screen === "variant-detail";
+                document.querySelectorAll("[data-variant-root]").forEach((root) => {
+                    if (root.dataset.variantRoot === activeVariant) root.hidden = !showVariant;
+                });
+                editorScreen.hidden = screen !== "edit";
+                importScreen.hidden = screen !== "import";
+            }
+
+            function updateRecordPanels() {
+                document.querySelectorAll("[data-record-panel]").forEach((panel) => {
+                    panel.hidden = panel.dataset.recordPanel !== activeRecord;
+                });
+            }
+
+            function openRecord(record, openDetail = false, source = null) {
+                const recordElement = source?.closest("[data-child-name]") || source;
+                if (record === "child" && recordElement) updateChildRecord(recordElement.dataset);
+                activeRecord = record;
+                const treeNode = source?.closest("[data-tree-node]");
+                if (treeNode) activeTreeNodeId = treeNode.dataset.nodeId;
+                else if (record === "home") activeTreeNodeId = "1";
+                else if (record === "archived") activeTreeNodeId = "7";
+                else if (recordElement?.dataset.childName) {
+                    const matchingNode = Array.from(document.querySelectorAll('[data-variant-root="tree"] [data-tree-node]')).find((node) => node.dataset.nodeName === recordElement.dataset.childName);
+                    if (matchingNode) activeTreeNodeId = matchingNode.dataset.nodeId;
+                }
+                document.querySelectorAll('[data-variant-root="tree"] [data-tree-node]').forEach((node) => {
+                    node.querySelector(":scope > .tree-row")?.classList.toggle("is-selected", node.dataset.nodeId === activeTreeNodeId);
+                });
+                updateRecordPanels();
+                if (openDetail) setScreen("detail");
+            }
+
+            function openForm(mode) {
+                editorHeading.textContent = mode === "new" ? "New Institution" : "Edit Institution";
+                institutionForm.action = mode === "new" ? "/institutions/create/" : "/institutions/1/edit/";
+                document.getElementById("id_name").value = mode === "new" ? "" : "Northbridge University";
+                document.getElementById("id_internal_id").value = mode === "new" ? "" : "NB-001";
+                setAppScreen("edit");
+            }
+
+            function openDialog(id) {
+                const dialog = document.getElementById(id);
+                if (dialog && !dialog.open) dialog.showModal();
+            }
+
+            document.addEventListener("click", (event) => {
+                const target = event.target.closest("button, a");
+                if (!target) return;
+                if (target.dataset.screenTarget) {
+                    setScreen(target.dataset.screenTarget);
+                    return;
+                }
+                if (target.dataset.openScreen === "import") {
+                    setAppScreen("import");
+                    return;
+                }
+                if (target.dataset.openForm) {
+                    openForm(target.dataset.openForm);
+                    return;
+                }
+                if (target.dataset.openDialog) {
+                    event.preventDefault();
+                    openDialog(target.dataset.openDialog);
+                    return;
+                }
+                if (target.hasAttribute("data-close-dialog")) {
+                    target.closest("dialog")?.close();
+                    return;
+                }
+                if (target.dataset.openRecord) {
+                    event.preventDefault();
+                    openRecord(target.dataset.openRecord, target.dataset.openDetail === "true", target);
+                    return;
+                }
+                if (target.dataset.detailTab) {
+                    const root = target.closest("[data-variant-root]");
+                    root?.querySelectorAll("[data-detail-tab]").forEach((tab) => {
+                        const selected = tab.dataset.detailTab === target.dataset.detailTab;
+                        tab.setAttribute("aria-pressed", String(selected));
+                        tab.setAttribute("aria-selected", String(selected));
+                    });
+                    root?.querySelectorAll("[data-detail-panel]").forEach((panel) => {
+                        panel.hidden = panel.dataset.detailPanel !== target.dataset.detailTab;
+                    });
+                }
+            });
+
+            document.querySelectorAll("form[data-inert-form]").forEach((form) => {
+                form.addEventListener("submit", (event) => event.preventDefault());
+            });
+            searchInput.addEventListener("input", () => {
+                const url = new URL(location.href);
+                const query = searchInput.value.trim();
+                if (query) url.searchParams.set("query", query);
+                else url.searchParams.delete("query");
+                history.replaceState(null, "", url);
+                applyInstitutionSearch();
+            });
+            includeArchivedInput.addEventListener("change", (event) => {
+                event.currentTarget.setAttribute("aria-checked", String(event.currentTarget.checked));
+                applyInstitutionSearch();
+            });
+            document.querySelectorAll('input[name="successor_type"]').forEach((radio) => {
+                radio.addEventListener("change", () => {
+                    const createNew = document.getElementById("radio-create-new").checked;
+                    document.getElementById("new-name-field").hidden = !createNew;
+                    document.getElementById("existing-selector-field").hidden = createNew;
+                });
+            });
+            document.getElementById("variant-prev").addEventListener("click", () => {
+                setVariant(variants[(variants.indexOf(activeVariant) + variants.length - 1) % variants.length]);
+            });
+            document.getElementById("variant-next").addEventListener("click", () => {
+                setVariant(variants[(variants.indexOf(activeVariant) + 1) % variants.length]);
+            });
+            document.addEventListener("keydown", (event) => {
+                if (event.target.matches("input, textarea, select, [contenteditable='true']") || document.querySelector("dialog[open]")) return;
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    const step = event.key === "ArrowRight" ? 1 : -1;
+                    setVariant(variants[(variants.indexOf(activeVariant) + step + variants.length) % variants.length]);
+                }
+            });
+            document.getElementById("theme-toggle").addEventListener("click", (event) => {
+                const dark = document.documentElement.dataset.theme !== "dark";
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+                event.currentTarget.setAttribute("aria-pressed", String(dark));
+                event.currentTarget.textContent = dark ? "Use light theme" : "Use dark theme";
+            });
+            setVariant(activeVariant, false);
+        })();
+    </script>
+</body>
+</html>
