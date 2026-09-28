@@ -524,3 +524,47 @@ def test__invoice_list_view__bad_contract_year_param__is_ignored_by_filter(
     invoice_ids = [item.id for item in response.context["entities"]]
     assert invoice1.id in invoice_ids
     assert invoice2.id in invoice_ids
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ("param", "value"),
+    [
+        ("payment_status", "bogus"),
+        ("funding_source", "abc"),
+        ("contract_name", "abc"),
+    ],
+)
+def test__invoice_list_view__unparsable_filter_param__is_ignored_by_filter(
+    client: Client, param: str, value: str
+) -> None:
+    """A value the filter cannot parse narrows nothing instead of failing the request."""
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+
+    invoice1 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice1.id = invoice_service.save(invoice1)
+    invoice2 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice2.id = invoice_service.save(invoice2)
+
+    response = client.get("/invoices/list/", {param: value})
+
+    assert response.status_code == 200
+    invoice_ids = [item.id for item in response.context["entities"]]
+    assert invoice1.id in invoice_ids
+    assert invoice2.id in invoice_ids
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_list_view__has_errors_false__does_not_enable_the_filter(client: Client) -> None:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice.id = invoice_service.save(invoice)
+
+    response = client.get("/invoices/list/", {"has_errors": "false"})
+
+    assert response.status_code == 200
+    assert invoice.id in [item.id for item in response.context["entities"]]

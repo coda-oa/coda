@@ -11,6 +11,7 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm, payment_status_choices
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
@@ -19,28 +20,13 @@ from coda.apps.listfilters import (
     ChipBuilder,
     FilterSummary,
     ListRegionMixin,
-    parse_date_filter,
+    valid_fields,
 )
 from coda.apps.views import EntityListView
-from coda.coda_itertools import map_or_none
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
-
-_payment_status_map = {
-    "paid": fq.PaymentStatus.Paid,
-    "unpaid": fq.PaymentStatus.Unpaid,
-    "invoice_received": fq.PaymentStatus.InvoiceReceived,
-    "covered_by_contract": fq.PaymentStatus.CoveredByContract,
-}
-
-_payment_status_choices = [
-    ("paid", "Paid"),
-    ("unpaid", "Unpaid"),
-    ("invoice_received", "Invoice Received"),
-    ("covered_by_contract", "Covered by Contract"),
-]
 
 _publication_state_choices = [
     ("Published", "Published"),
@@ -84,7 +70,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "label_pills": build_label_pills(self.request, labels),
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
-            "payment_status_choices": _payment_status_choices,
+            "payment_status_choices": payment_status_choices,
             "publication_types": publication_types,
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
@@ -111,37 +97,27 @@ fundingrequest_list_region = FundingRequestListRegionView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    review_results = [ReviewResult(rr) for rr in request.GET.getlist("processing_status")]
-    open_access_types = [OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")]
-    requested_payment_statuses = [
-        _payment_status_map[status] for status in request.GET.getlist("payment_status")
-    ]
-    payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
-    show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
-    publication_states = request.GET.getlist("publication_states")
-    publication_type = request.GET.get("publication_type") or None
-    sort_order = fq.SortOrder.try_parse(request.GET.get("sort_by"))
+    cleaned = valid_fields(FundingRequestListFilterForm(request.GET))
 
     params = fq.FundingRequestSearchParams(
-        date_range=parse_date_filter(
-            request, start_key=_DATE_START_KEY, end_key=_DATE_END_KEY
-        ).date_range,
-        review_results=review_results,
-        payment_statuses=requested_payment_statuses,
+        date_range=cleaned.get("date_range"),
+        review_results=cleaned.get("processing_status", []),
+        payment_statuses=cleaned.get("payment_status", []),
         labels=sorted(_label_ids(request.GET.getlist("labels"))),
         exclude_labels=sorted(_label_ids(request.GET.getlist("exclude_labels"))),
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=fq.PublicationEntityType.try_parse(publication_type),
-        search_term=request.GET.get("search_term", "").strip(),
-        contract_id=map_or_none(int, request.GET.get("contract_name")),
-        contract_year=map_or_none(int, request.GET.get("contract_year")),
-        show_invalid_contract_years=show_invalid_contract_years,
+        payment_methods=cleaned.get("payment_methods", []),
+        open_access_types=cleaned.get("open_access_type", []),
+        publication_states=request.GET.getlist("publication_states"),
+        entity_type=cleaned.get("publication_type") or fq.PublicationEntityType.All,
+        search_term=cleaned.get("search_term", ""),
+        contract_id=cleaned.get("contract_name"),
+        contract_year=cleaned.get("contract_year"),
+        show_invalid_contract_years=bool(cleaned.get("invalid_contract_years")),
     )
-
-    criteria = fq.build_criteria(params)
-    return fq.search(*criteria, sort_order=sort_order)
+    return fq.search(
+        *fq.build_criteria(params),
+        sort_order=fq.SortOrder.try_parse(cleaned.get("sort_by") or None),
+    )
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -229,7 +205,7 @@ def build_filter_summary(
         region_url_name=_LIST_REGION_URL,
     )
     chips.multi("processing_status")
-    chips.multi("payment_status", labels=dict(_payment_status_choices))
+    chips.multi("payment_status", labels=dict(payment_status_choices))
     chips.multi("payment_methods")
     chips.multi("open_access_type")
 

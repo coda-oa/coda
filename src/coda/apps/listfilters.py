@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from django import forms
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
 from django.views.generic import TemplateView
@@ -37,6 +38,17 @@ class ListRegionMixin(TemplateView):
         return path
 
 
+def valid_fields(form: forms.Form) -> dict[str, Any]:
+    """The bound form's cleaned fields, minus any the form rejected.
+
+    Cleaning runs per field, so valid fields land in ``cleaned_data`` even when
+    others fail; callers drop just the rejected field's effect instead of failing
+    the whole request.
+    """
+    form.is_valid()
+    return {name: value for name, value in form.cleaned_data.items() if name not in form.errors}
+
+
 @dataclass(frozen=True)
 class DateFilter:
     """The sidebar's date-range filter: the range to apply, or why it is dropped."""
@@ -45,14 +57,12 @@ class DateFilter:
     error: str | None
 
 
-def parse_date_filter(request: HttpRequest, *, start_key: str, end_key: str) -> DateFilter:
-    """Read the sidebar's two date params into a range, or one line of error copy."""
-    raw_start = (request.GET.get(start_key) or "").strip()
-    raw_end = (request.GET.get(end_key) or "").strip()
-    if not raw_start and not raw_end:
+def parse_date_range(start: str, end: str) -> DateFilter:
+    """Read two raw date params into a range, or one line of error copy."""
+    if not start and not end:
         return DateFilter(date_range=None, error=None)
     try:
-        date_range = DateRange.from_iso(start=raw_start, end=raw_end)
+        date_range = DateRange.from_iso(start=start, end=end)
     except (InvalidDateError, InvalidDateRangeError) as error:
         return DateFilter(date_range=None, error=str(error))
     return DateFilter(date_range=date_range, error=None)
@@ -182,7 +192,10 @@ class ChipBuilder:
         A parse failure contributes no chip and records one error against both date
         controls instead — both inputs are invalid, and today's markup marks both.
         """
-        parsed = parse_date_filter(self._request, start_key=start_key, end_key=end_key)
+        parsed = parse_date_range(
+            (self._request.GET.get(start_key) or "").strip(),
+            (self._request.GET.get(end_key) or "").strip(),
+        )
         self.error(parsed.error, start_source_id, end_source_id)
         if parsed.date_range is None:
             return

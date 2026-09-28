@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from coda.apps import fields
 from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
+from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
     FundingRequest,
@@ -20,11 +21,15 @@ from coda.apps.fundingrequests.models import (
 )
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+from coda.apps.listfilters import parse_date_range
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.widgets import SearchSelectWidget
 from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication import OpenAccessType
 
 
 class ExtraContactForm(CodaFormBase):
@@ -157,9 +162,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
-                organization_queryset
-            )
+            cast(
+                ModelChoiceField[FundingOrganization], self.fields["organization"]
+            ).queryset = organization_queryset
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -319,3 +324,59 @@ def include_inactive_contracts(request: HttpRequest) -> HttpResponse:
             "contract_formset": contract_formset,
         },
     )
+
+
+payment_status_choices = [
+    (status.value, status.value.replace("_", " ").title()) for status in fq.PaymentStatus
+]
+
+
+class FundingRequestListFilterForm(forms.Form):
+    """Validation for the list sidebar's GET params; field names match the filter widgets.
+
+    A value that fails validation lands in ``form.errors`` and its criterion is
+    dropped; the raw param stays in the URL so its chip keeps it removable.
+    """
+
+    search_term = forms.CharField(required=False)
+    processing_status = forms.TypedMultipleChoiceField(
+        coerce=ReviewResult,
+        choices=[(result.value, result.value) for result in ReviewResult],
+        required=False,
+    )
+    payment_status = forms.TypedMultipleChoiceField(
+        coerce=fq.PaymentStatus,
+        choices=payment_status_choices,
+        required=False,
+    )
+    payment_methods = forms.TypedMultipleChoiceField(
+        coerce=PaymentMethod,
+        choices=[(method.value, method.value) for method in PaymentMethod],
+        required=False,
+    )
+    open_access_type = forms.TypedMultipleChoiceField(
+        coerce=OpenAccessType,
+        choices=[(access_type.value, access_type.value) for access_type in OpenAccessType],
+        required=False,
+    )
+    publication_type = forms.TypedChoiceField(
+        coerce=fq.PublicationEntityType,
+        choices=[(entity.value, entity.value) for entity in fq.PublicationEntityType],
+        required=False,
+    )
+    contract_name = forms.IntegerField(required=False)
+    contract_year = forms.IntegerField(required=False)
+    invalid_contract_years = forms.BooleanField(required=False)
+    sort_by = forms.ChoiceField(
+        choices=[(member.name, member.name) for member in fq.SortOrder],
+        required=False,
+    )
+    start_date = forms.CharField(required=False)
+    end_date = forms.CharField(required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        cleaned["date_range"] = parse_date_range(
+            cleaned.get("start_date", ""), cleaned.get("end_date", "")
+        ).date_range
+        return cleaned

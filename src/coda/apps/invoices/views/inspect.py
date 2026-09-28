@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,6 +13,7 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
+from coda.apps.invoices.forms import InvoiceListFilterForm
 from coda.apps.invoices.mappers import InvoiceDetailMapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
 from coda.apps.invoices.models import FundingSource
@@ -26,7 +27,7 @@ from coda.apps.listfilters import (
     ChipBuilder,
     FilterSummary,
     ListRegionMixin,
-    parse_date_filter,
+    valid_fields,
 )
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
@@ -46,43 +47,30 @@ _DATE_START_KEY = "date_start"
 _DATE_END_KEY = "date_end"
 
 
-def _contract_year_criterion(param: str, request: HttpRequest) -> iq.InvoiceSearchCriterion | None:
-    try:
-        year = int(param)
-    except ValueError:
-        return None
-    return iq.ContractYearCriterion(year, request.GET.get("contract_positions_only") == "true")
-
-
-_query_params_to_criteria: dict[
-    str, Callable[[str, HttpRequest], iq.InvoiceSearchCriterion | None]
-] = {
-    "search_term": lambda param, _: iq.GenericSearchCriterion(param),
-    "funding_source": lambda param, _: iq.FundingSourceCriterion(FundingSourceId(int(param))),
-    "contract_name": lambda param, request: iq.ContractCriterion(
-        param, request.GET.get("contract_positions_only") == "true"
-    ),
-    "contract_year": _contract_year_criterion,
-    "has_external_id": lambda *_: iq.MissingExternalIdCriterion(),
-    "has_foreign_currency": lambda *_: iq.MissingCurrencyConversionCriterion(
-        GlobalPreferences.get_home_currency()
-    ),
-    "has_errors": lambda *_: iq.HasErrorsCriterion(),
-    "payment_status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
-}
-
-
 def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
-    query = []
-    for param_name, get_query in _query_params_to_criteria.items():
-        if param := request.GET.get(param_name):
-            criterion = get_query(param, request)
-            if criterion is not None:
-                query.append(criterion)
+    cleaned = valid_fields(InvoiceListFilterForm(request.GET))
+    positions_only = bool(cleaned.get("contract_positions_only"))
 
-    date_filter = parse_date_filter(request, start_key=_DATE_START_KEY, end_key=_DATE_END_KEY)
-    if date_filter.date_range is not None:
-        query.append(iq.DateRangeCriterion(date_filter.date_range))
+    query: list[iq.InvoiceSearchCriterion] = []
+    if search_term := cleaned.get("search_term"):
+        query.append(iq.GenericSearchCriterion(search_term))
+    if funding_source := cleaned.get("funding_source"):
+        query.append(iq.FundingSourceCriterion(FundingSourceId(funding_source)))
+    if contract := cleaned.get("contract_name"):
+        query.append(iq.ContractCriterion(contract, positions_only))
+    if year := cleaned.get("contract_year"):
+        query.append(iq.ContractYearCriterion(year, positions_only))
+    if cleaned.get("has_external_id"):
+        query.append(iq.MissingExternalIdCriterion())
+    if cleaned.get("has_foreign_currency"):
+        query.append(iq.MissingCurrencyConversionCriterion(GlobalPreferences.get_home_currency()))
+    if cleaned.get("has_errors"):
+        query.append(iq.HasErrorsCriterion())
+    if payment_status := cleaned.get("payment_status"):
+        query.append(iq.PaymentStatusCriterion(payment_status))
+
+    if date_range := cleaned.get("date_range"):
+        query.append(iq.DateRangeCriterion(date_range))
 
     return query
 

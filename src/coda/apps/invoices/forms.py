@@ -1,8 +1,10 @@
-from typing import Self
+from typing import Any, Self
+
 from django import forms
 
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.listfilters import parse_date_range
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from coda.domain.money import Currency
@@ -66,3 +68,32 @@ class FundingSourceForm(forms.ModelForm[FundingSource]):
     class Meta:
         model = FundingSource
         fields = ["name"]
+
+
+class InvoiceListFilterForm(forms.Form):
+    """Validation for the list sidebar's GET params; field names match the filter widgets.
+
+    A value that fails validation lands in ``form.errors`` and its criterion is
+    dropped; the raw param stays in the URL so its chip keeps it removable.
+    """
+
+    search_term = forms.CharField(required=False)
+    funding_source = forms.IntegerField(required=False)
+    contract_name = forms.IntegerField(required=False)
+    contract_year = forms.IntegerField(required=False)
+    contract_positions_only = forms.BooleanField(required=False)
+    has_external_id = forms.BooleanField(required=False)
+    has_foreign_currency = forms.BooleanField(required=False)
+    has_errors = forms.BooleanField(required=False)
+    payment_status = forms.TypedChoiceField(
+        coerce=PaymentStatus, choices=PaymentStatus.choices(), required=False
+    )
+    date_start = forms.CharField(required=False)
+    date_end = forms.CharField(required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        cleaned["date_range"] = parse_date_range(
+            cleaned.get("date_start", ""), cleaned.get("date_end", "")
+        ).date_range
+        return cleaned
