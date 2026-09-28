@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>CODA — Contract administration (prototype)</title>
+        <meta name="description"
+              content="Static DaisyUI prototype for CODA contract administration layouts.">
+        <meta name="keywords" content="CODA, contracts, DaisyUI, prototype">
+        <!--
+      Ticket: .scratch/daisyui-django-template-migration/issues/11-prototype-contract-administration.md
+      Two contract detail/edit hierarchies: ?variant=terms and ?variant=board.
+      DaisyUI CDN and sample data are preview-only. Form submissions and HTMX requests are inert.
+    -->
+        <link rel="stylesheet"
+              href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+        <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #ffffff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #ffffff;
+            --color-neutral: #253248;
+            --color-neutral-content: #f5f7fa;
+            --color-success: #28794b;
+            --color-success-content: #ffffff;
+            --color-warning: #a56709;
+            --color-warning-content: #ffffff;
+            --color-error: #b42318;
+            --color-error-content: #ffffff;
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-neutral: #202a38;
+            --color-neutral-content: #f5f7fa;
+            --color-success: #65bf88;
+            --color-success-content: #102418;
+            --color-warning: #f2bc67;
+            --color-warning-content: #281a08;
+            --color-error: #f08a82;
+            --color-error-content: #22100f;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding-bottom: 5rem;
+            background: var(--color-base-200);
+            color: var(--color-base-content);
+            font-family: Montserrat, system-ui, sans-serif;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        a { color: var(--color-primary); }
+        .topbar {
+            min-height: 3.7rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0 clamp(1rem, 4vw, 3rem);
+            background: var(--color-base-100);
+            border-bottom: 1px solid var(--color-base-300);
+        }
+        .brand { color: var(--color-primary); font-size: 1.05rem; font-weight: 750; letter-spacing: -0.04em; text-decoration: none; }
+        .topbar nav { display: flex; gap: 1.2rem; color: color-mix(in oklab, var(--color-base-content) 66%, transparent); font-size: 0.82rem; }
+        .prototype-label { margin-left: auto; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.7rem; }
+        .page { width: min(1380px, calc(100% - 2.5rem)); margin: 0 auto; }
+        .breadcrumbs { padding: 1rem 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.76rem; }
+        .page-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.85rem; }
+        .page-titlebar h1 { margin: 0; font-size: clamp(1.45rem, 2.1vw, 1.9rem); font-weight: 650; letter-spacing: -0.035em; }
+        .page-titlebar p { margin: 0.25rem 0 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.78rem; }
+        .prototype-note { margin: 0 0 1rem; padding: 0.65rem 0.8rem; border-left: 3px solid var(--color-primary); background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 68%, transparent); font-size: 0.72rem; }
+        .directory-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+        .filter-tools { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+        .search-field { width: min(27rem, 100%); }
+        .search-field .input { width: 100%; }
+        .action-tools, .inline-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem; }
+        .surface { border: 1px solid var(--color-base-300); border-radius: 0.55rem; background: var(--color-base-100); }
+        .directory-wrap { overflow-x: auto; }
+        .contract-table { width: 100%; min-width: 830px; border-collapse: collapse; font-size: 0.72rem; }
+        .contract-table th, .contract-table td { padding: 0.68rem 0.72rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: middle; }
+        .contract-table th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.64rem; font-weight: 650; }
+        .contract-table tr:last-child td { border-bottom: 0; }
+        .contract-name { display: block; color: var(--color-base-content); font-size: 0.76rem; font-weight: 650; }
+        .contract-id { display: block; margin-top: 0.12rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.63rem; }
+        .contract-status { display: inline-flex; align-items: center; gap: 0.32rem; white-space: nowrap; }
+        .status-dot { width: 0.48rem; height: 0.48rem; border-radius: 50%; background: var(--color-success); }
+        .status-dot.inactive { background: var(--color-error); }
+        .variant-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.8rem; }
+        .variant-heading p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.74rem; }
+        .variant-heading strong { font-size: 0.82rem; }
+        .surface-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.82rem 0.95rem; border-bottom: 1px solid var(--color-base-300); }
+        .surface-header h2, .surface-header h3 { margin: 0; font-size: 0.88rem; font-weight: 650; }
+        .surface-header p { margin: 0.15rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.68rem; }
+        .eyebrow { margin: 0 0 0.22rem; color: color-mix(in oklab, var(--color-base-content) 54%, transparent); font-size: 0.63rem; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; }
+        .badge { font-size: 0.64rem; font-weight: 650; }
+        .status-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+        .record-titlebar { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.05rem; border-bottom: 1px solid var(--color-base-300); }
+        .record-titlebar h2 { margin: 0; font-size: 1.18rem; font-weight: 680; letter-spacing: -0.025em; }
+        .record-titlebar p { margin: 0.25rem 0 0; color: color-mix(in oklab, var(--color-base-content) 61%, transparent); font-size: 0.72rem; }
+        .back-link { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--color-primary); font-size: 0.72rem; font-weight: 600; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .terms-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--color-base-300); }
+        .fact-card { min-width: 0; padding: 0.68rem 0.75rem; border: 1px solid var(--color-base-300); border-radius: 0.42rem; background: color-mix(in oklab, var(--color-base-200) 70%, transparent); }
+        .fact-label { display: block; margin-bottom: 0.22rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.63rem; }
+        .fact-value { display: block; overflow-wrap: anywhere; font-size: 0.76rem; font-weight: 620; }
+        .detail-stack { display: grid; gap: 0.72rem; padding: 0.8rem; }
+        .detail-section { overflow: hidden; }
+        .section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.68rem 0.82rem; border-bottom: 1px solid var(--color-base-300); }
+        .section-head h3 { margin: 0; font-size: 0.81rem; }
+        .section-head span { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.65rem; }
+        .section-body { padding: 0.75rem 0.85rem; }
+        .section-body p { margin: 0.25rem 0; font-size: 0.72rem; }
+        .identifier-table, .compact-table { width: 100%; border-collapse: collapse; font-size: 0.69rem; }
+        .identifier-table th, .identifier-table td, .compact-table th, .compact-table td { padding: 0.48rem 0.55rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: top; }
+        .identifier-table th, .compact-table th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.62rem; font-weight: 650; }
+        .identifier-table tr:last-child td, .compact-table tr:last-child td { border-bottom: 0; }
+        .no-identifiers { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.72rem; font-style: italic; }
+        .entity-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; padding: 0.7rem; }
+        .entity-chip { display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; padding: 0.6rem 0.7rem; border: 1px solid var(--color-base-300); border-radius: 0.4rem; background: var(--color-base-100); }
+        .entity-mark { width: 0.42rem; height: 0.42rem; flex: 0 0 auto; margin-top: 0.25rem; border-radius: 50%; background: var(--color-primary); }
+        .entity-chip strong { display: block; font-size: 0.7rem; font-weight: 620; }
+        .entity-chip small { display: block; margin-top: 0.1rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.62rem; }
+        .terms-relationships { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.72rem; }
+        .board-layout { display: grid; grid-template-columns: minmax(14rem, 0.68fr) minmax(0, 1.65fr); gap: 0.75rem; padding: 0.8rem; align-items: start; }
+        .board-rail { display: grid; gap: 0.65rem; }
+        .board-main { display: grid; gap: 0.65rem; }
+        .board-fact { padding: 0.75rem 0.85rem; }
+        .board-fact h3 { margin: 0 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.65rem; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; }
+        .board-fact strong { display: block; font-size: 0.82rem; }
+        .board-fact p { margin: 0.22rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.68rem; }
+        .board-entity-section { overflow: hidden; }
+        .board-entity-section .entity-list { grid-template-columns: minmax(0, 1fr); }
+        .editor-screen { max-width: 1180px; margin: 0 auto; }
+        .editor-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin: 0 0 0.9rem; }
+        .editor-header h2 { margin: 0; font-size: 1.2rem; }
+        .editor-header p { margin: 0.22rem 0 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.72rem; }
+        .editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "terms terms" "identifiers identifiers" "publishers journals" "actions actions"; gap: 0.7rem; }
+        .editor-grid[data-layout="board"] { grid-template-columns: minmax(17rem, 0.76fr) minmax(0, 1.35fr); grid-template-areas: "terms publishers" "identifiers journals" "actions actions"; align-items: start; }
+        .editor-terms { grid-area: terms; }
+        .editor-identifiers { grid-area: identifiers; }
+        .editor-publishers { grid-area: publishers; }
+        .editor-journals { grid-area: journals; }
+        .editor-actions { grid-area: actions; display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.8rem 0; }
+        .editor-card { overflow: hidden; }
+        .editor-card-body { padding: 0.8rem 0.9rem; }
+        .form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+        .field { min-width: 0; }
+        .field label { display: block; margin-bottom: 0.28rem; font-size: 0.68rem; font-weight: 620; }
+        .field .input, .field .select { width: 100%; max-width: none; }
+        .field-help { display: block; margin-top: 0.28rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.62rem; }
+        .billing-definitions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; margin-top: 0.72rem; }
+        .billing-definition { padding: 0.58rem 0.65rem; border: 1px solid var(--color-base-300); border-radius: 0.4rem; font-size: 0.67rem; }
+        .billing-definition strong { display: block; margin-bottom: 0.16rem; }
+        .billing-definition p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.63rem; }
+        .identifier-editor-wrap, .search-results-wrap, .selected-formset-wrap { overflow-x: auto; }
+        .identifier-editor { width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.68rem; }
+        .identifier-editor th, .identifier-editor td { padding: 0.48rem 0.55rem; border-bottom: 1px solid var(--color-base-300); text-align: left; vertical-align: middle; }
+        .identifier-editor th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.62rem; }
+        .identifier-editor .input, .identifier-editor .select { width: 100%; max-width: none; }
+        .identifier-editor td:last-child { width: 6rem; }
+        .identifier-help { padding: 0.45rem 0.7rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.62rem; }
+        .entity-search { display: grid; gap: 0.45rem; padding: 0.75rem 0.8rem; border-bottom: 1px solid var(--color-base-300); }
+        .entity-search legend { padding: 0; font-size: 0.68rem; font-weight: 650; }
+        .entity-search-controls { display: flex; gap: 0.4rem; }
+        .entity-search-controls .input { min-width: 0; flex: 1; }
+        .entity-search-controls .btn { min-height: 2.2rem; height: 2.2rem; font-size: 0.68rem; }
+        .search-results-wrap { max-height: 11rem; border-bottom: 1px solid var(--color-base-300); }
+        .search-results { width: 100%; min-width: 350px; border-collapse: collapse; font-size: 0.67rem; }
+        .search-results th, .search-results td { padding: 0.43rem 0.55rem; border-bottom: 1px solid var(--color-base-300); text-align: left; }
+        .search-results th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.61rem; }
+        .search-results td:last-child { width: 4.5rem; text-align: right; }
+        .search-results .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.45rem; font-size: 0.63rem; }
+        .selected-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.55rem 0.8rem; }
+        .selected-heading h4 { margin: 0; font-size: 0.67rem; }
+        .selected-heading span { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.61rem; }
+        .selected-formset { min-width: 0; border-collapse: collapse; font-size: 0.66rem; }
+        .selected-formset th, .selected-formset td { padding: 0.42rem 0.5rem; border-bottom: 1px solid var(--color-base-300); text-align: left; }
+        .selected-formset th { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.61rem; }
+        .selected-formset .input { width: 100%; min-width: 8rem; max-width: none; }
+        .selected-formset td:last-child { width: 4.5rem; }
+        .selected-formset .btn { min-height: 1.65rem; height: 1.65rem; padding-inline: 0.42rem; font-size: 0.62rem; }
+        .empty-selection { padding: 0.5rem 0.8rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.65rem; font-style: italic; }
+        .variant-switcher { position: fixed; z-index: 100; left: 50%; bottom: 0.75rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.4rem; max-width: calc(100% - 1rem); padding: 0.25rem 0.4rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 28px #0004; }
+        .variant-switcher .btn { min-height: 1.75rem; height: 1.75rem; padding-inline: 0.48rem; border-color: transparent; color: inherit; font-size: 0.68rem; }
+        .variant-name { min-width: 11rem; text-align: center; font-size: 0.68rem; font-weight: 620; }
+        .prototype-dialog { width: min(600px, calc(100% - 1.5rem)); max-width: none; max-height: min(90vh, 820px); overflow: auto; padding: 0; border: 1px solid var(--color-base-300); border-radius: 0.75rem; background: var(--color-base-100); color: var(--color-base-content); box-shadow: 0 24px 80px #0007; }
+        .prototype-dialog::backdrop { background: #0a1424a8; backdrop-filter: blur(2px); }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        @media (max-width: 920px) {
+            .directory-toolbar { align-items: flex-start; flex-direction: column; }
+            .filter-tools, .search-field { width: 100%; }
+            .terms-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .editor-grid[data-layout="board"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+        }
+        @media (max-width: 700px) {
+            .page { width: calc(100% - 1.1rem); }
+            .topbar nav { display: none; }
+            .prototype-label { font-size: 0.62rem; }
+            .page-titlebar, .record-titlebar, .editor-header { align-items: flex-start; flex-direction: column; }
+            .terms-summary, .terms-relationships, .board-layout { grid-template-columns: minmax(0, 1fr); }
+            .board-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .editor-grid, .editor-grid[data-layout="board"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "terms" "identifiers" "publishers" "journals" "actions"; }
+            .variant-switcher { bottom: 0.5rem; }
+            .variant-name { min-width: 0; }
+        }
+        @media (max-width: 460px) {
+            .action-tools { width: 100%; }
+            .action-tools .btn { flex: 1; }
+            .form-fields, .billing-definitions, .entity-list { grid-template-columns: minmax(0, 1fr); }
+            .variant-switcher .btn { padding-inline: 0.35rem; }
+            .variant-name { font-size: 0.62rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+        }
+        </style>
+    </head>
+    <body data-screen="directory">
+        <header class="topbar">
+            <a class="brand" href="#" aria-label="CODA home">CODA</a>
+            <nav aria-label="Primary navigation">
+                <span>Administration</span><span>Contracts</span>
+            </nav>
+            <span class="prototype-label">Static prototype · sample data · actions inert</span>
+        </header>
+        <main class="page">
+            <div class="breadcrumbs">Administration&nbsp; / &nbsp;Contracts</div>
+            <header class="page-titlebar">
+                <div>
+                    <h1>Contracts</h1>
+                    <p>Review publication agreements, billing mode, identifiers, and linked publishers and journals.</p>
+                </div>
+                <button class="btn btn-outline btn-sm"
+                        id="theme-toggle"
+                        type="button"
+                        aria-pressed="false">Use dark theme</button>
+            </header>
+            <p class="prototype-note">
+                Compare two contract detail/edit hierarchies against the same sample contracts. Directory, publisher/journal search, and selected entities are included. HTMX attributes and form contracts are represented; static actions do not submit requests.
+            </p>
+            <section id="contract-directory" aria-labelledby="contract-directory-heading">
+                <div class="directory-toolbar">
+                    <form class="filter-tools" method="get" data-inert-form>
+                        <label class="search-field" for="id-query">
+                            <span class="sr-only">Search contracts</span>
+                            <input class="input input-bordered input-sm"
+                                   type="search"
+                                   name="query"
+                                   id="id-query"
+                                   placeholder="Search contracts…">
+                        </label>
+                    </form>
+                    <div class="action-tools">
+                        <button class="btn btn-primary btn-sm" type="button" data-open-editor="new">New contract</button>
+                    </div>
+                </div>
+                <div class="surface directory-wrap">
+                    <table class="contract-table">
+                        <thead>
+                            <tr>
+                                <th>Contract</th>
+                                <th>Status</th>
+                                <th>Publication billing</th>
+                                <th>Contract period</th>
+                                <th>Identifiers</th>
+                                <th>Publishers</th>
+                                <th>Journals</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <span class="contract-name">Northstar University Open Access Agreement</span><span class="contract-id">Contract #101 · Northstar University</span>
+                                </td>
+                                <td>
+                                    <span class="contract-status"><span class="status-dot" aria-hidden="true"></span>Active</span>
+                                </td>
+                                <td>Individually</td>
+                                <td>01 Jan 2026 – 31 Dec 2027</td>
+                                <td>2</td>
+                                <td>1</td>
+                                <td>1</td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm"
+                                            type="button"
+                                            data-open-record="active">View</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="contract-name">Lakeside Research Consortium Agreement</span><span class="contract-id">Contract #202 · Lakeside Research Network</span>
+                                </td>
+                                <td>
+                                    <span class="contract-status"><span class="status-dot inactive" aria-hidden="true"></span>Inactive</span>
+                                </td>
+                                <td>Consolidated</td>
+                                <td>01 Jan 2020 – 31 Dec 2025</td>
+                                <td>0</td>
+                                <td>1</td>
+                                <td>1</td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm"
+                                            type="button"
+                                            data-open-record="inactive">View</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <section id="contract-record-screen" hidden aria-label="Contract details">
+                <section class="contract-variant"
+                         data-layout-root="terms"
+                         aria-label="Terms-first contract detail layout">
+                    <header class="variant-heading">
+                        <p>
+                            <strong>A · Terms first</strong> — identify the agreement and its billing terms before reviewing linked entities.
+                        </p>
+                    </header>
+                    <article class="surface detail-record" data-record-panel="active">
+                        <header class="record-titlebar">
+                            <div>
+                                <p class="eyebrow">Contract · Northstar University</p>
+                                <h2>Northstar University Open Access Agreement</h2>
+                                <div class="status-row">
+                                    <span class="badge badge-success badge-outline">Active</span><span class="badge badge-primary badge-outline">Individually</span>
+                                </div>
+                            </div>
+                            <div class="inline-actions">
+                                <button class="btn btn-outline btn-sm" type="button" data-open-editor="edit">Edit contract</button>
+                                <button class="btn btn-ghost btn-sm" type="button" data-screen="directory">Back to contracts</button>
+                            </div>
+                        </header>
+                        <div class="terms-summary">
+                            <div class="fact-card">
+                                <span class="fact-label">Contract period</span><span class="fact-value">01 Jan 2026 – 31 Dec 2027</span>
+                            </div>
+                            <div class="fact-card">
+                                <span class="fact-label">Publication billing</span><span class="fact-value">Individually</span>
+                            </div>
+                            <div class="fact-card">
+                                <span class="fact-label">Current status</span><span class="fact-value">Active · covers today</span>
+                            </div>
+                        </div>
+                        <div class="detail-stack">
+                            <section class="surface detail-section">
+                                <div class="section-head">
+                                    <h3>Contract identifiers</h3>
+                                    <span>2 assigned</span>
+                                </div>
+                                <div class="section-body">
+                                    <table class="identifier-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Identifier type</th>
+                                                <th>Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>OAI</td>
+                                                <td>
+                                                    <code>oai:northstar.example:contracts/oa-26</code>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>OAI</td>
+                                                <td>
+                                                    <code>oai:northstar.example:contracts/oa-26-extra</code>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                            <div class="terms-relationships">
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Publishers</h3>
+                                        <span>1 linked</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Northstar Academic Press</strong><small>Publisher</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Journals</h3>
+                                        <span>1 linked</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Journal of Open Scholarship</strong><small>Journal</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="surface detail-record" data-record-panel="inactive" hidden>
+                        <header class="record-titlebar">
+                            <div>
+                                <p class="eyebrow">Contract · Lakeside Research Network</p>
+                                <h2>Lakeside Research Consortium Agreement</h2>
+                                <div class="status-row">
+                                    <span class="badge badge-error badge-outline">Inactive</span><span class="badge badge-primary badge-outline">Consolidated</span>
+                                </div>
+                            </div>
+                            <div class="inline-actions">
+                                <button class="btn btn-outline btn-sm" type="button" data-open-editor="edit">Edit contract</button>
+                                <button class="btn btn-ghost btn-sm" type="button" data-screen="directory">Back to contracts</button>
+                            </div>
+                        </header>
+                        <div class="terms-summary">
+                            <div class="fact-card">
+                                <span class="fact-label">Contract period</span><span class="fact-value">01 Jan 2020 – 31 Dec 2025</span>
+                            </div>
+                            <div class="fact-card">
+                                <span class="fact-label">Publication billing</span><span class="fact-value">Consolidated</span>
+                            </div>
+                            <div class="fact-card">
+                                <span class="fact-label">Current status</span><span class="fact-value">Inactive · period ended</span>
+                            </div>
+                        </div>
+                        <div class="detail-stack">
+                            <section class="surface detail-section">
+                                <div class="section-head">
+                                    <h3>Contract identifiers</h3>
+                                    <span>None</span>
+                                </div>
+                                <div class="section-body">
+                                    <p class="no-identifiers">No identifiers assigned.</p>
+                                </div>
+                            </section>
+                            <div class="terms-relationships">
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Publishers</h3>
+                                        <span>1 linked</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Lakeside University Press</strong><small>Publisher</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Journals</h3>
+                                        <span>1 linked</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Regional Research Review</strong><small>Journal</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+                <section class="contract-variant"
+                         data-layout-root="board"
+                         aria-label="Scope-first contract detail layout"
+                         hidden>
+                    <header class="variant-heading">
+                        <p>
+                            <strong>B · Agreement board</strong> — keep the term/status rail visible while publishers and journals lead the detail.
+                        </p>
+                    </header>
+                    <article class="surface board-record" data-record-panel="active">
+                        <header class="record-titlebar">
+                            <div>
+                                <p class="eyebrow">Active agreement · Contract #101</p>
+                                <h2>Northstar University Open Access Agreement</h2>
+                                <p>Northstar University · 01 Jan 2026 – 31 Dec 2027</p>
+                            </div>
+                            <div class="inline-actions">
+                                <button class="btn btn-outline btn-sm" type="button" data-open-editor="edit">Edit contract</button>
+                                <button class="btn btn-ghost btn-sm" type="button" data-screen="directory">Back to contracts</button>
+                            </div>
+                        </header>
+                        <div class="board-layout">
+                            <aside class="board-rail">
+                                <section class="surface board-fact">
+                                    <h3>Status</h3>
+                                    <strong><span class="badge badge-success badge-outline">Active</span></strong>
+                                    <p>Contract period covers today.</p>
+                                </section>
+                                <section class="surface board-fact">
+                                    <h3>Publication billing</h3>
+                                    <strong>Individually</strong>
+                                    <p>Publications appear as individual invoice positions.</p>
+                                </section>
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Identifiers</h3>
+                                        <span>2</span>
+                                    </div>
+                                    <div class="section-body">
+                                        <table class="identifier-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td>OAI</td>
+                                                    <td>
+                                                        <code>oai:northstar.example:contracts/oa-26</code>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>OAI</td>
+                                                    <td>
+                                                        <code>oai:northstar.example:contracts/oa-26-extra</code>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+                            </aside>
+                            <div class="board-main">
+                                <section class="surface board-entity-section">
+                                    <div class="surface-header">
+                                        <div>
+                                            <h2>Publishers</h2>
+                                            <p>Organizations covered by this agreement</p>
+                                        </div>
+                                        <span class="badge badge-outline">1</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Northstar Academic Press</strong><small>Publisher</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section class="surface board-entity-section">
+                                    <div class="surface-header">
+                                        <div>
+                                            <h2>Journals</h2>
+                                            <p>Publication scope</p>
+                                        </div>
+                                        <span class="badge badge-outline">1</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Journal of Open Scholarship</strong><small>Journal</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="surface board-record" data-record-panel="inactive" hidden>
+                        <header class="record-titlebar">
+                            <div>
+                                <p class="eyebrow">Inactive agreement · Contract #202</p>
+                                <h2>Lakeside Research Consortium Agreement</h2>
+                                <p>Lakeside Research Network · 01 Jan 2020 – 31 Dec 2025</p>
+                            </div>
+                            <div class="inline-actions">
+                                <button class="btn btn-outline btn-sm" type="button" data-open-editor="edit">Edit contract</button>
+                                <button class="btn btn-ghost btn-sm" type="button" data-screen="directory">Back to contracts</button>
+                            </div>
+                        </header>
+                        <div class="board-layout">
+                            <aside class="board-rail">
+                                <section class="surface board-fact">
+                                    <h3>Status</h3>
+                                    <strong><span class="badge badge-error badge-outline">Inactive</span></strong>
+                                    <p>Contract period has ended.</p>
+                                </section>
+                                <section class="surface board-fact">
+                                    <h3>Publication billing</h3>
+                                    <strong>Consolidated</strong>
+                                    <p>The contract is invoiced as a whole.</p>
+                                </section>
+                                <section class="surface detail-section">
+                                    <div class="section-head">
+                                        <h3>Identifiers</h3>
+                                        <span>None</span>
+                                    </div>
+                                    <div class="section-body">
+                                        <p class="no-identifiers">No identifiers assigned.</p>
+                                    </div>
+                                </section>
+                            </aside>
+                            <div class="board-main">
+                                <section class="surface board-entity-section">
+                                    <div class="surface-header">
+                                        <div>
+                                            <h2>Publishers</h2>
+                                            <p>Organizations covered by this agreement</p>
+                                        </div>
+                                        <span class="badge badge-outline">1</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Lakeside University Press</strong><small>Publisher</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section class="surface board-entity-section">
+                                    <div class="surface-header">
+                                        <div>
+                                            <h2>Journals</h2>
+                                            <p>Publication scope</p>
+                                        </div>
+                                        <span class="badge badge-outline">1</span>
+                                    </div>
+                                    <div class="entity-list">
+                                        <div class="entity-chip">
+                                            <span class="entity-mark" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>Regional Research Review</strong><small>Journal</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+            </section>
+            <section id="contract-editor-screen"
+                     class="editor-screen"
+                     hidden
+                     aria-labelledby="editor-heading">
+                <header class="editor-header">
+                    <div>
+                        <p class="eyebrow" id="editor-mode-label">Update contract</p>
+                        <h2 id="editor-heading">Northstar University Open Access Agreement</h2>
+                        <p>Contract terms, external identifiers, and selected publishers/journals.</p>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" type="button" data-cancel-editor>Cancel</button>
+                </header>
+                <form id="contract-form"
+                      class="surface editor-form"
+                      action="#"
+                      method="post"
+                      data-inert-form>
+                    <div class="editor-grid" id="editor-grid" data-layout="terms">
+                        <section class="surface editor-card editor-terms">
+                            <div class="surface-header">
+                                <div>
+                                    <h2>Contract terms</h2>
+                                    <p>Name, effective period, and billing policy</p>
+                                </div>
+                            </div>
+                            <div class="editor-card-body">
+                                <div class="form-fields">
+                                    <div class="field field-wide">
+                                        <label for="id_name">Contract name</label>
+                                        <input class="input input-bordered input-sm"
+                                               id="id_name"
+                                               name="name"
+                                               type="text"
+                                               value="Northstar University Open Access Agreement">
+                                    </div>
+                                    <div class="field">
+                                        <label for="id_start_date">Start date</label>
+                                        <input class="input input-bordered input-sm"
+                                               id="id_start_date"
+                                               name="start_date"
+                                               type="date"
+                                               value="2026-01-01">
+                                    </div>
+                                    <div class="field">
+                                        <label for="id_end_date">End date</label>
+                                        <input class="input input-bordered input-sm"
+                                               id="id_end_date"
+                                               name="end_date"
+                                               type="date"
+                                               value="2027-12-31">
+                                    </div>
+                                    <div class="field field-wide">
+                                        <label for="id_publication_billing">Publication billing</label>
+                                        <select class="select select-bordered select-sm"
+                                                id="id_publication_billing"
+                                                name="publication_billing">
+                                            <option value="Individually" selected>Individually</option>
+                                            <option value="Consolidated">Consolidated</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="billing-definitions">
+                                    <div class="billing-definition">
+                                        <strong>Individually</strong>
+                                        <p>Publications appear as individual positions on invoices.</p>
+                                    </div>
+                                    <div class="billing-definition">
+                                        <strong>Consolidated</strong>
+                                        <p>The entire contract is invoiced as a whole instead of individual publications.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="surface editor-card editor-identifiers">
+                            <div class="surface-header">
+                                <div>
+                                    <h2>Contract identifiers</h2>
+                                    <p>External identifiers for this agreement</p>
+                                </div>
+                            </div>
+                            <div class="identifier-editor-wrap">
+                                <table class="identifier-editor">
+                                    <thead>
+                                        <tr>
+                                            <th>Identifier type</th>
+                                            <th>Value</th>
+                                            <th>
+                                                <button class="btn btn-outline btn-xs"
+                                                        type="button"
+                                                        hx-post="/contracts/partial/add-contract-linkrow/"
+                                                        hx-target="#contract-linktable"
+                                                        hx-swap="beforeend">Add identifier</button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="contract-linktable">
+                                        <tr data-link-row="1">
+                                            <td>
+                                                <select class="select select-bordered select-sm"
+                                                        name="link_type"
+                                                        aria-label="Identifier type">
+                                                    <option value="OAI" selected>OAI</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input class="input input-bordered input-sm"
+                                                       type="text"
+                                                       name="link_value"
+                                                       value="oai:northstar.example:contracts/oa-26"
+                                                       aria-label="Identifier value">
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-ghost btn-xs"
+                                                        type="button"
+                                                        onclick="this.closest('tr').remove()">Remove</button>
+                                            </td>
+                                        </tr>
+                                        <tr data-link-row="2">
+                                            <td>
+                                                <select class="select select-bordered select-sm"
+                                                        name="link_type"
+                                                        aria-label="Identifier type">
+                                                    <option value="OAI" selected>OAI</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input class="input input-bordered input-sm"
+                                                       type="text"
+                                                       name="link_value"
+                                                       value="oai:northstar.example:contracts/oa-26-extra"
+                                                       aria-label="Identifier value">
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-ghost btn-xs"
+                                                        type="button"
+                                                        onclick="this.closest('tr').remove()">Remove</button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="identifier-help" id="empty-identifiers-note" hidden>
+                                No identifiers assigned; use Add identifier to add one.
+                            </p>
+                        </section>
+                        <section class="surface editor-card editor-publishers">
+                            <div class="surface-header">
+                                <div>
+                                    <h2>Publishers</h2>
+                                    <p>Search and add covered publishers</p>
+                                </div>
+                            </div>
+                            <fieldset class="entity-search"
+                                      role="group"
+                                      aria-label="Search publishers"
+                                      hx-get="/contracts/partial/search-publisher"
+                                      hx-target="#publishers-search-results"
+                                      hx-swap="outerHTML"
+                                      hx-include="#search-publishers"
+                                      hx-vals='{"prefix":"publishers"}'
+                                      hx-trigger="keydown[key=='Enter'] from:#search-publishers, click from:#search-publishers-button">
+                                <legend>Search publishers</legend>
+                                <div class="entity-search-controls">
+                                    <label class="sr-only" for="search-publishers">Search publishers</label>
+                                    <input class="input input-bordered input-sm"
+                                           id="search-publishers"
+                                           type="search"
+                                           name="search-publishers"
+                                           value="northstar"
+                                           onkeydown="if (event.key === 'Enter') event.preventDefault()">
+                                    <button class="btn btn-outline btn-sm"
+                                            id="search-publishers-button"
+                                            type="button">Search</button>
+                                </div>
+                            </fieldset>
+                            <div class="search-results-wrap">
+                                <div class="scroll-container max-h-30">
+                                    <table class="search-results" id="publishers-search-results">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Northstar Academic Press</td>
+                                                <td>
+                                                    <button class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            name="form_action_add"
+                                                            value="add_form"
+                                                            hx-vals='{"prefix":"publishers","mode":"inline","initial-entity_id":"41","initial-name":"Northstar Academic Press"}'
+                                                            hx-target="#publishers-formset"
+                                                            hx-swap="outerHTML">Add</button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Northstar Open Knowledge</td>
+                                                <td>
+                                                    <button class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            name="form_action_add"
+                                                            value="add_form"
+                                                            hx-vals='{"prefix":"publishers","mode":"inline","initial-entity_id":"42","initial-name":"Northstar Open Knowledge"}'
+                                                            hx-target="#publishers-formset"
+                                                            hx-swap="outerHTML">Add</button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="selected-heading">
+                                <h4>Selected publishers</h4>
+                                <span>Included in this contract</span>
+                            </div>
+                            <div class="selected-formset-wrap">
+                                <div id="publishers-formset"
+                                     class="htmx-formset-wrapper"
+                                     hx-vals='{"prefix":"publishers","mode":"inline","hx_include":"","extras":{}}'>
+                                    <input type="hidden" name="publishers-form_id" value="publishers-formset">
+                                    <input type="hidden" name="publishers-total_forms" value="1">
+                                    <table class="selected-formset">
+                                        <thead>
+                                            <tr>
+                                                <th>Publisher</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr data-entity-row="publisher">
+                                                <input type="hidden"
+                                                       name="publishers-form-1-entity_id"
+                                                       id="id_publishers-form-1-entity_id"
+                                                       value="41">
+                                                <td>
+                                                    <input class="input input-bordered input-sm"
+                                                           type="text"
+                                                           name="publishers-form-1-name"
+                                                           id="id_publishers-form-1-name"
+                                                           value="Northstar Academic Press"
+                                                           readonly>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-ghost btn-xs"
+                                                            type="button"
+                                                            name="form_action_delete"
+                                                            value="1"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            hx-swap="outerHTML"
+                                                            hx-target="closest div.htmx-formset-wrapper">
+                                                        Remove
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <p class="empty-selection" data-empty-selection="publishers" hidden>No publishers selected.</p>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="surface editor-card editor-journals">
+                            <div class="surface-header">
+                                <div>
+                                    <h2>Journals</h2>
+                                    <p>Search and add covered journals</p>
+                                </div>
+                            </div>
+                            <fieldset class="entity-search"
+                                      role="group"
+                                      aria-label="Search journals"
+                                      hx-get="/contracts/partial/search-journal"
+                                      hx-target="#journals-search-results"
+                                      hx-swap="outerHTML"
+                                      hx-include="#search-journals"
+                                      hx-vals='{"prefix":"journals"}'
+                                      hx-trigger="keydown[key=='Enter'] from:#search-journals, click from:#search-journals-button">
+                                <legend>Search journals</legend>
+                                <div class="entity-search-controls">
+                                    <label class="sr-only" for="search-journals">Search journals</label>
+                                    <input class="input input-bordered input-sm"
+                                           id="search-journals"
+                                           type="search"
+                                           name="search-journals"
+                                           value="open"
+                                           onkeydown="if (event.key === 'Enter') event.preventDefault()">
+                                    <button class="btn btn-outline btn-sm"
+                                            id="search-journals-button"
+                                            type="button">Search</button>
+                                </div>
+                            </fieldset>
+                            <div class="search-results-wrap">
+                                <div class="scroll-container max-h-30">
+                                    <table class="search-results" id="journals-search-results">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Journal of Open Scholarship</td>
+                                                <td>
+                                                    <button class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            name="form_action_add"
+                                                            value="add_form"
+                                                            hx-vals='{"prefix":"journals","mode":"inline","initial-entity_id":"21","initial-name":"Journal of Open Scholarship"}'
+                                                            hx-target="#journals-formset"
+                                                            hx-swap="outerHTML">Add</button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Open Research Quarterly</td>
+                                                <td>
+                                                    <button class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            name="form_action_add"
+                                                            value="add_form"
+                                                            hx-vals='{"prefix":"journals","mode":"inline","initial-entity_id":"22","initial-name":"Open Research Quarterly"}'
+                                                            hx-target="#journals-formset"
+                                                            hx-swap="outerHTML">Add</button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="selected-heading">
+                                <h4>Selected journals</h4>
+                                <span>Included in this contract</span>
+                            </div>
+                            <div class="selected-formset-wrap">
+                                <div id="journals-formset"
+                                     class="htmx-formset-wrapper"
+                                     hx-vals='{"prefix":"journals","mode":"inline","hx_include":"","extras":{}}'>
+                                    <input type="hidden" name="journals-form_id" value="journals-formset">
+                                    <input type="hidden" name="journals-total_forms" value="1">
+                                    <table class="selected-formset">
+                                        <thead>
+                                            <tr>
+                                                <th>Journal</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr data-entity-row="journal">
+                                                <input type="hidden"
+                                                       name="journals-form-1-entity_id"
+                                                       id="id_journals-form-1-entity_id"
+                                                       value="21">
+                                                <td>
+                                                    <input class="input input-bordered input-sm"
+                                                           type="text"
+                                                           name="journals-form-1-name"
+                                                           id="id_journals-form-1-name"
+                                                           value="Journal of Open Scholarship"
+                                                           readonly>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-ghost btn-xs"
+                                                            type="button"
+                                                            name="form_action_delete"
+                                                            value="1"
+                                                            hx-post="/contracts/partial/entity-form"
+                                                            hx-swap="outerHTML"
+                                                            hx-target="closest div.htmx-formset-wrapper">
+                                                        Remove
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <p class="empty-selection" data-empty-selection="journals" hidden>No journals selected.</p>
+                                </div>
+                            </div>
+                        </section>
+                        <footer class="editor-actions">
+                            <button class="btn btn-ghost btn-sm" type="button" data-cancel-editor>Cancel</button>
+                            <div class="inline-actions">
+                                <button class="btn btn-primary btn-sm" type="submit">Save contract</button>
+                            </div>
+                        </footer>
+                    </div>
+                </form>
+            </section>
+        </main>
+        <div class="variant-switcher"
+             role="group"
+             aria-label="Contract detail and edit layouts">
+            <button class="btn btn-ghost btn-sm"
+                    id="variant-prev"
+                    type="button"
+                    aria-label="Previous layout">←</button>
+            <span class="variant-name" id="variant-name" aria-live="polite">A · Terms first</span>
+            <button class="btn btn-ghost btn-sm"
+                    id="variant-next"
+                    type="button"
+                    aria-label="Next layout">→</button>
+        </div>
+        <script>
+        (() => {
+            const layoutNames = { terms: "A · Terms first", board: "B · Agreement board" };
+            const layouts = Object.keys(layoutNames);
+            const variantName = document.getElementById("variant-name");
+            const directory = document.getElementById("contract-directory");
+            const detailScreen = document.getElementById("contract-record-screen");
+            const editorScreen = document.getElementById("contract-editor-screen");
+            const editorGrid = document.getElementById("editor-grid");
+            const contractForm = document.getElementById("contract-form");
+            let activeLayout = new URLSearchParams(location.search).get("variant");
+            let activeRecord = "active";
+            let editMode = "edit";
+            if (!layouts.includes(activeLayout)) activeLayout = "terms";
+
+            const records = {
+                active: {
+                    id: 101,
+                    name: "Northstar University Open Access Agreement",
+                    start: "2026-01-01",
+                    end: "2027-12-31",
+                    billing: "Individually",
+                    publisher: { id: 41, name: "Northstar Academic Press" },
+                    journal: { id: 21, name: "Journal of Open Scholarship" },
+                    links: [
+                        { type: "OAI", value: "oai:northstar.example:contracts/oa-26" },
+                        { type: "OAI", value: "oai:northstar.example:contracts/oa-26-extra" },
+                    ],
+                },
+                inactive: {
+                    id: 202,
+                    name: "Lakeside Research Consortium Agreement",
+                    start: "2020-01-01",
+                    end: "2025-12-31",
+                    billing: "Consolidated",
+                    publisher: { id: 52, name: "Lakeside University Press" },
+                    journal: { id: 34, name: "Regional Research Review" },
+                    links: [],
+                },
+                new: {
+                    id: null,
+                    name: "",
+                    start: "",
+                    end: "",
+                    billing: "Individually",
+                    publisher: null,
+                    journal: null,
+                    links: [],
+                },
+            };
+
+            function setLayout(next, updateUrl = true) {
+                activeLayout = layouts.includes(next) ? next : "terms";
+                document.querySelectorAll("[data-layout-root]").forEach((root) => {
+                    root.hidden = root.dataset.layoutRoot !== activeLayout;
+                });
+                editorGrid.dataset.layout = activeLayout;
+                variantName.textContent = layoutNames[activeLayout];
+                if (updateUrl) {
+                    const url = new URL(location.href);
+                    url.searchParams.set("variant", activeLayout);
+                    history.replaceState(null, "", url);
+                }
+            }
+
+            function showScreen(screen) {
+                document.body.dataset.screen = screen;
+                directory.hidden = screen !== "directory";
+                detailScreen.hidden = screen !== "detail";
+                editorScreen.hidden = screen !== "edit";
+            }
+
+            function updateRecordPanels() {
+                document.querySelectorAll("[data-record-panel]").forEach((panel) => {
+                    panel.hidden = panel.dataset.recordPanel !== activeRecord;
+                });
+            }
+
+            function setEntityFormset(prefix, entity) {
+                const wrapper = document.getElementById(`${prefix}-formset`);
+                const row = wrapper.querySelector("[data-entity-row]");
+                const selected = Boolean(entity);
+                wrapper.querySelector(`[name="${prefix}-total_forms"]`).value = selected ? "1" : "0";
+                row.hidden = !selected;
+                row.querySelectorAll("input").forEach((input) => {
+                    input.disabled = !selected;
+                });
+                row.querySelector(`[name="${prefix}-form-1-entity_id"]`).value = entity?.id || "";
+                row.querySelector(`[name="${prefix}-form-1-name"]`).value = entity?.name || "";
+                wrapper.querySelector(`[data-empty-selection="${prefix}"]`).hidden = selected;
+            }
+
+            function populateEditor(mode) {
+                editMode = mode;
+                const record = mode === "new" ? records.new : records[activeRecord];
+                document.getElementById("editor-mode-label").textContent = mode === "new" ? "Create contract" : "Update contract";
+                document.getElementById("editor-heading").textContent = mode === "new" ? "New contract" : record.name;
+                contractForm.action = "#";
+                document.getElementById("id_name").value = record.name;
+                document.getElementById("id_start_date").value = record.start;
+                document.getElementById("id_end_date").value = record.end;
+                document.getElementById("id_publication_billing").value = record.billing;
+                setEntityFormset("publishers", record.publisher);
+                setEntityFormset("journals", record.journal);
+                const rows = document.querySelectorAll("#contract-linktable [data-link-row]");
+                rows.forEach((row, index) => {
+                    const link = record.links[index];
+                    row.hidden = !link;
+                    row.querySelectorAll("input, select").forEach((control) => {
+                        control.disabled = !link;
+                    });
+                    if (link) {
+                        row.querySelector('[name="link_type"]').value = link.type;
+                        row.querySelector('[name="link_value"]').value = link.value;
+                    }
+                });
+                document.getElementById("empty-identifiers-note").hidden = record.links.length > 0;
+                showScreen("edit");
+            }
+
+            document.addEventListener("click", (event) => {
+                const target = event.target.closest("button, a");
+                if (!target) return;
+                if (target.dataset.layout) {
+                    setLayout(target.dataset.layout);
+                    return;
+                }
+                if (target.dataset.openRecord) {
+                    activeRecord = target.dataset.openRecord;
+                    updateRecordPanels();
+                    showScreen("detail");
+                    return;
+                }
+                if (target.dataset.openEditor) {
+                    populateEditor(target.dataset.openEditor);
+                    return;
+                }
+                if (target.dataset.screen === "directory") {
+                    showScreen("directory");
+                    return;
+                }
+                if (target.hasAttribute("data-cancel-editor")) {
+                    showScreen(editMode === "new" ? "directory" : "detail");
+                }
+            });
+
+            document.querySelectorAll("form[data-inert-form]").forEach((form) => {
+                form.addEventListener("submit", (event) => event.preventDefault());
+            });
+            document.getElementById("contract-form").addEventListener("submit", (event) => event.preventDefault());
+            document.getElementById("variant-prev").addEventListener("click", () => {
+                setLayout(layouts[(layouts.indexOf(activeLayout) + layouts.length - 1) % layouts.length]);
+            });
+            document.getElementById("variant-next").addEventListener("click", () => {
+                setLayout(layouts[(layouts.indexOf(activeLayout) + 1) % layouts.length]);
+            });
+            document.addEventListener("keydown", (event) => {
+                if (event.target.matches("input, textarea, select, [contenteditable='true']") || document.querySelector("dialog[open]")) return;
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    const step = event.key === "ArrowRight" ? 1 : -1;
+                    setLayout(layouts[(layouts.indexOf(activeLayout) + step + layouts.length) % layouts.length]);
+                }
+            });
+            document.getElementById("theme-toggle").addEventListener("click", (event) => {
+                const dark = document.documentElement.dataset.theme !== "dark";
+                document.documentElement.dataset.theme = dark ? "dark" : "light";
+                event.currentTarget.setAttribute("aria-pressed", String(dark));
+                event.currentTarget.textContent = dark ? "Use light theme" : "Use dark theme";
+            });
+
+            setLayout(activeLayout, false);
+            updateRecordPanels();
+        })();
+        </script>
+    </body>
+</html>
