@@ -1,3 +1,4 @@
+import copy
 import enum
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -296,24 +297,10 @@ class FundingRequestSearchParams:
     decimal_separator: str = "."
 
     def without_date_range(self) -> "FundingRequestSearchParams":
-        return FundingRequestSearchParams(
-            date_range=None,
-            review_results=self.review_results,
-            payment_statuses=self.payment_statuses,
-            labels=self.labels,
-            exclude_labels=self.exclude_labels,
-            payment_methods=self.payment_methods,
-            open_access_types=self.open_access_types,
-            publication_states=self.publication_states,
-            entity_type=self.entity_type,
-            search_term=self.search_term,
-            contract_id=self.contract_id,
-            contract_year=self.contract_year,
-            show_invalid_contract_years=self.show_invalid_contract_years,
-            funding_source=self.funding_source,
-            decimal_separator=self.decimal_separator,
-        )
-
+        # return a new instance with the date_range set to None, keeping all other attributes the same
+        new_instance = copy.copy(self)  # shallow copy is sufficient since all attributes are immutable or primitive
+        new_instance.date_range = None
+        return new_instance
 
 def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
     criteria = (
