@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CODA — Invoices (prototype)</title>
+    <!--
+      Question: should the funding-request Triage queue carry over to invoices, or should invoices use an invoice-first ledger?
+      Palette: CODA blue #285096, blue highlight #80A9F1, porcelain #F3F6FA, white #FFFFFF, ink #1B2A3B, charcoal #0D0D0D.
+      Type: repository Montserrat. Layout: reuse triage, compact ledger, warning-first. Principle: invoice identity, amount/currency and payment state stay scannable.
+    -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+    <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #ffffff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #ffffff;
+            --color-warning: #a56709;
+            --color-warning-content: #ffffff;
+            --color-success: #28794b;
+            --color-success-content: #ffffff;
+            --color-error: #b42318;
+            --color-error-content: #ffffff;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #ffffff;
+            --coda-primary: #2e67b8;
+            --coda-primary-background: #285096;
+            --coda-primary-background-hover: #1f427e;
+            --coda-form-element-background-color: #ffffff;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #cbd5e1;
+            --coda-muted-border-color: #dce4ee;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-gap: 1rem;
+            --coda-secondary-background: #596678;
+            --coda-secondary-inverse: #ffffff;
+            --coda-card-background-color: #ffffff;
+            --coda-muted-color: #64748b;
+            --coda-color: #1b2a3b;
+            --coda-validation-text-color: #ffffff;
+            --coda-validation-invalid-color: #b42318;
+            --coda-disabled-text-color: #64748b;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%231b2a3b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-warning: #f2bc67;
+            --color-warning-content: #281a08;
+            --color-success: #65bf88;
+            --color-success-content: #102418;
+            --color-error: #f08a82;
+            --color-error-content: #22100f;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #0d0d0d;
+            --coda-primary: hsl(218 85% 65%);
+            --coda-primary-background: #285096;
+            --coda-primary-background-hover: #3c66a6;
+            --coda-form-element-background-color: #181818;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #414141;
+            --coda-muted-border-color: #343434;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-gap: 1rem;
+            --coda-secondary-background: #48515d;
+            --coda-secondary-inverse: #ffffff;
+            --coda-card-background-color: #121212;
+            --coda-muted-color: #9aa5b4;
+            --coda-color: #e7ecf2;
+            --coda-validation-text-color: #ffffff;
+            --coda-validation-invalid-color: #f08a82;
+            --coda-disabled-text-color: #9aa5b4;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%23e7ecf2' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        * { box-sizing: border-box; }
+        body { min-width: 320px; min-height: 100vh; margin: 0; padding-bottom: 5rem; background: var(--color-base-200); color: var(--color-base-content); font-family: Montserrat, system-ui, sans-serif; font-size: 0.92rem; line-height: 1.5; }
+        button, input, select, textarea { font: inherit; }
+        .topbar { min-height: 3.7rem; display: flex; align-items: center; gap: 1.5rem; padding: 0 clamp(1rem, 4vw, 3rem); background: var(--color-base-100); border-bottom: 1px solid var(--color-base-300); }
+        .brand { color: var(--color-primary); font-size: 1.05rem; font-weight: 750; letter-spacing: -0.04em; }
+        .topbar nav { display: flex; gap: 1.25rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); font-size: 0.84rem; }
+        .topbar .prototype-label { margin-left: auto; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.72rem; }
+        .page { width: min(1560px, calc(100% - 2rem)); margin: 0 auto; }
+        .breadcrumbs { padding: 1rem 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.77rem; }
+        .page-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.9rem; }
+        .page-titlebar h1 { margin: 0; font-size: clamp(1.5rem, 2.4vw, 2rem); font-weight: 650; letter-spacing: -0.035em; }
+        .page-actions { display: flex; align-items: center; gap: 0.45rem; }
+        .prototype-tools { display: flex; justify-content: flex-end; gap: 0.5rem; margin: 0 0 0.8rem; }
+        .filter-layout { display: flex; align-items: flex-start; gap: 1rem; }
+        .filter-main { flex: 1; min-width: 0; }
+        .filter-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem; }
+        .filter-search { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: none; }
+        .filter-sort-label { grid-column: 1; grid-row: 3; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; font-size: 0.8rem; }
+        .filter-sort { width: auto; max-width: none; margin: 0; }
+        .filter-drawer-toggle { display: none; grid-column: 2; grid-row: 3; justify-self: start; align-items: center; gap: 0.35rem; }
+        .filter-sidebar { width: 280px; flex: 0 0 280px; position: sticky; top: 1rem; max-height: calc(100dvh - 1rem); overflow-y: auto; padding: 1rem; border: 1px solid var(--color-base-300); border-radius: 0.65rem; background: var(--color-base-100); --filter-label-gap: 0.35rem; --filter-field-gap: 0.9rem; --filter-group-gap: 1.2rem; }
+        .filter-sidebar-header { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.8rem; }
+        .filter-sidebar-title { display: flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 1rem; font-weight: 650; }
+        .filter-count { min-width: 1.4em; padding: 0.1em 0.45em; border-radius: 999px; background: var(--color-primary); color: var(--color-primary-content); font-size: 0.72rem; text-align: center; }
+        .filter-clear { margin-left: auto; font-size: 0.75rem; color: var(--color-primary); }
+        .filter-drawer-close { display: none; }
+        .filter-group { margin-bottom: var(--filter-group-gap); }
+        .filter-group-title { position: sticky; top: 0; z-index: 2; margin: 0 0 0.55rem; padding: 0.35rem 0; border-bottom: 1px solid var(--color-base-300); background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 65%, transparent); font-size: 0.77rem; font-weight: 650; }
+        .form-row { display: flex; flex-direction: column; gap: var(--filter-label-gap); margin-bottom: var(--filter-field-gap); }
+        .form-row > label { font-size: 0.75rem; font-weight: 600; }
+        .form-row .input, .form-row .select, .form-row search-select { width: 100%; max-width: none; }
+        .form-row .input, .form-row .select { margin: 0; }
+        search-select, search-select-multi { display: block; width: 100%; }
+        search-select::part(search-box), search-select-multi::part(search-input) { min-height: 2.55rem; border-color: var(--coda-border-color); border-radius: var(--coda-border-radius); background: var(--color-base-100); color: var(--color-base-content); font: inherit; }
+        .filter-switch-row { display: flex; align-items: flex-start; gap: 0.55rem; margin-top: 0.7rem; font-size: 0.78rem; }
+        .filter-switch-row input { flex: none; }
+        .filter-sidebar-backdrop { display: none; }
+        .active-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.9rem; }
+        .active-filter { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; padding: 0.22rem 0.55rem; border-radius: 999px; background: var(--color-base-300); color: var(--color-base-content); font-size: 0.73rem; text-decoration: none; }
+        .active-filter-remove { font-weight: 700; text-decoration: none; }
+        .list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.25rem 0 0.6rem; border-bottom: 1px solid var(--color-base-300); }
+        .list-heading strong { font-size: 0.88rem; }
+        .list-heading span { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.73rem; }
+        .invoice-list { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
+        .invoice-list > li { list-style: none; }
+        .invoice-item { min-width: 0; padding: 1rem 0; border-bottom: 1px solid var(--color-base-300); }
+        .invoice-item.queue-invoice { margin-block: 0.45rem; padding: 0.95rem 0.85rem; border: 1px solid var(--color-base-300); border-left: 3px solid color-mix(in oklab, var(--color-primary) 48%, var(--color-base-300)); border-radius: 0.4rem; background: var(--color-base-100); }
+        .invoice-item.queue-invoice.has-warning { border-left-color: var(--color-warning); }
+        .invoice-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+        .invoice-title { display: flex; align-items: center; gap: 0.35rem; min-width: 0; margin: 0; font-size: 1.02rem; font-weight: 650; line-height: 1.3; }
+        .invoice-title a { min-width: 0; color: var(--color-base-content); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .invoice-title a:hover { color: var(--color-primary); }
+        .invoice-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.7rem; margin: 0.35rem 0 0.6rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.72rem; }
+        .invoice-details { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr); gap: 1rem; }
+        .invoice-details p { margin: 0.2rem 0; font-size: 0.79rem; }
+        .invoice-total { display: flex; flex-direction: column; align-items: flex-end; gap: 0.22rem; padding-left: 0.9rem; border-left: 1px solid var(--color-base-300); text-align: right; }
+        .total-label, .small-meta { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.68rem; }
+        .total-value { font-size: 1.12rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+        .invoice-warning { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--color-warning); font-size: 0.74rem; font-weight: 600; }
+        .invoice-warning svg { width: 1rem; height: 1rem; }
+        .warning-marker { flex: none; display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: var(--color-warning); color: var(--color-warning-content); font-size: 0.65rem; font-weight: 800; line-height: 1; }
+        .warning-marker-empty { visibility: hidden; background: transparent; }
+        .exception-warning-slot { display: flex; align-items: center; height: 1.25rem; min-height: 1.25rem; line-height: 1.25rem; margin-bottom: 0.12rem; overflow: hidden; }
+        .exception-warning-slot .invoice-warning { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .exception-warning-slot.is-empty { visibility: hidden; }
+        .ledger-row { display: grid; grid-template-columns: minmax(8rem, 1.2fr) minmax(8rem, 1.1fr) minmax(7rem, 0.8fr) minmax(9rem, 1fr) minmax(7rem, 0.7fr); align-items: center; gap: 0.65rem; margin-block: 0.45rem; padding: 0.95rem 0.85rem; border: 1px solid var(--color-base-300); border-left: 3px solid color-mix(in oklab, var(--color-primary) 48%, var(--color-base-300)); border-radius: 0.4rem; background: var(--color-base-100); }
+        .ledger-row.has-warning { border-left-color: var(--color-warning); }
+        .ledger-primary { min-width: 0; }
+        .ledger-primary .invoice-title { font-size: 0.88rem; }
+        .ledger-label { display: block; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 0.64rem; font-weight: 650; }
+        .ledger-cell { min-width: 0; font-size: 0.76rem; }
+        .ledger-cell strong { display: block; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+        .ledger-cell .invoice-warning { margin-top: 0.25rem; }
+        .exception-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.45fr); gap: 0.4rem 1.2rem; margin: 0.45rem 0; padding: 0.85rem 0.9rem; border: 1px solid var(--color-base-300); border-left: 3px solid var(--color-base-300); border-radius: 0.35rem; background: var(--color-base-100); }
+        .exception-row.has-warning { border-left-color: var(--color-warning); }
+        .exception-content { min-width: 0; }
+        .exception-content h2 { display: flex; align-items: center; gap: 0.35rem; margin: 0; font-size: 0.96rem; font-weight: 650; line-height: 1.3; }
+        .exception-content h2 a { color: var(--color-base-content); text-decoration: none; }
+        .exception-content h2 a:hover { color: var(--color-primary); }
+        .exception-content p { margin: 0.35rem 0 0; color: color-mix(in oklab, var(--color-base-content) 64%, transparent); font-size: 0.76rem; }
+        .exception-content p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .exception-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+        .exception-side .total-value { font-size: 1.25rem; }
+        .empty-results { padding: 2rem 1rem; border: 1px dashed var(--color-base-300); border-radius: 0.55rem; background: var(--color-base-100); text-align: center; }
+        .empty-results h2 { margin: 0 0 0.45rem; font-size: 1.05rem; }
+        .empty-results p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
+        .empty-results a { color: var(--color-primary); }
+        .pagination { display: flex; align-items: center; justify-content: center; gap: 0.25rem; padding: 0; margin: 0.8rem 0; list-style: none; }
+        .pagination li { list-style: none; }
+        .pagination a { min-width: 2rem; min-height: 2rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.35rem; color: var(--color-base-content); text-decoration: none; }
+        .pagination .pagination__current a { background: var(--color-primary); color: var(--color-primary-content); }
+        .pagination .pagination__disabled { opacity: 0.42; }
+        .variant-caption { margin: 0 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.73rem; }
+        .variant-switcher { position: fixed; z-index: 110; left: 50%; bottom: 0.75rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.45rem; padding: 0.25rem 0.4rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 28px #0003; }
+        .variant-switcher .btn { min-height: 1.7rem; height: 1.7rem; padding-inline: 0.45rem; border-color: transparent; color: inherit; font-size: 0.7rem; }
+        .variant-switcher .variant-name { min-width: 9rem; text-align: center; font-size: 0.72rem; font-weight: 600; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        body:has(.filter-layout :focus-within) .variant-switcher { opacity: 0; pointer-events: none; transform: translate(-50%, calc(100% + 1rem)); }
+        @media (max-width: 1399px) {
+            .filter-drawer-toggle { display: inline-flex; align-items: center; gap: 0.35rem; }
+            .filter-sidebar { position: fixed; top: 0; right: 0; bottom: 0; z-index: 100; width: min(340px, 92vw); max-height: none; padding: 1rem; border-radius: 0; border-left: 1px solid var(--color-base-300); transform: translateX(100%); visibility: hidden; transition: transform 0.2s ease, visibility 0s 0.2s; }
+            .filter-drawer-open .filter-sidebar { transform: translateX(0); visibility: visible; transition: transform 0.2s ease; }
+            .filter-drawer-close { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border: 0; border-radius: 0.35rem; background: transparent; color: var(--color-base-content); }
+            .filter-sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 99; background: #0006; visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0s 0.2s; }
+            .filter-drawer-open .filter-sidebar-backdrop { visibility: visible; opacity: 1; transition: opacity 0.2s ease; }
+            body.filter-drawer-open { overflow: hidden; }
+        }
+        @media (max-width: 780px) {
+            .topbar nav { display: none; }
+            .page { width: calc(100% - 1.25rem); }
+            .page-titlebar { align-items: flex-start; flex-direction: column; }
+            .page-actions { flex-wrap: wrap; }
+            .filter-toolbar { align-items: stretch; }
+            .filter-search { grid-column: 1 / -1; }
+            .filter-sort-label { grid-column: 1; }
+            .filter-drawer-toggle { grid-column: 2; }
+            .filter-layout[data-variant="ledger"] .ledger-row { grid-template-columns: minmax(0, 1fr); }
+            .filter-layout[data-variant="ledger"] .ledger-cell { padding-left: 0.2rem; }
+            .exception-row { grid-template-columns: minmax(0, 1fr); }
+            .exception-side { align-items: flex-start; }
+            .variant-switcher { width: max-content; max-width: calc(100% - 1rem); }
+            .variant-switcher .variant-name { min-width: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+            .filter-sidebar, .filter-sidebar-backdrop { transition: none !important; }
+        }
+    </style>
+    <script defer src="../../../../src/coda/apps/static/js/search-select.js"></script>
+    <script defer src="../../../../src/coda/apps/static/js/filter-drawer.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="#" aria-label="CODA home">CODA</a>
+        <nav aria-label="Primary navigation"><span>Finance</span><span>Invoices</span></nav>
+        <span class="prototype-label">Static prototype · HTMX requests inert</span>
+    </header>
+    <main class="page">
+        <div class="breadcrumbs">Finance&nbsp; / &nbsp;Invoices</div>
+        <header class="page-titlebar">
+            <h1>Invoices</h1>
+            <div class="page-actions"><a href="#" class="btn btn-primary btn-sm">New</a><a href="#" class="btn btn-outline btn-sm">Import</a></div>
+        </header>
+        <div class="prototype-tools"><button id="theme-toggle" class="btn btn-outline btn-sm" type="button" aria-pressed="false">Use dark theme</button></div>
+        <p id="variant-caption" class="variant-caption" aria-live="polite"></p>
+        <div class="filter-layout" data-variant="queue">
+            <div class="filter-main">
+                <form method="get" id="filter-toolbar-form">
+                    <div class="filter-toolbar">
+                        <input type="search" name="search_term" value="" placeholder="Search by invoice number, creditor, external invoice ID or funding request ID" aria-label="Search invoices" class="filter-search input input-bordered">
+                        <label class="filter-sort-label" for="sort_by">Sort <select name="sort_by" id="sort_by" class="filter-sort select select-sm"><option value="date_desc" selected>Date descending</option><option value="date_asc">Date ascending</option><option value="alphabetical">Alphabet</option></select></label>
+                        <button type="button" id="filter-drawer-toggle" class="filter-drawer-toggle btn btn-outline btn-sm" aria-controls="filter-sidebar" aria-expanded="false">Filters <span id="toolbar-filter-count" class="filter-count">1</span></button>
+                    </div>
+                </form>
+                <div id="invoice-list" class="filter-list" hx-get="/invoices/list/region/" hx-include="#filter-sidebar-form, #filter-toolbar-form" hx-trigger="change from:#filter-sidebar-form, change[!event.target.matches('.filter-search') || event.target.dataset.lastInputValue !== event.target.value] from:#filter-toolbar-form, input delay:300ms from:.filter-search, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
+                    <div class="list-heading"><strong>46 invoices</strong><span>Sorted by date · page 1 of 3</span></div>
+                    <div id="active-filters" class="active-filters" aria-label="Active filters">
+                        <span class="active-filter"><span>Invoice date: 1 Jul–30 Sep 2026</span><a href="/invoices/list/" hx-get="/invoices/list/region/" hx-target="#invoice-list" hx-push-url="/invoices/list/" class="active-filter-remove" aria-label="Remove filter Invoice date: 1 Jul–30 Sep 2026">×</a></span>
+                    </div>
+                    <div id="invoice-results"></div>
+                    <div id="empty-invoice-results" class="empty-results" hidden><h2>No invoices match the selected filters.</h2><p><a href="/invoices/list/">Clear all filters</a> or adjust a filter to see matching invoices.</p></div>
+                    <ul class="pagination" aria-label="Pagination Navigation"><li><a class="pagination__disabled" aria-disabled="true">«</a></li><li><a class="pagination__disabled" aria-disabled="true">‹</a></li><li class="pagination__current"><a aria-current="page">1</a></li><li><a href="#">2</a></li><li><a href="#">3</a></li><li><a href="#">›</a></li><li><a href="#">»</a></li></ul>
+                </div>
+            </div>
+            <div class="filter-sidebar-backdrop" id="filter-sidebar-backdrop" aria-hidden="true"></div>
+            <aside class="filter-sidebar" id="filter-sidebar" tabindex="-1">
+                <form method="get" id="filter-sidebar-form">
+                    <div class="filter-sidebar-header"><h2 class="filter-sidebar-title">Filters <span class="filter-count">1</span></h2><a href="/invoices/list/" class="filter-clear">Clear all</a><button type="button" id="filter-drawer-close" class="filter-drawer-close" aria-label="Close filters">×</button></div>
+                    <div class="filter-group"><h3 class="filter-group-title">Payment</h3>
+                        <div class="form-row"><label for="payment_status">Payment status</label><select class="select" id="payment_status" name="payment_status"><option value selected>-------</option><option value="Unpaid">Unpaid</option><option value="Paid">Paid</option><option value="Rejected">Rejected</option></select></div>
+                        <div class="form-row"><label for="funding_source">Funding Source</label><select class="select" id="funding_source" name="funding_source"><option value selected>-------</option><option value="12">Open Access Budget</option><option value="14">Research Library Fund</option></select></div>
+                    </div>
+                    <div class="filter-group"><h3 class="filter-group-title">Contract</h3>
+                        <div class="form-row"><label for="contract_name">Contract</label><search-select id="contract_name" name="contract_name" class="w-100"><li value selected>-------</li><li value="17">Open Access Agreement 2025</li><li value="23">University Publishing Fund</li></search-select></div>
+                        <div class="form-row"><label for="contract_year">Contract Year</label><input class="input" type="number" step="1" id="contract_year" name="contract_year" value=""></div>
+                    </div>
+                    <div class="filter-group"><h3 class="filter-group-title">Invoice date</h3>
+                        <div class="form-row"><label for="date_start">Date start</label><input class="input" type="date" id="date_start" name="date_start" value="2026-07-01"></div>
+                        <div class="form-row"><label for="date_end">Date end</label><input class="input" type="date" id="date_end" name="date_end" value="2026-09-30"></div>
+                    </div>
+                    <div class="filter-group"><h3 class="filter-group-title">Data quality</h3>
+                        <label class="filter-switch-row" for="has_external_id"><input id="has_external_id" type="checkbox" name="has_external_id" value="true" role="switch" aria-checked="false"><span>Show invoices without external IDs</span></label>
+                        <label class="filter-switch-row" for="has_foreign_currency"><input id="has_foreign_currency" type="checkbox" name="has_foreign_currency" value="true" role="switch" aria-checked="false"><span>Show invoices with foreign currencies and without conversion</span></label>
+                        <label class="filter-switch-row" for="has_errors"><input id="has_errors" type="checkbox" name="has_errors" value="true" role="switch" aria-checked="false"><span>Show invoices with errors</span></label>
+                    </div>
+                </form>
+            </aside>
+        </div>
+    </main>
+
+    <template id="invoice-queue">
+        <ul class="undecorated invoice-list queue-view">
+            <li><article class="invoice-item queue-invoice has-warning">
+                <div class="invoice-top"><h2 class="invoice-title"><a href="#">Invoice: INV-2026-0142</a><span class="warning-marker" role="img" aria-label="Foreign currency without conversion" title="Foreign currency without conversion">!</span></h2><span class="badge badge-warning">Open</span></div>
+                <div class="invoice-meta"><span>14 Aug 2026</span><span>Example University Press</span></div>
+                <div class="invoice-details"><div><p><strong>Creditor:</strong> Example University Press</p></div><div class="invoice-total"><span class="total-label">Total</span><strong class="total-value">USD 3,100.00</strong></div></div>
+            </article></li>
+            <li><article class="invoice-item queue-invoice"><div class="invoice-top"><h2 class="invoice-title"><a href="#">Invoice: INV-2026-0138</a><span class="warning-marker warning-marker-empty" aria-hidden="true">!</span></h2><span class="badge badge-success">Paid</span></div><div class="invoice-meta"><span>08 Aug 2026</span><span>North Academic</span></div><div class="invoice-details"><div><p><strong>Creditor:</strong> North Academic</p></div><div class="invoice-total"><span class="total-label">Total</span><strong class="total-value">EUR 1,320.00</strong></div></div></article></li>
+            <li><article class="invoice-item queue-invoice has-warning"><div class="invoice-top"><h2 class="invoice-title"><a href="#">Invoice: INV-2026-0129</a><span class="warning-marker" role="img" aria-label="Invalid contract years" title="Invalid contract years">!</span></h2><span class="badge badge-error">Rejected</span></div><div class="invoice-meta"><span>21 Jul 2026</span><span>Research Data Press</span></div><div class="invoice-details"><div><p><strong>Creditor:</strong> Research Data Press</p></div><div class="invoice-total"><span class="total-label">Total</span><strong class="total-value">EUR 930.00</strong></div></div></article></li>
+        </ul>
+    </template>
+
+    <template id="invoice-ledger">
+        <ul class="undecorated invoice-list ledger-view">
+            <li><article class="invoice-item ledger-row has-warning">
+                <div class="ledger-primary"><span class="ledger-label">Invoice number</span><h2 class="invoice-title"><a href="#">INV-2026-0142</a><span class="warning-marker" role="img" aria-label="Foreign currency without conversion" title="Foreign currency without conversion">!</span></h2></div>
+                <div class="ledger-cell"><span class="ledger-label">Creditor</span><strong>Example University Press</strong></div>
+                <div class="ledger-cell"><span class="ledger-label">Invoice date</span><strong>14 Aug 2026</strong></div>
+                <div class="ledger-cell"><span class="ledger-label">Total</span><strong class="total-value">USD 3,100.00</strong></div>
+                <div class="ledger-cell"><span class="badge badge-warning">Open</span></div>
+            </article></li>
+            <li><article class="invoice-item ledger-row"><div class="ledger-primary"><span class="ledger-label">Invoice number</span><h2 class="invoice-title"><a href="#">INV-2026-0138</a><span class="warning-marker warning-marker-empty" aria-hidden="true">!</span></h2></div><div class="ledger-cell"><span class="ledger-label">Creditor</span><strong>North Academic</strong></div><div class="ledger-cell"><span class="ledger-label">Invoice date</span><strong>08 Aug 2026</strong></div><div class="ledger-cell"><span class="ledger-label">Total</span><strong class="total-value">EUR 1,320.00</strong></div><div class="ledger-cell"><span class="badge badge-success">Paid</span></div></article></li>
+            <li><article class="invoice-item ledger-row has-warning"><div class="ledger-primary"><span class="ledger-label">Invoice number</span><h2 class="invoice-title"><a href="#">INV-2026-0129</a><span class="warning-marker" role="img" aria-label="Invalid contract years" title="Invalid contract years">!</span></h2></div><div class="ledger-cell"><span class="ledger-label">Creditor</span><strong>Research Data Press</strong></div><div class="ledger-cell"><span class="ledger-label">Invoice date</span><strong>21 Jul 2026</strong></div><div class="ledger-cell"><span class="ledger-label">Total</span><strong class="total-value">EUR 930.00</strong></div><div class="ledger-cell"><span class="badge badge-error">Rejected</span></div></article></li>
+        </ul>
+    </template>
+
+    <template id="invoice-warning-first">
+        <ul class="undecorated invoice-list warning-view">
+            <li><article class="invoice-item exception-row has-warning"><div class="exception-content"><div class="exception-warning-slot"><span class="invoice-warning">Foreign currency without conversion</span></div><h2><a href="#">Invoice: INV-2026-0142</a></h2><p>14 Aug 2026 · Example University Press · Open</p></div><div class="exception-side"><span class="total-label">Total due</span><strong class="total-value">USD 3,100.00</strong><span class="badge badge-warning">Review conversion</span></div></article></li>
+            <li><article class="invoice-item exception-row"><div class="exception-content"><div class="exception-warning-slot is-empty" aria-hidden="true"></div><h2><a href="#">Invoice: INV-2026-0138</a></h2><p>08 Aug 2026 · North Academic · Paid</p></div><div class="exception-side"><span class="total-label">Total</span><strong class="total-value">EUR 1,320.00</strong><span class="badge badge-success">Paid</span></div></article></li>
+            <li><article class="invoice-item exception-row has-warning"><div class="exception-content"><div class="exception-warning-slot"><span class="invoice-warning">Invalid contract years</span></div><h2><a href="#">Invoice: INV-2026-0129</a></h2><p>21 Jul 2026 · Research Data Press · Rejected</p></div><div class="exception-side"><span class="total-label">Total</span><strong class="total-value">EUR 930.00</strong><span class="badge badge-error">Rejected</span></div></article></li>
+        </ul>
+    </template>
+
+    <nav class="variant-switcher" aria-label="Prototype layout selector"><button class="btn btn-sm btn-ghost" id="previous-variant" type="button" aria-label="Previous layout">←</button><span class="variant-name" id="variant-name"></span><button class="btn btn-sm btn-ghost" id="next-variant" type="button" aria-label="Next layout">→</button></nav>
+
+    <script>
+        const variants = [
+            { key: "queue", name: "A · Triage queue", template: "invoice-queue", caption: "Carry forward the funding-request queue: invoice number and payment state lead." },
+            { key: "ledger", name: "B · Invoice ledger", template: "invoice-ledger", caption: "Invoice-first fields with the funding-request list's shared row surface and status rail." },
+            { key: "warning", name: "C · Warning first", template: "invoice-warning-first", caption: "Bring missing conversion and data-quality exceptions to the front." },
+        ];
+        const results = document.getElementById("invoice-results");
+        const variantName = document.getElementById("variant-name");
+        const variantCaption = document.getElementById("variant-caption");
+        let index = 0;
+        function selectVariant(nextIndex, updateUrl = true) {
+            index = (nextIndex + variants.length) % variants.length;
+            const variant = variants[index];
+            document.querySelector(".filter-layout").dataset.variant = variant.key;
+            results.replaceChildren(document.getElementById(variant.template).content.cloneNode(true));
+            variantName.textContent = variant.name;
+            variantCaption.textContent = variant.caption;
+            if (updateUrl) {
+                const url = new URL(location.href);
+                url.searchParams.set("variant", variant.key);
+                history.replaceState({}, "", url);
+            }
+        }
+        const requested = new URLSearchParams(location.search).get("variant");
+        const requestedIndex = variants.findIndex((variant) => variant.key === requested);
+        selectVariant(requestedIndex < 0 ? 0 : requestedIndex, false);
+        document.getElementById("previous-variant").addEventListener("click", () => selectVariant(index - 1));
+        document.getElementById("next-variant").addEventListener("click", () => selectVariant(index + 1));
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            const editing = event.composedPath().some((node) => node instanceof Element && node.matches("input, textarea, select, search-select, [contenteditable='true']"));
+            if (editing) return;
+            selectVariant(index + (event.key === "ArrowRight" ? 1 : -1));
+        });
+        const themeToggle = document.getElementById("theme-toggle");
+        const storedTheme = localStorage.getItem("theme");
+        if (storedTheme === "light" || storedTheme === "dark") document.documentElement.dataset.theme = storedTheme;
+        function syncTheme() {
+            const dark = document.documentElement.dataset.theme === "dark";
+            themeToggle.textContent = dark ? "Use light theme" : "Use dark theme";
+            themeToggle.setAttribute("aria-pressed", String(dark));
+        }
+        syncTheme();
+        themeToggle.addEventListener("click", () => {
+            document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", document.documentElement.dataset.theme);
+            syncTheme();
+        });
+        document.addEventListener("submit", (event) => event.preventDefault());
+    </script>
+</body>
+</html>
