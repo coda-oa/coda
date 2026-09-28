@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CODA — Invoice positions (prototype)</title>
+    <!--
+      Ticket: .scratch/daisyui-django-template-migration/issues/08-prototype-invoice-position-editor.md
+      Three layouts on this static prototype route: ?variant=ledger, ?variant=sections, ?variant=allocation.
+      Palette: CODA blue #285096 / #80A9F1, white #FFFFFF, mist #F3F6FA,
+      ink #1B2A3B, night #0D0D0D. Typography: repository Montserrat.
+    -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+    <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #ffffff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #ffffff;
+            --color-warning: #a56709;
+            --color-warning-content: #ffffff;
+            --color-error: #b42318;
+            --color-error-content: #ffffff;
+            --color-success: #28794b;
+            --color-success-content: #ffffff;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #ffffff;
+            --coda-primary: #2e67b8;
+            --coda-primary-background: #285096;
+            --coda-primary-background-hover: #1f427e;
+            --coda-form-element-background-color: #ffffff;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #cbd5e1;
+            --coda-muted-border-color: #dce4ee;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-gap: 1rem;
+            --coda-secondary-background: #596678;
+            --coda-secondary-inverse: #ffffff;
+            --coda-card-background-color: #ffffff;
+            --coda-muted-color: #64748b;
+            --coda-color: #1b2a3b;
+            --coda-validation-text-color: #ffffff;
+            --coda-validation-invalid-color: #b42318;
+            --coda-disabled-text-color: #64748b;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%231b2a3b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-warning: #f2bc67;
+            --color-warning-content: #281a08;
+            --color-error: #f08a82;
+            --color-error-content: #22100f;
+            --color-success: #65bf88;
+            --color-success-content: #102418;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #0d0d0d;
+            --coda-primary: hsl(218 85% 65%);
+            --coda-primary-background: #285096;
+            --coda-primary-background-hover: #3c66a6;
+            --coda-form-element-background-color: #181818;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #414141;
+            --coda-muted-border-color: #343434;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-gap: 1rem;
+            --coda-secondary-background: #48515d;
+            --coda-secondary-inverse: #ffffff;
+            --coda-card-background-color: #121212;
+            --coda-muted-color: #9aa5b4;
+            --coda-color: #e7ecf2;
+            --coda-validation-text-color: #ffffff;
+            --coda-validation-invalid-color: #f08a82;
+            --coda-disabled-text-color: #9aa5b4;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%23e7ecf2' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+        }
+        * { box-sizing: border-box; }
+        body { min-width: 320px; min-height: 100vh; margin: 0; padding-bottom: 5rem; background: var(--color-base-200); color: var(--color-base-content); font-family: Montserrat, system-ui, sans-serif; font-size: 0.92rem; line-height: 1.5; }
+        button, input, select, textarea { font: inherit; }
+        .topbar { min-height: 3.7rem; display: flex; align-items: center; gap: 1.5rem; padding: 0 clamp(1rem, 4vw, 3rem); background: var(--color-base-100); border-bottom: 1px solid var(--color-base-300); }
+        .brand { color: var(--color-primary); font-size: 1.05rem; font-weight: 750; letter-spacing: -0.04em; }
+        .topbar nav { display: flex; gap: 1.25rem; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); font-size: 0.84rem; }
+        .topbar .prototype-label { margin-left: auto; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.72rem; }
+        .page { width: min(1320px, calc(100% - 2rem)); margin: 0 auto; }
+        .breadcrumbs { padding: 1rem 0 0.45rem; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 0.77rem; }
+        .page-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.8rem; }
+        .page-titlebar h1 { margin: 0; font-size: clamp(1.4rem, 2.1vw, 1.85rem); font-weight: 650; letter-spacing: -0.035em; }
+        .page-titlebar p { margin: 0.25rem 0 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.78rem; }
+        .prototype-tools { display: flex; justify-content: flex-end; gap: 0.5rem; margin: 0 0 0.75rem; }
+        .variant-caption { margin: 0 0 0.85rem; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.74rem; }
+        .invoice-context { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--color-base-300); }
+        .invoice-context p { margin: 0; font-size: 0.8rem; }
+        .currency-control { display: flex; align-items: center; gap: 0.45rem; font-size: 0.75rem; }
+        .currency-control .select { width: auto; min-width: 5rem; }
+        .invoice-positions { display: flex; flex-direction: column; gap: 0.75rem; }
+        .position-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; }
+        .position-heading-main { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+        .position-heading h3 { margin: 0; font-size: 0.95rem; font-weight: 650; }
+        .position-heading .position-type { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.7rem; }
+        .position-heading .position-amount { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 0.82rem; font-weight: 650; }
+        .position-details { margin: 0; border: 1px solid var(--color-base-300); border-left: 3px solid color-mix(in oklab, var(--color-primary) 48%, var(--color-base-300)); border-radius: 0.4rem; background: var(--color-base-100); }
+        .position-details.position-warning { border-left-color: var(--color-warning); }
+        .position-details > summary { cursor: pointer; list-style: none; padding: 0.85rem 0.9rem; }
+        .position-details > summary::-webkit-details-marker { display: none; }
+        .position-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-areas: "specific core" "assignments assignments"; gap: 0.9rem 1.1rem; padding: 0 0.9rem 1rem; }
+        .position-specific { grid-area: specific; min-width: 0; padding: 0.75rem; border-left: 2px solid var(--color-base-300); }
+        .position-specific h4 { margin: 0 0 0.5rem; font-size: 0.78rem; font-weight: 650; }
+        .position-specific p { margin: 0.25rem 0; font-size: 0.78rem; }
+        .position-specific a { color: var(--color-primary); }
+        .position-core { grid-area: core; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-content: start; }
+        .field { min-width: 0; }
+        .field .input, .field .select { width: 100%; max-width: none; }
+        .field-label { display: block; margin-bottom: 0.3rem; font-size: 0.7rem; font-weight: 600; }
+        .field-wide { grid-column: 1 / -1; }
+        .field-error { margin: 0.3rem 0 0; color: var(--color-error); font-size: 0.73rem; }
+        .assignments { grid-area: assignments; min-width: 0; padding-top: 0.75rem; border-top: 1px solid var(--color-base-300); }
+        .assignments-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem; }
+        .assignments-header h4 { margin: 0; font-size: 0.78rem; font-weight: 650; }
+        .funding-assignment-row { display: grid; grid-template-columns: minmax(7rem, 0.8fr) minmax(12rem, 1.4fr) minmax(8rem, 0.8fr) 6rem; align-items: end; gap: 0.65rem; padding: 0.55rem 0; border-top: 1px solid var(--color-base-300); }
+        .funding-assignment-row .form-row { margin: 0; }
+        .funding-assignment-row .input, .funding-assignment-row .select { width: 100%; max-width: none; }
+        .funding-assignment-row .btn { white-space: nowrap; }
+        .assignment-note { margin: 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.72rem; }
+        .unassigned-field { margin-top: 0.7rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.45fr); gap: 0.7rem; align-items: end; }
+        .unassigned-field .input { width: 100%; }
+        .position-summary { margin-top: 0.5rem; padding: 0.9rem; border-top: 2px solid var(--color-primary); background: var(--color-base-100); }
+        .position-summary h3 { margin: 0 0 0.6rem; font-size: 0.95rem; font-weight: 650; }
+        .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+        .summary-field { min-width: 0; }
+        .summary-field .input { width: 100%; max-width: none; }
+        .variant-ledger .position-body { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "core specific" "assignments assignments"; }
+        .variant-ledger .position-core { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .variant-ledger .position-specific { padding-inline: 0.5rem; }
+        .variant-sections .position-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "specific" "core" "assignments"; gap: 0.65rem; }
+        .variant-sections .position-core { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.2fr); }
+        .variant-sections .position-specific { border-left: 0; border-bottom: 1px solid var(--color-base-300); padding-inline: 0; }
+        .variant-allocation #positions-summary { order: -1; }
+        .variant-allocation .position-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: "assignments core" "assignments specific"; }
+        .variant-allocation .assignments { border-top: 0; border-right: 1px solid var(--color-base-300); padding: 0 0.9rem 0 0; }
+        .position-summary { order: 10; }
+        .invoice-positions[data-layout="allocation"] { display: flex; flex-direction: column; }
+        .invoice-positions[data-layout="allocation"] #positions__list { order: 1; }
+        .invoice-positions[data-layout="allocation"] #positions-summary { order: 0; }
+        .variant-switcher { position: fixed; z-index: 110; left: 50%; bottom: 0.75rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.45rem; padding: 0.25rem 0.4rem; border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent); border-radius: 999px; background: var(--color-neutral); color: var(--color-neutral-content); box-shadow: 0 8px 28px #0003; }
+        .variant-switcher .btn { min-height: 1.7rem; height: 1.7rem; padding-inline: 0.45rem; border-color: transparent; color: inherit; font-size: 0.7rem; }
+        .variant-switcher .variant-name { min-width: 10rem; text-align: center; font-size: 0.72rem; font-weight: 600; }
+        .prototype-note { margin: 0 0 0.8rem; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.73rem; }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        @media (max-width: 820px) {
+            .topbar nav { display: none; }
+            .page { width: calc(100% - 1.25rem); }
+            .page-titlebar { align-items: flex-start; flex-direction: column; }
+            .invoice-context { align-items: flex-start; flex-direction: column; }
+            .position-body, .variant-ledger .position-body, .variant-sections .position-body, .variant-allocation .position-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "specific" "core" "assignments"; }
+            .variant-allocation .assignments { order: -1; border-right: 0; border-bottom: 1px solid var(--color-base-300); padding: 0 0 0.8rem; }
+            .variant-ledger .position-core { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .funding-assignment-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .summary-grid { grid-template-columns: 1fr; }
+            .variant-switcher { width: max-content; max-width: calc(100% - 1rem); }
+            .variant-switcher .variant-name { min-width: 0; }
+        }
+        @media (max-width: 460px) {
+            .position-core, .variant-ledger .position-core, .variant-sections .position-core { grid-template-columns: 1fr; }
+            .funding-assignment-row { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar"><a class="brand" href="#" aria-label="CODA home">CODA</a><nav aria-label="Primary navigation"><span>Finance</span><span>Invoices</span></nav><span class="prototype-label">Static prototype · actions inert</span></header>
+    <main class="page">
+        <div class="breadcrumbs">Finance&nbsp; / &nbsp;Invoice INV-2026-0142</div>
+        <header class="page-titlebar"><div><h1>Invoice positions</h1><p>Assign publication costs, tax, and funding sources.</p></div><button class="btn btn-outline btn-sm" id="theme-toggle" type="button" aria-pressed="false">Use dark theme</button></header>
+        <p class="prototype-note">DaisyUI 5.7.46 CDN is preview-only. Position IDs and HTMX targets are shown; backend actions are not connected.</p>
+        <p id="variant-caption" class="variant-caption" aria-live="polite"></p>
+        <form id="invoice-form" method="post">
+        <div class="invoice-context"><p><strong>Invoice:</strong> INV-2026-0142 · Example University Press</p><label class="currency-control" for="id_currency">Currency <select id="id_currency" name="currency" class="select select-sm"><option value="EUR" selected>EUR</option><option value="USD">USD</option></select></label></div>
+        <article id="positions" class="invoice-positions variant-ledger" data-layout="ledger">
+            <h2>Invoice Positions</h2>
+            <input type="hidden" name="#-positions" value="3" id="positions-counter">
+            <section id="positions__list">
+                <section id="position-1" class="position-shell">
+                    <details open class="position-details">
+                        <summary class="position-heading"><div class="position-heading-main"><h3>#1 · Publication</h3><span class="position-type">Implicit funding</span><span class="position-amount">EUR 1,250.00</span></div><button type="button" name="remove-position" class="btn btn-ghost btn-sm" value="1" hx-post="/invoices/create/remove-position/" hx-target="#positions" hx-swap="outerHTML">Remove</button></summary>
+                        <div class="position-body">
+                            <div class="position-specific"><h4>Publication</h4><p>Title: <a href="#">Open scholarship workflows in institutional repositories</a></p><input type="hidden" name="positions-1-item-funding_request-request_id" value="FR-2026-0412"><input type="hidden" name="positions-1-item-funding_request-url" value="/fundingrequests/412"><input type="hidden" name="positions-1-item-id" value="412"><input type="hidden" name="positions-1-item-title" value="Open scholarship workflows in institutional repositories"></div>
+                            <div class="position-core"><input type="hidden" name="positions-1-item-type" value="publication"><div class="field field-wide"><label class="field-label" for="id-positions-1-external-position-id">External Position ID</label><input class="input input-sm" type="text" id="id-positions-1-external-position-id" name="positions-1-external_position_id" value="APC-14509"></div><div class="field"><label class="field-label" for="id-positions-1-cost-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-1-cost-amount" name="positions-1-cost_amount" min="-1000000000000000" max="1000000000000000" step="0.0001" value="1250.00"></div><div class="field" id="tax-rate-wrapper-1"><label class="field-label" for="id-positions-1-tax-rate">Tax Rate</label><input class="input input-sm tax-rate" type="number" id="id-positions-1-tax-rate" name="positions-1-tax_rate" min="0" max="100" step="0.01" value="0.00"></div><div class="field"><label class="field-label" for="id-positions-1-cost-type">Cost Type</label><select class="select select-sm cost-type" id="id-positions-1-cost-type" name="positions-1-item-cost_type" hx-get="/invoices/position-cost-type-options/" hx-target="#tax-rate-wrapper-1" hx-swap="innerHTML" hx-trigger="change" hx-include="[name='positions-1-item-cost_type'], [name='positions-1-tax_rate']" hx-vals='{"counter":"1"}'><option value="article_processing_charge" selected>Article processing charge</option><option value="membership_fee">Membership fee</option><option value="vat">VAT</option></select></div></div>
+                            <div class="assignments" id="funding_assignments_list"><div class="assignments-header"><div><h4>Funding Sources</h4><p class="assignment-note">One source receives the full position amount.</p></div><button type="button" class="btn btn-outline btn-sm" name="add_funding_assignment_to_position" value="1" hx-post="/invoices/create/add-funding-asssignment" hx-target="#position-1" hx-swap="outerHTML" hx-include="#position-1, [name='currency']" hx-vals='{"position_index":"1"}'>Split</button></div><input type="hidden" name="positions-1-#-funding_assignments" value="1"><input type="hidden" name="positions-1-funding_assignments-1-amount" value="all"><div class="funding-assignment-row"><div class="form-row"><label class="field-label" for="positions-1-funding_assignments-1-funding_source_type">Source type</label><select class="select select-sm" name="positions-1-funding_assignments-1-funding_source_type" id="positions-1-funding_assignments-1-funding_source_type" hx-get="/invoices/create/switch_funding_source_type" hx-target="#id-positions-1-funding_assignments-1-funding_source" hx-swap="innerHTML"><option value="budget" selected>Budget</option><option value="institution">Institution</option></select></div><div class="form-row"><label class="field-label" for="id-positions-1-funding_assignments-1-funding_source">Funding source</label><select class="select select-sm" id="id-positions-1-funding_assignments-1-funding_source" name="positions-1-funding_assignments-1-funding_source"><option value="12" selected>Open Access Budget</option><option value="14">Research Library Fund</option></select></div><p class="assignment-note">Full amount</p></div></div>
+                        </div>
+                    </details>
+                </section>
+                <section id="position-2" class="position-shell">
+                    <details open class="position-details">
+                        <summary class="position-heading"><div class="position-heading-main"><h3>#2 · Contract</h3><span class="position-type">Single funding assignment</span><span class="position-amount">EUR 1,320.00</span></div><button type="button" name="remove-position" class="btn btn-ghost btn-sm" value="2" hx-post="/invoices/create/remove-position/" hx-target="#positions" hx-swap="outerHTML">Remove</button></summary>
+                        <div class="position-body">
+                            <div class="position-specific"><h4>Contract</h4><p>Contract name: <a href="#" class="btn btn-ghost btn-xs">Open Access Agreement 2025</a></p><div class="field"><label class="field-label" for="id-positions-2-year">Year</label><input class="input input-sm" type="text" id="id-positions-2-year" name="positions-2-item-year" value="2025"></div><input type="hidden" name="positions-2-item-id" value="17"><input type="hidden" name="positions-2-item-name" value="Open Access Agreement 2025"></div>
+                            <div class="position-core"><input type="hidden" name="positions-2-item-type" value="contract"><div class="field field-wide"><label class="field-label" for="id-positions-2-external-position-id">External Position ID</label><input class="input input-sm" type="text" id="id-positions-2-external-position-id" name="positions-2-external_position_id" value="OA-AG-2025-02"></div><div class="field"><label class="field-label" for="id-positions-2-cost-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-2-cost-amount" name="positions-2-cost_amount" min="-1000000000000000" max="1000000000000000" step="0.0001" value="1320.00"></div><div class="field" id="tax-rate-wrapper-2"><label class="field-label" for="id-positions-2-tax-rate">Tax Rate</label><input class="input input-sm tax-rate" type="number" id="id-positions-2-tax-rate" name="positions-2-tax_rate" min="0" max="100" step="0.01" value="7.00"></div><div class="field"><label class="field-label" for="id-positions-2-cost-type">Cost Type</label><select class="select select-sm cost-type" id="id-positions-2-cost-type" name="positions-2-item-cost_type" hx-get="/invoices/position-cost-type-options/" hx-target="#tax-rate-wrapper-2" hx-swap="innerHTML" hx-trigger="change" hx-include="[name='positions-2-item-cost_type'], [name='positions-2-tax_rate']" hx-vals='{"counter":"2"}'><option value="contract_fee" selected>Contract fee</option><option value="membership_fee">Membership fee</option><option value="vat">VAT</option></select></div></div>
+                            <div class="assignments" id="funding_assignments_list"><div class="assignments-header"><div><h4>Funding Sources</h4><p class="assignment-note">Single explicit allocation · Net basis</p></div><button type="button" class="btn btn-outline btn-sm" name="add_funding_assignment_to_position" value="2" hx-post="/invoices/create/add-funding-asssignment" hx-target="#position-2" hx-swap="outerHTML" hx-include="#position-2, [name='currency']" hx-vals='{"position_index":"2"}'>Add</button></div><input type="hidden" name="positions-2-#-funding_assignments" value="1"><div class="field"><label class="field-label" for="id-positions-2-cost_basis_mode">Input mode</label><select class="select select-sm" id="id-positions-2-cost_basis_mode" name="positions-2-cost_basis_mode" hx-post="/invoices/create/switch-cost-basis-mode" hx-trigger="change" hx-target="#position-2" hx-swap="outerHTML" hx-include="#position-2, [name='currency']" hx-vals='{"position_index":"2"}'><option value="net" selected>Net (excl. tax)</option><option value="gross">Gross (incl. tax)</option></select></div><div class="funding-assignment-row"><div class="form-row"><label class="field-label" for="positions-2-funding_assignments-1-funding_source_type">Source type</label><select class="select select-sm" name="positions-2-funding_assignments-1-funding_source_type" id="positions-2-funding_assignments-1-funding_source_type" hx-get="/invoices/create/switch_funding_source_type" hx-target="#id-positions-2-funding_assignments-1-funding_source" hx-swap="innerHTML"><option value="budget" selected>Budget</option><option value="institution">Institution</option></select></div><div class="form-row"><label class="field-label" for="id-positions-2-funding_assignments-1-funding_source">Funding source</label><select class="select select-sm" id="id-positions-2-funding_assignments-1-funding_source" name="positions-2-funding_assignments-1-funding_source"><option value="12" selected>Open Access Budget</option><option value="14">Research Library Fund</option></select></div><div class="form-row"><label class="field-label" for="id-positions-2-funding_assignments-1-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-2-funding_assignments-1-amount" name="positions-2-funding_assignments-1-amount" value="1320.00"></div></div><div class="unassigned-field"><label class="field-label" for="id-positions-2-unassigned_costs">Unassigned costs</label><input class="input input-sm" id="id-positions-2-unassigned_costs" value="0.00" readonly hx-post="/invoices/create/refresh-funding-asssignment" hx-trigger="change from:(#id-positions-2-funding_assignments-list input.cost-amount), change from:(#id-positions-2-cost-amount)" hx-target="#position-2" hx-swap="outerHTML" hx-include="#position-2, [name='currency']" hx-vals='{"position_index":"2"}'></div></div>
+                        </div>
+                    </details>
+                </section>
+                <section id="position-3" class="position-shell">
+                    <details open class="position-details">
+                        <summary class="position-heading"><div class="position-heading-main"><h3>#3 · Free Position</h3><span class="position-type">Split funding · 50.00 unassigned</span><span class="position-amount">EUR 500.00</span></div><button type="button" name="remove-position" class="btn btn-ghost btn-sm" value="3" hx-post="/invoices/create/remove-position/" hx-target="#positions" hx-swap="outerHTML">Remove</button></summary>
+                        <div class="position-body">
+                            <div class="position-specific"><h4>Position details</h4><div class="field"><label class="field-label" for="id-positions-3-description">Description</label><input class="input input-sm" id="id-positions-3-description" type="text" name="positions-3-item-description" value="Additional copyediting charge"></div></div>
+                            <div class="position-core"><input type="hidden" name="positions-3-item-type" value="free"><div class="field field-wide"><label class="field-label" for="id-positions-3-external-position-id">External Position ID</label><input class="input input-sm" type="text" id="id-positions-3-external-position-id" name="positions-3-external_position_id" value="EXT-3008"></div><div class="field"><label class="field-label" for="id-positions-3-cost-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-3-cost-amount" name="positions-3-cost_amount" min="-1000000000000000" max="1000000000000000" step="0.0001" value="500.00"></div><div class="field" id="tax-rate-wrapper-3"><label class="field-label" for="id-positions-3-tax-rate">Tax Rate</label><input class="input input-sm tax-rate" type="number" id="id-positions-3-tax-rate" name="positions-3-tax_rate" min="0" max="100" step="0.01" value="19.00"></div><div class="field"><label class="field-label" for="id-positions-3-cost-type">Cost Type</label><select class="select select-sm cost-type" id="id-positions-3-cost-type" name="positions-3-item-cost_type" hx-get="/invoices/free-position-cost-type-options/" hx-target="#tax-rate-wrapper-3" hx-swap="innerHTML" hx-trigger="change" hx-include="[name='positions-3-item-cost_type'], [name='positions-3-tax_rate']" hx-vals='{"counter":"3"}'><option value="other" selected>Other</option><option value="vat">VAT</option></select></div></div>
+                            <div class="assignments" id="funding_assignments_list"><div class="assignments-header"><div><h4>Funding Sources</h4><p class="assignment-note">Split across two sources; 50.00 remains unassigned.</p></div><button type="button" class="btn btn-outline btn-sm" name="add_funding_assignment_to_position" value="3" hx-post="/invoices/create/add-funding-asssignment" hx-target="#position-3" hx-swap="outerHTML" hx-include="#position-3, [name='currency']" hx-vals='{"position_index":"3"}'>Add</button></div><input type="hidden" name="positions-3-#-funding_assignments" value="2"><div class="field"><label class="field-label" for="id-positions-3-cost_basis_mode">Input mode</label><select class="select select-sm" id="id-positions-3-cost_basis_mode" name="positions-3-cost_basis_mode" hx-post="/invoices/create/switch-cost-basis-mode" hx-trigger="change" hx-target="#position-3" hx-swap="outerHTML" hx-include="#position-3, [name='currency']" hx-vals='{"position_index":"3"}'><option value="net" selected>Net (excl. tax)</option><option value="gross">Gross (incl. tax)</option></select></div><div id="id-positions-3-funding_assignments-list"><div class="funding-assignment-row"><div class="form-row"><label class="field-label" for="positions-3-funding_assignments-1-funding_source_type">Source type</label><select class="select select-sm" name="positions-3-funding_assignments-1-funding_source_type" id="positions-3-funding_assignments-1-funding_source_type" hx-get="/invoices/create/switch_funding_source_type" hx-target="#id-positions-3-funding_assignments-1-funding_source" hx-swap="innerHTML"><option value="budget" selected>Budget</option><option value="institution">Institution</option></select></div><div class="form-row"><label class="field-label" for="id-positions-3-funding_assignments-1-funding_source">Funding source</label><select class="select select-sm" id="id-positions-3-funding_assignments-1-funding_source" name="positions-3-funding_assignments-1-funding_source"><option value="12" selected>Open Access Budget</option><option value="14">Research Library Fund</option></select></div><div class="form-row"><label class="field-label" for="id-positions-3-funding_assignments-1-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-3-funding_assignments-1-amount" name="positions-3-funding_assignments-1-amount" value="300.00"></div></div><div class="funding-assignment-row"><div class="form-row"><label class="field-label" for="positions-3-funding_assignments-2-funding_source_type">Source type</label><select class="select select-sm" name="positions-3-funding_assignments-2-funding_source_type" id="positions-3-funding_assignments-2-funding_source_type" hx-get="/invoices/create/switch_funding_source_type" hx-target="#id-positions-3-funding_assignments-2-funding_source" hx-swap="innerHTML"><option value="budget">Budget</option><option value="institution" selected>Institution</option></select></div><div class="form-row"><label class="field-label" for="id-positions-3-funding_assignments-2-funding_source">Funding source</label><select class="select select-sm" id="id-positions-3-funding_assignments-2-funding_source" name="positions-3-funding_assignments-2-funding_source"><option value="14" selected>Research Library Fund</option><option value="15">Institute of Open Science</option></select></div><div class="form-row"><label class="field-label" for="id-positions-3-funding_assignments-2-amount">Amount</label><input class="input input-sm cost-amount" type="number" id="id-positions-3-funding_assignments-2-amount" name="positions-3-funding_assignments-2-amount" value="150.00"></div><button type="button" class="btn btn-ghost btn-sm" name="remove_funding_assignment" value="2" hx-post="/invoices/create/remove-funding-asssignment" hx-target="#position-3" hx-swap="outerHTML" hx-include="#position-3, [name='currency']" hx-vals='{"position_index":"3", "assignment_index":"2"}'>Remove</button></div></div><div class="unassigned-field"><label class="field-label" for="id-positions-3-unassigned_costs">Unassigned costs</label><input class="input input-sm" type="text" id="id-positions-3-unassigned_costs" value="50.00" readonly aria-invalid="true" hx-post="/invoices/create/refresh-funding-asssignment" hx-trigger="change from:(#id-positions-3-funding_assignments-list input.cost-amount), change from:(#id-positions-3-cost-amount)" hx-target="#position-3" hx-swap="outerHTML" hx-include="#position-3, [name='currency']" hx-vals='{"position_index":"3"}'><span class="field-error">50.00 must be assigned.</span></div></div>
+                        </div>
+                    </details>
+                </section>
+            </section>
+            <div class="position-summary" id="positions-summary" hx-post="/invoices/create/total/" hx-target="#positions-summary" hx-trigger="change from:(#positions__list input.cost-amount), change from:(#positions__list select.cost-type), change from:(#positions__list input.tax-rate)" hx-swap="outerHTML">
+                <h3>Summary</h3>
+                <div class="summary-grid">
+                    <div class="summary-field"><label class="field-label" for="total-net">Total net</label><input class="input input-sm" id="total-net" type="number" readonly value="3070.00"></div>
+                    <div class="summary-field"><label class="field-label" for="tax-rate">Total tax</label><input class="input input-sm" id="tax-rate" type="number" readonly value="187.40"></div>
+                    <div class="summary-field"><label class="field-label" for="total">Gross costs</label><input class="input input-sm" id="total" type="number" readonly value="3257.40"></div>
+                </div>
+            </div>
+        </article>
+        </form>
+    </main>
+
+    <nav class="variant-switcher" aria-label="Invoice position layout selector"><button class="btn btn-sm btn-ghost" id="previous-variant" type="button" aria-label="Previous layout">←</button><span class="variant-name" id="variant-name"></span><button class="btn btn-sm btn-ghost" id="next-variant" type="button" aria-label="Next layout">→</button></nav>
+    <script>
+        const variants = [
+            { key: "ledger", name: "A · Position ledger", caption: "Compact, aligned controls for comparing costs and funding." },
+            { key: "sections", name: "B · Expanded sections", caption: "Each open position keeps details grouped, with amount, tax, and cost type aligned on one row." },
+            { key: "allocation", name: "C · Allocation first", caption: "Bring funding splits and remaining costs forward." },
+        ];
+        const positions = document.getElementById("positions");
+        const caption = document.getElementById("variant-caption");
+        const variantName = document.getElementById("variant-name");
+        let current = 0;
+        function selectVariant(index, updateUrl = true) {
+            current = (index + variants.length) % variants.length;
+            const variant = variants[current];
+            positions.dataset.layout = variant.key;
+            positions.classList.remove("variant-ledger", "variant-sections", "variant-allocation");
+            positions.classList.add(`variant-${variant.key}`);
+            caption.textContent = variant.caption;
+            variantName.textContent = variant.name;
+            if (updateUrl) {
+                const url = new URL(location.href);
+                url.searchParams.set("variant", variant.key);
+                history.replaceState({}, "", url);
+            }
+        }
+        const requested = new URLSearchParams(location.search).get("variant");
+        const requestedIndex = variants.findIndex((variant) => variant.key === requested);
+        selectVariant(requestedIndex < 0 ? 0 : requestedIndex, false);
+        document.getElementById("previous-variant").addEventListener("click", () => selectVariant(current - 1));
+        document.getElementById("next-variant").addEventListener("click", () => selectVariant(current + 1));
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            const editing = event.composedPath().some((node) => node instanceof Element && node.matches("input, textarea, select, search-select, [contenteditable='true']"));
+            if (editing) return;
+            selectVariant(current + (event.key === "ArrowRight" ? 1 : -1));
+        });
+        const themeToggle = document.getElementById("theme-toggle");
+        const storedTheme = localStorage.getItem("theme");
+        if (storedTheme === "light" || storedTheme === "dark") document.documentElement.dataset.theme = storedTheme;
+        function syncTheme() {
+            const dark = document.documentElement.dataset.theme === "dark";
+            themeToggle.textContent = dark ? "Use light theme" : "Use dark theme";
+            themeToggle.setAttribute("aria-pressed", String(dark));
+        }
+        syncTheme();
+        themeToggle.addEventListener("click", () => {
+            document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", document.documentElement.dataset.theme);
+            syncTheme();
+        });
+        document.addEventListener("submit", (event) => event.preventDefault());
+    </script>
+</body>
+</html>
