@@ -328,7 +328,6 @@ def _contract_invoice_elements(
             report_item,
             live_invoice(_require(live_invoices, invoice_row.invoice_id, "invoice")),
             rows,
-            *_invoice_total(rows),
             row_issues,
         )
         if element is None:
@@ -341,19 +340,6 @@ def _contract_invoice_elements(
         invoice_issues.extend(row_issues)
 
     return elements
-
-
-def _invoice_total(rows: Sequence[LiveInvoicePosition]) -> tuple[Decimal | None, str]:
-    """The price stated on an invoice over the positions asked about, and its currency.
-
-    Every row counts, cost types openCost rejects included, since openCost is being told the
-    invoice's price and not the sum of its exported items. The currency is the first row's,
-    which the position order fixes by amount.
-    """
-    if not rows:
-        return None, ""
-
-    return sum((Decimal(str(row.amount)) for row in rows), Decimal(0)), rows[0].currency
 
 
 def _transform_publications(

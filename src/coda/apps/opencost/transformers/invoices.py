@@ -80,11 +80,11 @@ def publication_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=PublicationAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_publication_total(rows),
+        amount_invoice=_invoice_positions_total(rows),
     )
 
 
-def _publication_total(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
+def _invoice_positions_total(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
     """Total over every position held for this invoice.
 
     Every row counts, including ones openCost was given no cost type for, so the total can
@@ -104,17 +104,11 @@ def contract_invoice(
     report_item: AnyOpenCostReportItem,
     report_invoice: LiveInvoice,
     positions: Iterable[LiveInvoicePosition],
-    total_amount: Decimal | None,
-    total_currency: str,
     issues: list[ValidationWarning] | None,
 ) -> ContractInvoiceType | None:
-    """One contract invoice element.
-
-    ``total_amount``/``total_currency`` is the price stated on the invoice over all its
-    positions, rejected cost types included — openCost is being told the invoice's price, not
-    the sum of the amounts it is also being given.
-    """
-    amounts = CONTRACT_COST_TYPES.amounts_for(positions)
+    """One contract invoice element."""
+    rows = list(positions)
+    amounts = CONTRACT_COST_TYPES.amounts_for(rows)
     dates = _dates_if_exportable(report_item, report_invoice, issues, amounts)
     if dates is None:
         return None
@@ -124,7 +118,7 @@ def contract_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=ContractAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_amount_invoice(total_amount, total_currency),
+        amount_invoice=_invoice_positions_total(rows),
     )
 
 
