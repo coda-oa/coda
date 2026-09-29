@@ -6,12 +6,16 @@
 }
 
 .filter-sidebar {
-  width: 280px;
+  --_padding: var(--coda-spacing);
+  width: calc(280px + var(--_padding));
+  padding-inline: var(--_padding);
+
   flex-shrink: 0;
   position: sticky;
   top: 1rem;
-  max-height: calc(100dvh - 1rem);
+  height: calc(100dvh - 1rem);
   overflow-y: auto;
+  scrollbar-width: thin;
 
   /* Three-step vertical rhythm: label binds to its control, fields bind to
      their group, groups get room to breathe. */
@@ -134,7 +138,6 @@
 .active-filter-remove:hover {
   opacity: 1;
 }
-
 
 /* Groups */
 .filter-group {
