@@ -166,17 +166,14 @@ def select_publication_ids(
 
 def fetch_publications_by_ids(
     publication_ids: Collection[int],
-    positions: QuerySet[Position] | None = None,
+    positions: QuerySet[Position],
 ) -> QuerySet[Publication]:
     """Fetch publications by id with the report's prefetch shape.
 
-    ``positions`` overrides the ``position_set`` prefetch: generation passes a
-    period-bound queryset, while the default loads every live position —
-    regeneration feeds pinned ids and re-reads positions live.
+    ``positions`` declares the scope of the ``position_set`` prefetch —
+    period-bound for generation, pinned-invoice-bound for regeneration — so no
+    caller can inherit an unbounded read by omission.
     """
-    if positions is None:
-        positions = Position.objects.select_related("invoice", "invoice__creditor")
-
     links_with_types = Link.objects.select_related("type").order_by("type__name", "value")
     institution_links_with_types = InstitutionLink.objects.select_related("type").order_by(
         "type__name", "value"
@@ -296,17 +293,14 @@ def select_contract_ids(
 
 def fetch_contracts_by_ids(
     contract_ids: Collection[int],
-    positions: QuerySet[Position] | None = None,
+    positions: QuerySet[Position],
 ) -> QuerySet[Contract]:
     """Fetch contracts by id with the report's prefetch shape.
 
-    ``positions`` overrides the ``position_set`` prefetch: generation passes a
-    period-bound queryset, while the default loads every live position —
-    regeneration feeds pinned ids and re-reads positions live.
+    ``positions`` declares the scope of the ``position_set`` prefetch —
+    period-bound for generation, pinned-invoice-bound for regeneration — so no
+    caller can inherit an unbounded read by omission.
     """
-    if positions is None:
-        positions = Position.objects.select_related("invoice", "invoice__creditor")
-
     # Prefetch contract links with their types
     contract_links_with_types = ContractLink.objects.select_related("type").order_by(
         "type__name", "value"

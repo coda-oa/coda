@@ -385,11 +385,14 @@ def test__select_and_fetch_publications_by_ids__matches_get_publications_for_per
     assert select_publication_ids(params) == {publication.id}
 
     by_period = key_by_id(get_publications_for_period(params))
-    fetched = key_by_id(fetch_publications_by_ids(select_publication_ids(params)))
+    unbounded = Position.objects.select_related("invoice", "invoice__creditor")
+    fetched = key_by_id(
+        fetch_publications_by_ids(select_publication_ids(params), positions=unbounded)
+    )
 
     # Same objects as the by-period fetch ...
     assert set(fetched) == set(by_period) == {publication.id}
-    # ... while the default fetch re-reads positions live (out-of-period included),
+    # ... while the unbounded fetch re-reads positions live (out-of-period included),
     # pinned by (cost_amount, id) ...
     assert [p.id for p in fetched[publication.id].position_set.all()] == [
         late_position.id,
@@ -471,8 +474,13 @@ def test__select_and_fetch_contracts_by_ids__matches_get_contracts_for_period() 
         == [lower.id, higher.id]
     )
 
-    # The default fetch re-reads positions live, out-of-period included.
-    live = key_by_id(fetch_contracts_by_ids(select_contract_ids(start, end)))
+    # The unbounded fetch re-reads positions live, out-of-period included.
+    live = key_by_id(
+        fetch_contracts_by_ids(
+            select_contract_ids(start, end),
+            positions=Position.objects.select_related("invoice", "invoice__creditor"),
+        )
+    )
     assert [p.id for p in live[contract.id].position_set.all()] == [
         lower.id,
         higher.id,
