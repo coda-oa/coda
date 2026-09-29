@@ -8,22 +8,46 @@ A list page opts in by:
   :class:`FilterError` — one message plus the control ids it invalidates.
 """
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from enum import StrEnum
+from typing import Any, ClassVar, Literal, cast
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
 from django.views.generic import TemplateView
 
+from coda.apps.widgets import DateRangeWidget
 from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
+
+
+class ListSortOrder(StrEnum):
+    date_desc = "date_desc"
+    date_asc = "date_asc"
+    alphabetical = "alphabetical"
+
+    @staticmethod
+    def choices() -> tuple[tuple[str, str], ...]:
+        return (
+            (ListSortOrder.date_desc.value, "Date descending"),
+            (ListSortOrder.date_asc.value, "Date ascending"),
+            (ListSortOrder.alphabetical.value, "Alphabet"),
+        )
+
+    @staticmethod
+    def parse_or_default(value: Any) -> "ListSortOrder":
+        try:
+            return ListSortOrder(value)
+        except ValueError:
+            return ListSortOrder.date_desc
 
 
 class ListRegionMixin(TemplateView):
     """Marks a list-region (fragment) view: pushes the canonical list URL on htmx requests."""
 
-    region_url_name: str
+    list_url_name: ClassVar[str]
 
     def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
         response = super().render_to_response(context, **response_kwargs)
@@ -32,7 +56,7 @@ class ListRegionMixin(TemplateView):
         return response
 
     def _push_url(self) -> str:
-        path = reverse(self.region_url_name)
+        path = reverse(self.list_url_name)
         if self.request.GET:
             return f"{path}?{self.request.GET.urlencode()}"
         return path
@@ -49,23 +73,31 @@ def valid_fields(form: forms.Form) -> dict[str, Any]:
     return {name: value for name, value in form.cleaned_data.items() if name not in form.errors}
 
 
-@dataclass(frozen=True)
-class DateFilter:
-    """The sidebar's date-range filter: the range to apply, or why it is dropped."""
-
-    date_range: DateRange | None
-    error: str | None
+def named_model_choices(items: Iterable[Any]) -> list[tuple[Any, str]]:
+    """Return a blank option followed by choices from named model instances."""
+    return [("", "-------"), *((item.pk, item.name) for item in items)]
 
 
-def parse_date_range(start: str, end: str) -> DateFilter:
-    """Read two raw date params into a range, or one line of error copy."""
-    if not start and not end:
-        return DateFilter(date_range=None, error=None)
-    try:
-        date_range = DateRange.from_iso(start=start, end=end)
-    except (InvalidDateError, InvalidDateRangeError) as error:
-        return DateFilter(date_range=None, error=str(error))
-    return DateFilter(date_range=date_range, error=None)
+class DateRangeField(forms.MultiValueField):
+    """One date-range value backed by the sidebar's two existing GET params."""
+
+    def __init__(self, *, input_names: tuple[str, str], input_ids: tuple[str, str]) -> None:
+        super().__init__(
+            (forms.CharField(required=False), forms.CharField(required=False)),
+            widget=DateRangeWidget(input_names=input_names, input_ids=input_ids),
+            required=False,
+            require_all_fields=False,
+        )
+
+    def compress(self, data_list: list[str]) -> DateRange | None:
+        if not data_list:
+            return None
+        start, end = data_list
+        try:
+            return DateRange.from_iso(start=start or None, end=end or None)
+        except (InvalidDateError, InvalidDateRangeError) as error:
+            cast(DateRangeWidget, self.widget).mark_invalid()
+            raise ValidationError(str(error)) from error
 
 
 @dataclass(frozen=True)
@@ -98,13 +130,6 @@ class FilterSummary:
     chips: list[ActiveFilter]
     count: int
     errors: list[FilterError]
-
-    def error_for(self, *source_ids: str) -> str | None:
-        """The message recorded against any of these controls, None when there is none."""
-        for error in self.errors:
-            if set(source_ids).intersection(error.source_ids):
-                return error.message
-        return None
 
 
 class ChipBuilder:
@@ -175,7 +200,7 @@ class ChipBuilder:
     def error(self, message: str | None, *source_ids: str) -> None:
         """Record a rejected filter value and the sidebar controls it invalidates.
 
-        ``None``/empty is ignored, so a caller can pass a parse result straight
+        ``None``/empty is ignored, so callers can pass a form error straight
         through. First writer wins per control, so a later filter can never
         overwrite a message the user already needs.
         """
@@ -185,19 +210,18 @@ class ChipBuilder:
         self._errors.append(FilterError(message=message, source_ids=tuple(source_ids)))
 
     def date_range(
-        self, *, start_key: str, end_key: str, start_source_id: str, end_source_id: str
+        self,
+        *,
+        start_key: str,
+        end_key: str,
+        start_source_id: str,
+        end_source_id: str,
+        date_range: DateRange | None,
+        error: str | None,
     ) -> None:
-        """Chips for the two date params, only when the range parses.
-
-        A parse failure contributes no chip and records one error against both date
-        controls instead — both inputs are invalid, and today's markup marks both.
-        """
-        parsed = parse_date_range(
-            (self._request.GET.get(start_key) or "").strip(),
-            (self._request.GET.get(end_key) or "").strip(),
-        )
-        self.error(parsed.error, start_source_id, end_source_id)
-        if parsed.date_range is None:
+        """Build chips from the form's validated range or record its rejection."""
+        self.error(error, start_source_id, end_source_id)
+        if date_range is None:
             return
 
         for key, prefix in ((start_key, "From "), (end_key, "To ")):

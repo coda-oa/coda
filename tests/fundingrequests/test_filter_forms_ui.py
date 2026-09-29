@@ -435,3 +435,61 @@ def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
 
     expect(toolbar_count).to_have_count(1)
     expect(toolbar_count).to_be_hidden()
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__fundingrequest_form_sidebar__rebinds_all_filter_inputs(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    label = label_create("Form sidebar label", Color.from_rgb(0, 128, 0))
+    contract = modelfactory.contract()
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    query = (
+        f"labels={label.pk}&exclude_labels={label.pk}"
+        f"&contract_name={contract.pk}&publication_states=Published"
+    )
+    list_page.navigate(query)
+
+    filter_ui_expectations.expect_checked_control(
+        coda_page, filter_ui_selectors.PUBLICATION_TYPE_ALL
+    )
+    expect(
+        coda_page.locator(filter_ui_selectors.CONTRACT_NAME).locator(
+            filter_ui_selectors.SEARCH_SELECT_BOX
+        )
+    ).to_have_value(contract.name)
+    filter_ui_expectations.expect_selected_options(
+        coda_page, "#id_publication_states", ["Published"]
+    )
+    filter_ui_expectations.expect_selected_options(coda_page, "#exclude_labels", [label.name])
+    expect(coda_page.locator('#label-pills input[name="labels"]')).to_have_value(str(label.pk))
+
+    list_page.show_only_invalid_contract_years()
+
+    filter_ui_expectations.expect_url_query(coda_page, f"labels={label.pk}")
+    filter_ui_expectations.expect_url_query(coda_page, f"exclude_labels={label.pk}")
+    filter_ui_expectations.expect_url_query(coda_page, f"contract_name={contract.pk}")
+    filter_ui_expectations.expect_url_query(coda_page, "publication_states=Published")
+    filter_ui_expectations.expect_selected_options(
+        coda_page, "#id_publication_states", ["Published"]
+    )
+    filter_ui_expectations.expect_selected_options(coda_page, "#exclude_labels", [label.name])
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__date_range_fields__each_label_groups_its_input(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    FundingRequestListPage(coda_page, live_server.url).navigate()
+    coda_page.wait_for_function(filter_ui_selectors.HTMX_IDLE_EXPRESSION)
+
+    for control_id, name in (
+        ("id_start_date", "start_date"),
+        ("id_end_date", "end_date"),
+    ):
+        row = coda_page.locator(f'label[for="{control_id}"]').locator("xpath=..")
+        control = row.locator('input[type="date"]')
+        expect(control).to_have_count(1)
+        expect(control).to_have_attribute("name", name)

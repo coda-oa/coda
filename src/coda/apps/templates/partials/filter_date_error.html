@@ -1,1 +1,3 @@
-{% if date_filter_error %}<small id="date-range-error" class="mt-1">{{ date_filter_error }}</small>{% endif %}
+{% if filter_form.date_range.errors %}
+    <small id="date-range-error" class="mt-1">{{ filter_form.date_range.errors.0 }}</small>
+{% endif %}

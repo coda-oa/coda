@@ -1,76 +1,66 @@
-{% load getlist %}
 {% url 'fundingrequests:list' as filter_clear_url %}
 {% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
 {% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
 <div class="filter-group">
     <h3 class="filter-group-title">Status</h3>
     <div class="form-row">
-        <label for="processing_status">Processing Status</label>
-        <search-select-multi id="processing_status" name="processing_status" class="w-100" placeholder="Select statuses">
-        {% for status in processing_states %}
-            <option slot="options"
-                    value="{{ status }}"
-                    {% if status in request.GET|getlist:"processing_status" %}selected{% endif %}>{{ status }}</option>
-        {% endfor %}
-        </search-select-multi>
+        {{ filter_form.processing_status.label_tag }}
+        {{ filter_form.processing_status }}
     </div>
-    {% include "fundingrequests/forms/payment_status.html" %}
     <div class="form-row">
-        <label for="payment_methods">Payment Method</label>
-        <search-select-multi id="payment_methods" name="payment_methods" class="w-100" placeholder="Select payment methods">
-        {% for value, label in payment_methods %}
-            <option slot="options"
-                    value="{{ value }}"
-                    {% if value in request.GET|getlist:"payment_methods" %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-        </search-select-multi>
+        {{ filter_form.payment_status.label_tag }}
+        {{ filter_form.payment_status }}
     </div>
-    {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+    <div class="form-row">
+        {{ filter_form.payment_methods.label_tag }}
+        {{ filter_form.payment_methods }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.open_access_type.label_tag }}
+        {{ filter_form.open_access_type }}
+    </div>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Publication</h3>
     <div class="segment" role="radiogroup" aria-label="Publication type">
-        {% for type in publication_types %}
-            <input type="radio"
-                   id="publication_type_{{ type.0 }}"
-                   name="publication_type"
-                   value="{{ type.0 }}"
-                   {% if type.0 == selected_publication_types or not selected_publication_types and type.0 == "all" %}checked{% endif %}>
-            <label for="publication_type_{{ type.0 }}">{{ type.1 }}</label>
+        {% for radio in filter_form.publication_type %}
+            {{ radio.tag }}
+            <label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
         {% endfor %}
     </div>
     <div class="form-row">
         <label for="id_start_date">Start Date</label>
-        <input type="date"
-               id="id_start_date"
-               name="start_date"
-               value="{{ request.GET.start_date }}"
-               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
+        {{ filter_form.date_range.subwidgets.0 }}
     </div>
     <div class="form-row">
         <label for="id_end_date">End Date</label>
-        <input type="date"
-               id="id_end_date"
-               name="end_date"
-               value="{{ request.GET.end_date }}"
-               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
+        {{ filter_form.date_range.subwidgets.1 }}
         {% include "partials/filter_date_error.html" %}
     </div>
-    {% include "fundingrequests/forms/publication_state.html" %}
+    <div class="form-row">
+        {{ filter_form.publication_states.label_tag }}
+        {{ filter_form.publication_states }}
+    </div>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Contract</h3>
-    {% include "partials/contract_filter_fields.html" %}
-    <label class="filter-switch-row">
-        <input type="checkbox"
-               name="invalid_contract_years"
-               id="invalid_contract_years"
-               role="switch"
-               {% if request.GET.invalid_contract_years %}checked aria-checked="true" {% else %}aria-checked="false" {% endif %}>
-        Invalid contract years only
+    <div class="form-row">
+        {{ filter_form.contract_name.label_tag }}
+        {{ filter_form.contract_name }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.contract_year.label_tag }}
+        {{ filter_form.contract_year }}
+    </div>
+    <label class="filter-switch-row" for="invalid_contract_years">
+        {{ filter_form.invalid_contract_years }}
+        <span>{{ filter_form.invalid_contract_years.label }}</span>
     </label>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Labels</h3>
-    {% include "fundingrequests/forms/label_dropdown.html" %}
+    <div class="form-row">
+        {{ filter_form.exclude_labels.label_tag }}
+        {{ filter_form.exclude_labels }}
+    </div>
 </div>

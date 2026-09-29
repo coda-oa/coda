@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
 from django import forms
@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 from coda.apps import fields
 from coda.apps.contracts import repository
+from coda.apps.contracts.models import Contract
 from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import (
@@ -21,15 +22,26 @@ from coda.apps.fundingrequests.models import (
 )
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
-from coda.apps.listfilters import parse_date_range
+from coda.apps.listfilters import (
+    DateRangeField,
+    ListSortOrder,
+    named_model_choices,
+    valid_fields,
+)
 from coda.apps.publications.dto import ContractYearDto
-from coda.apps.widgets import SearchSelectWidget
+from coda.apps.widgets import (
+    PublicationTypeRadioSelect,
+    SearchSelectMultiWidget,
+    SearchSelectWidget,
+    SwitchInput,
+)
 from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
+from coda.domain.publication.publication import UnpublishedState
 
 
 class ExtraContactForm(CodaFormBase):
@@ -162,9 +174,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(
-                ModelChoiceField[FundingOrganization], self.fields["organization"]
-            ).queryset = organization_queryset
+            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
+                organization_queryset
+            )
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -330,53 +342,185 @@ payment_status_choices = [
     (status.value, status.value.replace("_", " ").title()) for status in fq.PaymentStatus
 ]
 
+publication_state_choices = [
+    ("Published", "Published"),
+    *((state.name, state.value) for state in UnpublishedState),
+]
+processing_status_choices = [(result.value, result.value) for result in ReviewResult]
+payment_method_choices = [(method.value, method.value) for method in PaymentMethod]
+open_access_type_choices = [
+    (access_type.value, access_type.value) for access_type in OpenAccessType
+]
+publication_type_choices = [
+    (entity.value, entity.value.title()) for entity in fq.PublicationEntityType
+]
+
+
+def parse_label_ids(values: Iterable[str]) -> set[int]:
+    """Parse label ids from query values, ignoring non-integer values."""
+    ids = set()
+    for value in values:
+        try:
+            ids.add(int(value))
+        except ValueError:
+            continue
+    return ids
+
 
 class FundingRequestListFilterForm(forms.Form):
-    """Validation for the list sidebar's GET params; field names match the filter widgets.
+    """Validation and query mapping for the funding-request filter controls.
 
     A value that fails validation lands in ``form.errors`` and its criterion is
     dropped; the raw param stays in the URL so its chip keeps it removable.
     """
 
+    def __init__(
+        self,
+        *args: Any,
+        contracts: Iterable[Contract] = (),
+        labels: Iterable[Label] = (),
+        **kwargs: Any,
+    ) -> None:
+        kwargs.setdefault("label_suffix", "")
+        data = args[0] if args else kwargs.get("data")
+        if data is not None and not data.get("publication_type"):
+            data = data.copy()
+            data["publication_type"] = fq.PublicationEntityType.All.value
+            if args:
+                args = (data, *args[1:])
+            else:
+                kwargs["data"] = data
+        super().__init__(*args, **kwargs)
+
+        cast(SearchSelectWidget, self.fields["contract_name"].widget).choices = named_model_choices(
+            contracts
+        )
+        label_widget = cast(SearchSelectMultiWidget, self.fields["exclude_labels"].widget)
+        label_options = list(labels)
+        label_widget.choices = [(label.pk, label.name) for label in label_options]
+        label_widget.option_attrs = {
+            str(label.pk): {"data-color": label.hexcolor} for label in label_options
+        }
+
     search_term = forms.CharField(required=False)
     processing_status = forms.TypedMultipleChoiceField(
         coerce=ReviewResult,
-        choices=[(result.value, result.value) for result in ReviewResult],
+        choices=processing_status_choices,
         required=False,
+        label="Processing Status",
+        widget=SearchSelectMultiWidget(
+            attrs={"id": "processing_status", "class": "w-100", "placeholder": "Select statuses"}
+        ),
     )
     payment_status = forms.TypedMultipleChoiceField(
         coerce=fq.PaymentStatus,
         choices=payment_status_choices,
         required=False,
+        label="Payment status",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "id_payment_status",
+                "class": "w-100",
+                "placeholder": "Select payment statuses",
+            }
+        ),
     )
     payment_methods = forms.TypedMultipleChoiceField(
         coerce=PaymentMethod,
-        choices=[(method.value, method.value) for method in PaymentMethod],
+        choices=payment_method_choices,
         required=False,
+        label="Payment Method",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "payment_methods",
+                "class": "w-100",
+                "placeholder": "Select payment methods",
+            }
+        ),
     )
     open_access_type = forms.TypedMultipleChoiceField(
         coerce=OpenAccessType,
-        choices=[(access_type.value, access_type.value) for access_type in OpenAccessType],
+        choices=open_access_type_choices,
         required=False,
+        label="Open Access Type",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "open_access_type",
+                "class": "w-100",
+                "placeholder": "Select open access types",
+            }
+        ),
     )
     publication_type = forms.TypedChoiceField(
         coerce=fq.PublicationEntityType,
-        choices=[(entity.value, entity.value) for entity in fq.PublicationEntityType],
+        choices=publication_type_choices,
         required=False,
+        initial=fq.PublicationEntityType.All.value,
+        widget=PublicationTypeRadioSelect(),
     )
-    contract_name = forms.IntegerField(required=False)
-    contract_year = forms.IntegerField(required=False)
-    invalid_contract_years = forms.BooleanField(required=False)
+    publication_states = forms.Field(
+        required=False,
+        label="Publication State",
+        widget=SearchSelectMultiWidget(
+            attrs={"id": "id_publication_states", "class": "w-100"},
+            choices=publication_state_choices,
+        ),
+    )
+    contract_name = forms.IntegerField(
+        required=False,
+        label="Contract",
+        widget=SearchSelectWidget(attrs={"id": "contract_name", "class": "w-100"}),
+    )
+    contract_year = forms.IntegerField(
+        required=False,
+        label="Contract Year",
+        widget=forms.NumberInput(attrs={"id": "contract_year", "step": "1"}),
+    )
+    invalid_contract_years = forms.BooleanField(
+        required=False,
+        label="Invalid contract years only",
+        widget=SwitchInput(attrs={"id": "invalid_contract_years", "role": "switch"}),
+    )
+    date_range = DateRangeField(
+        input_names=("start_date", "end_date"),
+        input_ids=("id_start_date", "id_end_date"),
+    )
+    labels = forms.Field(required=False, widget=forms.MultipleHiddenInput)
+    exclude_labels = forms.Field(
+        required=False,
+        label="Exclude labels",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "exclude_labels",
+                "class": "w-100",
+                "placeholder": "Select labels to exclude",
+            }
+        ),
+    )
     sort_by = forms.ChoiceField(
-        choices=[(member.name, member.name) for member in fq.SortOrder],
+        choices=ListSortOrder.choices(),
         required=False,
+        widget=forms.Select(attrs={"id": "sort_by", "class": "filter-sort"}),
     )
-    start_date = forms.CharField(required=False)
-    end_date = forms.CharField(required=False)
 
-    def clean(self) -> dict[str, Any]:
-        cleaned = super().clean() or {}
-        cleaned["date_range"] = parse_date_range(
-            cleaned.get("start_date", ""), cleaned.get("end_date", "")
-        ).date_range
-        return cleaned
+    def search_criteria(
+        self,
+    ) -> tuple[list[fq.FundingRequestSearchCriteria], ListSortOrder]:
+        """Translate validated filter fields into criteria and their sort order."""
+        cleaned = valid_fields(self)
+        params = fq.FundingRequestSearchParams(
+            date_range=cleaned.get("date_range"),
+            review_results=cleaned.get("processing_status", []),
+            payment_statuses=cleaned.get("payment_status", []),
+            labels=sorted(parse_label_ids(cleaned.get("labels", []))),
+            exclude_labels=sorted(parse_label_ids(cleaned.get("exclude_labels", []))),
+            payment_methods=cleaned.get("payment_methods", []),
+            open_access_types=cleaned.get("open_access_type", []),
+            publication_states=cleaned.get("publication_states", []),
+            entity_type=cleaned.get("publication_type") or fq.PublicationEntityType.All,
+            search_term=cleaned.get("search_term", ""),
+            contract_id=cleaned.get("contract_name"),
+            contract_year=cleaned.get("contract_year"),
+            show_invalid_contract_years=bool(cleaned.get("invalid_contract_years")),
+        )
+        return fq.build_criteria(params), ListSortOrder.parse_or_default(cleaned.get("sort_by"))

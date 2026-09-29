@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse
 
@@ -11,8 +10,12 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
-from coda.apps.fundingrequests.forms import FundingRequestListFilterForm, payment_status_choices
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.forms import (
+    FundingRequestListFilterForm,
+    parse_label_ids,
+    payment_status_choices,
+    publication_state_choices,
+)
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
@@ -20,18 +23,9 @@ from coda.apps.listfilters import (
     ChipBuilder,
     FilterSummary,
     ListRegionMixin,
-    valid_fields,
 )
 from coda.apps.views import EntityListView
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.publication import OpenAccessType
-from coda.domain.publication.publication import UnpublishedState
-
-_publication_state_choices = [
-    ("Published", "Published"),
-    *((s.name, s.value) for s in UnpublishedState),
-]
+from coda.domain.date import DateRange
 
 _DEFAULT_PUBLICATION_TYPE = "all"
 
@@ -48,7 +42,9 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
-        django_queryset = query(request)
+        filter_form = FundingRequestListFilterForm(request.GET)
+        criteria, sort_order = filter_form.search_criteria()
+        django_queryset = fq.search(*criteria, sort_order=fq.SortOrder[sort_order.name])
         return LazyBulkQuerySet(
             queryset=django_queryset,
             bulk_converter=list_query.get_list_items,
@@ -59,27 +55,30 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         ctx.update(get_contract_list_context())
 
         labels = list(Label.objects.all().order_by("name"))
-        publication_types = [(et.value, et.value.title()) for et in fq.PublicationEntityType]
-        selected_publication_types = self.request.GET.get("publication_type")
-
-        payment_methods = [(pm.value, pm.value) for pm in PaymentMethod]
-        summary = build_filter_summary(self.request, labels, ctx["contract_list"])
+        filter_form = FundingRequestListFilterForm(
+            self.request.GET,
+            contracts=ctx["contract_list"],
+            labels=labels,
+        )
+        filter_form.is_valid()
+        date_errors = filter_form.errors.get("date_range")
+        date_range_error = str(date_errors[0]) if date_errors else None
+        summary = build_filter_summary(
+            self.request,
+            labels,
+            ctx["contract_list"],
+            date_range=filter_form.cleaned_data.get("date_range"),
+            date_range_error=date_range_error,
+        )
 
         return ctx | {
             "labels": labels,
             "label_pills": build_label_pills(self.request, labels),
-            "processing_states": [rr.value for rr in ReviewResult],
-            "open_access_types": [oat.value for oat in OpenAccessType],
-            "payment_status_choices": payment_status_choices,
-            "publication_types": publication_types,
-            "selected_publication_types": selected_publication_types,
-            "payment_methods": payment_methods,
-            "publication_states": _publication_state_choices,
             "filter_count": summary.count,
             "filter_errors": summary.errors,
-            "date_filter_error": summary.error_for("id_start_date", "id_end_date"),
-            "label_state": sorted(_label_ids(self.request.GET.getlist("labels"))),
+            "label_state": sorted(parse_label_ids(self.request.GET.getlist("labels"))),
             "active_filters": summary.chips,
+            "filter_form": filter_form,
         }
 
 
@@ -89,35 +88,11 @@ _LIST_REGION_URL = "fundingrequests:list_region"
 
 class FundingRequestListRegionView(ListRegionMixin, FundingRequestListView):
     template_name = "fundingrequests/fundingrequest_filtered_list.html"
-    region_url_name = _LISTVIEW_URL
+    list_url_name = _LISTVIEW_URL
 
 
 fundingrequest_list = FundingRequestListView.as_view()
 fundingrequest_list_region = FundingRequestListRegionView.as_view()
-
-
-def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    cleaned = valid_fields(FundingRequestListFilterForm(request.GET))
-
-    params = fq.FundingRequestSearchParams(
-        date_range=cleaned.get("date_range"),
-        review_results=cleaned.get("processing_status", []),
-        payment_statuses=cleaned.get("payment_status", []),
-        labels=sorted(_label_ids(request.GET.getlist("labels"))),
-        exclude_labels=sorted(_label_ids(request.GET.getlist("exclude_labels"))),
-        payment_methods=cleaned.get("payment_methods", []),
-        open_access_types=cleaned.get("open_access_type", []),
-        publication_states=request.GET.getlist("publication_states"),
-        entity_type=cleaned.get("publication_type") or fq.PublicationEntityType.All,
-        search_term=cleaned.get("search_term", ""),
-        contract_id=cleaned.get("contract_name"),
-        contract_year=cleaned.get("contract_year"),
-        show_invalid_contract_years=bool(cleaned.get("invalid_contract_years")),
-    )
-    return fq.search(
-        *fq.build_criteria(params),
-        sort_order=fq.SortOrder.try_parse(cleaned.get("sort_by") or None),
-    )
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -131,17 +106,6 @@ class LabelPill:
     state: Literal["default", "included"]
     toggle_url: str
     toggle_fragment_url: str
-
-
-def _label_ids(values: list[str]) -> set[int]:
-    """Parse label ids from raw query values, ignoring non-int values."""
-    ids = set()
-    for value in values:
-        try:
-            ids.add(int(value))
-        except ValueError:
-            continue
-    return ids
 
 
 def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
@@ -177,7 +141,7 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
     toggle link removes it; every other label renders as ``default`` and its
     toggle link adds it.
     """
-    included = _label_ids(request.GET.getlist("labels"))
+    included = parse_label_ids(request.GET.getlist("labels"))
     return [
         LabelPill(
             name=label.name,
@@ -191,7 +155,12 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
 
 
 def build_filter_summary(
-    request: HttpRequest, labels: Sequence[Label], contracts: Sequence[Contract]
+    request: HttpRequest,
+    labels: Sequence[Label],
+    contracts: Sequence[Contract],
+    *,
+    date_range: DateRange | None,
+    date_range_error: str | None,
 ) -> FilterSummary:
     """One removable chip per active filter value, in the rail's group order.
 
@@ -213,12 +182,14 @@ def build_filter_summary(
     if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
         chips.add("publication_type", publication_type, publication_type.title())
 
-    chips.multi("publication_states", labels=dict(_publication_state_choices))
+    chips.multi("publication_states", labels=dict(publication_state_choices))
     chips.date_range(
         start_key=_DATE_START_KEY,
         end_key=_DATE_END_KEY,
         start_source_id="id_start_date",
         end_source_id="id_end_date",
+        date_range=date_range,
+        error=date_range_error,
     )
     chips.single(
         "contract_name",

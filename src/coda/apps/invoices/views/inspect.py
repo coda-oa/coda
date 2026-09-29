@@ -27,17 +27,15 @@ from coda.apps.listfilters import (
     ChipBuilder,
     FilterSummary,
     ListRegionMixin,
-    valid_fields,
 )
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
+from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
-    FundingSourceId,
     Invoice,
     InvoiceId,
-    PaymentStatus,
     UnassignedCosts,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
@@ -47,38 +45,13 @@ _DATE_START_KEY = "date_start"
 _DATE_END_KEY = "date_end"
 
 
-def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
-    cleaned = valid_fields(InvoiceListFilterForm(request.GET))
-    positions_only = bool(cleaned.get("contract_positions_only"))
-
-    query: list[iq.InvoiceSearchCriterion] = []
-    if search_term := cleaned.get("search_term"):
-        query.append(iq.GenericSearchCriterion(search_term))
-    if funding_source := cleaned.get("funding_source"):
-        query.append(iq.FundingSourceCriterion(FundingSourceId(funding_source)))
-    if contract := cleaned.get("contract_name"):
-        query.append(iq.ContractCriterion(contract, positions_only))
-    if year := cleaned.get("contract_year"):
-        query.append(iq.ContractYearCriterion(year, positions_only))
-    if cleaned.get("has_external_id"):
-        query.append(iq.MissingExternalIdCriterion())
-    if cleaned.get("has_foreign_currency"):
-        query.append(iq.MissingCurrencyConversionCriterion(GlobalPreferences.get_home_currency()))
-    if cleaned.get("has_errors"):
-        query.append(iq.HasErrorsCriterion())
-    if payment_status := cleaned.get("payment_status"):
-        query.append(iq.PaymentStatusCriterion(payment_status))
-
-    if date_range := cleaned.get("date_range"):
-        query.append(iq.DateRangeCriterion(date_range))
-
-    return query
-
-
 def build_filter_summary(
     request: HttpRequest,
     contracts: Sequence[Contract],
     funding_sources: Iterable[FundingSource],
+    *,
+    date_range: DateRange | None,
+    date_range_error: str | None,
 ) -> FilterSummary:
     """One removable chip per active filter, in the sidebar's group order.
 
@@ -102,6 +75,8 @@ def build_filter_summary(
         end_key=_DATE_END_KEY,
         start_source_id=_DATE_START_KEY,
         end_source_id=_DATE_END_KEY,
+        date_range=date_range,
+        error=date_range_error,
     )
     chips.switch("has_external_id", "Without external ID")
     chips.switch("has_foreign_currency", "Foreign currency")
@@ -121,20 +96,37 @@ class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx["payment_statuses"] = [p.value for p in PaymentStatus]
         ctx.update(funding_source_options_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
         ctx.update(get_contract_list_context())
-        summary = build_filter_summary(self.request, ctx["contract_list"], ctx["funding_sources"])
+        filter_form = InvoiceListFilterForm(
+            self.request.GET,
+            funding_sources=ctx["funding_sources"],
+            contracts=ctx["contract_list"],
+        )
+        filter_form.is_valid()
+        date_errors = filter_form.errors.get("date_range")
+        date_range_error = str(date_errors[0]) if date_errors else None
+        summary = build_filter_summary(
+            self.request,
+            ctx["contract_list"],
+            ctx["funding_sources"],
+            date_range=filter_form.cleaned_data.get("date_range"),
+            date_range_error=date_range_error,
+        )
         ctx["active_filters"] = summary.chips
         ctx["filter_count"] = summary.count
         ctx["filter_errors"] = summary.errors
-        ctx["date_filter_error"] = summary.error_for(_DATE_START_KEY, _DATE_END_KEY)
+        ctx["filter_form"] = filter_form
+
         return ctx
 
     def get_entities(self, request: HttpRequest) -> Sequence[InvoiceListItem]:
-        sort_by = request.GET.get("sort_by") or "date_desc"
-        return iq.search_to_list_items(*build_query(request), sort_by=sort_by)
+        filter_form = InvoiceListFilterForm(request.GET)
+        criteria, sort_order = filter_form.search_criteria(
+            home_currency=GlobalPreferences.get_home_currency
+        )
+        return iq.search_to_list_items(*criteria, sort_by=sort_order.value)
 
 
 class InvoiceListView(_InvoiceListBaseView):
@@ -146,7 +138,7 @@ class InvoiceListView(_InvoiceListBaseView):
 
 class InvoiceListRegionView(ListRegionMixin, _InvoiceListBaseView):
     template_name = "invoices/invoice_filtered_list.html"
-    region_url_name = "invoices:list"
+    list_url_name = "invoices:list"
 
 
 invoice_list = InvoiceListView.as_view()

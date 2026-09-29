@@ -7,16 +7,7 @@
            class="filter-search">
     <label class="filter-sort-label" for="sort_by">
         Sort
-        <select name="sort_by" id="sort_by" class="filter-sort">
-            <option value="date_desc"
-                    {% if request.GET.sort_by == "date_desc" or not request.GET.sort_by %}selected{% endif %}>
-                Date descending
-            </option>
-            <option value="date_asc"
-                    {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
-            <option value="alphabetical"
-                    {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
-        </select>
+        {{ filter_form.sort_by }}
     </label>
     <button type="button"
             id="filter-drawer-toggle"

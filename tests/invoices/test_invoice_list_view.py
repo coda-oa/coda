@@ -2,7 +2,7 @@ from datetime import date
 from typing import Any, cast
 
 import pytest
-from django.http import HttpRequest, QueryDict
+from django.http import QueryDict
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.test.html import parse_html
@@ -10,11 +10,12 @@ from django.urls import reverse
 
 from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices import invoice_query as iq
-from coda.apps.invoices.views.inspect import build_query
+from coda.apps.invoices.forms import InvoiceListFilterForm
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
+from coda.domain.money import Currency
 from tests import domainfactory, modelfactory
 from tests.filterdom import (
     chip_texts,
@@ -313,15 +314,15 @@ def test__step_mismatched_contract_year__region_renders_with_a_removable_year_ch
     assert 'value="20.5"' in html
 
 
-def _get(query: str) -> HttpRequest:
-    request = HttpRequest()
-    request.GET = QueryDict(query)
-    return request
+def _criteria(query: str) -> list[iq.InvoiceSearchCriterion]:
+    form = InvoiceListFilterForm(QueryDict(query))
+    criteria, _ = form.search_criteria(home_currency=lambda: Currency.from_code("EUR"))
+    return criteria
 
 
-def test__build_query__unparsable_contract_year__drops_only_the_year_criterion() -> None:
+def test__search_criteria__unparsable_contract_year__drops_only_the_year_criterion() -> None:
     """A bad year drops itself; the filters beside it stay applied."""
-    assert build_query(_get("payment_status=unpaid&contract_year=abc")) == [
+    assert _criteria("payment_status=unpaid&contract_year=abc") == [
         iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
     ]
 
@@ -336,28 +337,35 @@ def test__build_query__unparsable_contract_year__drops_only_the_year_criterion()
         ),
     ],
 )
-def test__build_query__contract_year__builds_the_year_criterion(
+def test__search_criteria__contract_year__builds_the_year_criterion(
     query: str, expected: iq.InvoiceSearchCriterion
 ) -> None:
-    assert build_query(_get(query)) == [expected]
+    assert _criteria(query) == [expected]
 
 
-def test__build_query__valid_date_range__appends_the_date_criterion() -> None:
-    assert build_query(_get("date_start=2024-01-01&date_end=2024-12-31")) == [
+def test__search_criteria__valid_date_range__appends_the_date_criterion() -> None:
+    assert _criteria("date_start=2024-01-01&date_end=2024-12-31") == [
         iq.DateRangeCriterion(DateRange(date(2024, 1, 1), date(2024, 12, 31)))
     ]
 
 
-def test__build_query__inverted_date_range__drops_only_the_date_criterion() -> None:
+def test__search_criteria__inverted_date_range__drops_only_the_date_criterion() -> None:
     """A bad range drops itself; the filters beside it stay applied."""
-    assert build_query(_get("payment_status=unpaid&date_start=2025-01-01&date_end=2024-01-01")) == [
+    assert _criteria("payment_status=unpaid&date_start=2025-01-01&date_end=2024-01-01") == [
         iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
     ]
 
 
-def test__build_query__malformed_date__drops_only_the_date_criterion() -> None:
-    assert build_query(_get("payment_status=unpaid&date_start=not-a-date")) == [
+def test__search_criteria__malformed_date__drops_only_the_date_criterion() -> None:
+    assert _criteria("payment_status=unpaid&date_start=not-a-date") == [
         iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
+    ]
+
+
+def test__search_criteria__foreign_currency__uses_supplied_home_currency() -> None:
+    home_currency = Currency.from_code("EUR")
+    assert _criteria("has_foreign_currency=true") == [
+        iq.MissingCurrencyConversionCriterion(home_currency)
     ]
 
 

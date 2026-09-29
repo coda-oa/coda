@@ -199,9 +199,14 @@ class SearchSelect extends HTMLElement {
     });
 
     this.searchBox.addEventListener("change", () => {
+      const previousValue = this.value;
       this.setValueToActiveElementOrFirstMatch();
       this.filterListItems();
-      this.dispatchChangeEvent();
+      // A pointer selection dispatches on the host before the search input blurs.
+      // The input's native change must not submit the same selection again.
+      if (this.value !== previousValue) {
+        this.dispatchChangeEvent();
+      }
     });
   }
 

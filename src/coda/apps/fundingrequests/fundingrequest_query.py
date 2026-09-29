@@ -97,16 +97,6 @@ class SortOrder(enum.StrEnum):
     def default() -> "SortOrder":
         return SortOrder.date_desc
 
-    @staticmethod
-    def try_parse(value: str | None) -> "SortOrder":
-        if not value:
-            return SortOrder.default()
-
-        try:
-            return SortOrder[value]
-        except KeyError:
-            return SortOrder.default()
-
 
 @dataclass
 class ReviewResultCriteria:
@@ -298,9 +288,12 @@ class FundingRequestSearchParams:
 
     def without_date_range(self) -> "FundingRequestSearchParams":
         # return a new instance with the date_range set to None, keeping all other attributes the same
-        new_instance = copy.copy(self)  # shallow copy is sufficient since all attributes are immutable or primitive
+        new_instance = copy.copy(
+            self
+        )  # shallow copy is sufficient since all attributes are immutable or primitive
         new_instance.date_range = None
         return new_instance
+
 
 def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
     criteria = (

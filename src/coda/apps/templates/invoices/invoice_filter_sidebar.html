@@ -3,41 +3,50 @@
 {% include "partials/filter_active_filters.html" with filter_list_id="invoice-list" %}
 <div class="filter-group">
     <h3 class="filter-group-title">Payment</h3>
-    {% include "invoices/partials/payment_status_filter.html" %}
-    {% include "invoices/partials/funding_source_filter.html" %}
+    <div class="form-row">
+        {{ filter_form.payment_status.label_tag }}
+        {{ filter_form.payment_status }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.funding_source.label_tag }}
+        {{ filter_form.funding_source }}
+    </div>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Contract</h3>
-    {% include "partials/contract_filter_fields.html" %}
+    <div class="form-row">
+        {{ filter_form.contract_name.label_tag }}
+        {{ filter_form.contract_name }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.contract_year.label_tag }}
+        {{ filter_form.contract_year }}
+    </div>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Invoice date</h3>
-    {% include "invoices/partials/date_range_filter.html" %}
+    <div class="form-row">
+        <label for="date_start">Date start</label>
+        {{ filter_form.date_range.subwidgets.0 }}
+    </div>
+    <div class="form-row">
+        <label for="date_end">Date end</label>
+        {{ filter_form.date_range.subwidgets.1 }}
+        {% include "partials/filter_date_error.html" %}
+    </div>
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Data quality</h3>
     <label class="filter-switch-row" for="has_external_id">
-        <input id="has_external_id"
-               type="checkbox"
-               name="has_external_id"
-               value="true"
-               {% if request.GET.has_external_id == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
-        <span>Show invoices without external IDs</span>
+        {{ filter_form.has_external_id }}
+        <span>{{ filter_form.has_external_id.label }}</span>
     </label>
     <label class="filter-switch-row" for="has_foreign_currency">
-        <input id="has_foreign_currency"
-               type="checkbox"
-               name="has_foreign_currency"
-               value="true"
-               {% if request.GET.has_foreign_currency == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
-        <span>Show invoices with foreign currencies and without conversion</span>
+        {{ filter_form.has_foreign_currency }}
+        <span>{{ filter_form.has_foreign_currency.label }}</span>
     </label>
     <label class="filter-switch-row" for="has_errors">
-        <input id="has_errors"
-               type="checkbox"
-               name="has_errors"
-               value="true"
-               {% if request.GET.has_errors == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
-        <span>Show invoices with errors</span>
+        {{ filter_form.has_errors }}
+        <span>{{ filter_form.has_errors.label }}</span>
     </label>
 </div>
