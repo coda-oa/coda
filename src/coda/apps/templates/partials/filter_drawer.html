@@ -1,8 +1,8 @@
-<div class="filter-sidebar-backdrop"
-     id="filter-sidebar-backdrop"
-     aria-hidden="true"></div>
-<aside class="filter-sidebar" id="filter-sidebar" tabindex="-1">
+<dialog id="filter-sidebar"
+        class="filter-sidebar"
+        aria-labelledby="filter-sidebar-title"
+        open>
     <form method="get" id="filter-sidebar-form">
         {% include filter_sidebar_template %}
     </form>
-</aside>
+</dialog>

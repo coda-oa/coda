@@ -3,51 +3,186 @@
 
   const layout = document.querySelector(".filter-layout");
   const toggle = document.getElementById("filter-drawer-toggle");
-  if (!layout || !toggle) {
+  const dialog = layout?.querySelector("#filter-sidebar");
+  if (!layout || !toggle || !dialog) {
     return;
   }
-  const backdrop = document.getElementById("filter-sidebar-backdrop");
+
+  const narrowViewport = window.matchMedia("(width < 1400px)");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let restoreToggleAfterClose = false;
+  let isClosing = false;
+
   // Suppress the blur change event when input already scheduled this search value.
   const searchInput = layout.querySelector(".filter-search");
   searchInput?.addEventListener("input", () => {
     searchInput.dataset.lastInputValue = searchInput.value;
   });
 
-  const isOpen = () => layout.classList.contains("filter-drawer-open");
+  const updateModalState = () => {
+    const isModal = dialog.matches(":modal");
+    document.body.classList.toggle("filter-drawer-open", isModal);
+    toggle.setAttribute("aria-expanded", String(isModal));
+  };
 
-  const setOpen = (open) => {
-    layout.classList.toggle("filter-drawer-open", open);
-    document.body.classList.toggle("filter-drawer-open", open);
-    toggle.setAttribute("aria-expanded", String(open));
-    if (open) {
-      document.querySelector(".filter-sidebar").focus();
-    }
-    if (!open && document.activeElement?.closest(".filter-sidebar")) {
-      // Closed from inside the drawer (× or Escape): give focus back to
-      // the only control that can open it again.
-      toggle.focus();
+  const focusFirstVisibleDescendant = () => {
+    const candidates = dialog.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
+        'select:not([disabled]), textarea:not([disabled]), ' +
+        'search-select:not([disabled]), search-select-multi:not([disabled]), ' +
+        '[tabindex]:not([tabindex="-1"])',
+    );
+    for (const candidate of candidates) {
+      const style = getComputedStyle(candidate);
+      if (
+        candidate.getClientRects().length === 0 ||
+        style.visibility === "hidden" ||
+        style.opacity === "0"
+      ) {
+        continue;
+      }
+      candidate.focus();
+      if (dialog.contains(document.activeElement)) {
+        return;
+      }
     }
   };
 
-  toggle.addEventListener("click", () => {
-    setOpen(!isOpen());
+  const finishModalClose = () => {
+    if (!isClosing) {
+      return;
+    }
+    isClosing = false;
+    dialog.removeEventListener("transitionend", finishModalCloseTransition);
+    dialog.close();
+    dialog.classList.remove("filter-sidebar-closing");
+    updateModalState();
+  };
+
+  const finishModalCloseTransition = (event) => {
+    if (event.target === dialog && event.propertyName === "transform") {
+      finishModalClose();
+    }
+  };
+
+  const cancelModalClose = () => {
+    if (!isClosing) {
+      return;
+    }
+    isClosing = false;
+    dialog.removeEventListener("transitionend", finishModalCloseTransition);
+    dialog.classList.remove("filter-sidebar-closing");
+  };
+
+  const closeModalForUser = () => {
+    if (!dialog.matches(":modal") || isClosing) {
+      return;
+    }
+    restoreToggleAfterClose = true;
+    if (reducedMotion.matches) {
+      dialog.close();
+      updateModalState();
+      return;
+    }
+    isClosing = true;
+    dialog.addEventListener("transitionend", finishModalCloseTransition);
+    dialog.classList.add("filter-sidebar-closing");
+  };
+
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeModalForUser();
+  });
+  dialog.addEventListener("close", () => {
+    updateModalState();
+    if (restoreToggleAfterClose) {
+      restoreToggleAfterClose = false;
+      toggle.focus();
+    }
+  });
+  reducedMotion.addEventListener("change", (event) => {
+    if (event.matches && isClosing) {
+      finishModalClose();
+    }
   });
 
-  backdrop?.addEventListener("click", () => {
-    setOpen(false);
+  // The template starts open for the desktop modeless rail.
+  if (narrowViewport.matches && dialog.open && !dialog.matches(":modal")) {
+    dialog.close();
+  }
+  updateModalState();
+
+  toggle.addEventListener("click", () => {
+    if (!narrowViewport.matches) {
+      return;
+    }
+    if (dialog.matches(":modal")) {
+      closeModalForUser();
+      return;
+    }
+    restoreToggleAfterClose = false;
+    if (dialog.open) {
+      cancelModalClose();
+      dialog.close();
+    }
+    dialog.showModal();
+    updateModalState();
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target !== dialog || !dialog.matches(":modal")) {
+      return;
+    }
+    const bounds = dialog.getBoundingClientRect();
+    if (
+      event.clientX < bounds.left ||
+      event.clientX > bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom
+    ) {
+      closeModalForUser();
+    }
   });
 
   // Delegated: the × close button lives inside the OOB-swapped drawer
   // header, so its DOM node is replaced after every filter change.
   layout.addEventListener("click", (event) => {
-    if (event.target.closest("#filter-drawer-close")) {
-      setOpen(false);
+    if (
+      event.target instanceof Element &&
+      event.target.closest("#filter-drawer-close")
+    ) {
+      closeModalForUser();
     }
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && isOpen()) {
-      setOpen(false);
+  narrowViewport.addEventListener("change", (event) => {
+    const activeElement = document.activeElement;
+    if (event.matches) {
+      const focusWasInDialog = dialog.contains(activeElement);
+      cancelModalClose();
+      restoreToggleAfterClose = false;
+      if (dialog.open) {
+        dialog.close();
+      }
+      updateModalState();
+      if (focusWasInDialog) {
+        toggle.focus();
+      }
+      return;
+    }
+
+    const shouldMoveFocus = dialog.contains(activeElement) || activeElement === toggle;
+    cancelModalClose();
+    restoreToggleAfterClose = false;
+    if (dialog.matches(":modal")) {
+      dialog.close();
+    }
+    if (!dialog.open) {
+      dialog.show();
+    }
+    updateModalState();
+    if (shouldMoveFocus) {
+      focusFirstVisibleDescendant();
     }
   });
 })();

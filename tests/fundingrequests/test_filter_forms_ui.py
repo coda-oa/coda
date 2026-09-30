@@ -1,4 +1,3 @@
-import re
 from datetime import date
 
 import pytest
@@ -357,21 +356,28 @@ def test__deep_linked_selection__survives_the_next_filter_change(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
-def test__mobile_drawer__focuses_drawer_and_tabs_to_close_button(
+def test__mobile_drawer__traps_keyboard_focus_and_restores_trigger(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
-    # Avoid scroll-container focusability masking the drawer's explicit focus target.
-    coda_page.locator(filter_ui_selectors.FILTER_SIDEBAR_CLASS).evaluate(
-        "sidebar => { sidebar.style.overflow = 'visible'; }"
-    )
-    coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
+    toggle = coda_page.get_by_role("button", name="Filters", exact=True)
+    dialog = coda_page.get_by_role("dialog", name="Filters")
+    close_button = coda_page.get_by_role("button", name="Close filters")
+    toggle.click()
 
-    expect(coda_page.locator(filter_ui_selectors.FILTER_SIDEBAR)).to_be_focused()
+    expect(dialog).to_be_visible()
+    expect(close_button).to_be_focused()
+    coda_page.keyboard.press("Shift+Tab")
+    expect(close_button).not_to_be_focused()
+    assert dialog.evaluate("element => element.contains(document.activeElement)")
     coda_page.keyboard.press("Tab")
-    expect(coda_page.locator(filter_ui_selectors.FILTER_DRAWER_CLOSE)).to_be_focused()
+    expect(close_button).to_be_focused()
+
+    coda_page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden()
+    expect(toggle).to_be_focused()
 
 
 @pytest.mark.ui_test
@@ -383,15 +389,11 @@ def test__sidebar_rerender__keeps_mobile_drawer_open(
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
     coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
-    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
-        re.compile("filter-drawer-open")
-    )
+    expect(coda_page.get_by_role("button", name="Close filters")).to_be_visible()
 
     list_page.select_publication_type("article")
 
-    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
-        re.compile("filter-drawer-open")
-    )
+    expect(coda_page.get_by_role("button", name="Close filters")).to_be_visible()
 
 
 @pytest.mark.ui_test
@@ -421,9 +423,7 @@ def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
     coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
-    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
-        re.compile("filter-drawer-open")
-    )
+    expect(coda_page.get_by_role("button", name="Close filters")).to_be_visible()
 
     list_page.filter_by_processing_status("approved")
 

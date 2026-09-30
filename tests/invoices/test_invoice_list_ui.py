@@ -1,4 +1,3 @@
-import re
 from datetime import date
 from time import sleep
 
@@ -222,9 +221,7 @@ def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
     coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
-    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
-        re.compile("filter-drawer-open")
-    )
+    expect(coda_page.get_by_role("button", name="Close filters")).to_be_visible()
 
     list_page.filter_by_payment_status("unpaid")
 
