@@ -48,8 +48,6 @@ from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 logger = logging.getLogger(__name__)
 
-OPENCOST_LIST_URL = "opencost:list"
-
 
 @breadcrumb("openCost Reports", parent_url_name="exports:export_home")
 class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
@@ -88,12 +86,13 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
         return DomainQuerySet(queryset, lambda x: x)
 
 
-report_list_view = ReportListView.as_view()
+report_list_view = non_atomic_requests(ReportListView.as_view())
 
 
 @login_required
 @require_GET
-@breadcrumb("Report Details", parent_url_name=OPENCOST_LIST_URL)
+@non_atomic_requests  # read-only, no txn held
+@breadcrumb("Report Details", parent_url_name="opencost:list")
 def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     report = get_object_or_404(
         OpenCostReport.objects.prefetch_related(
@@ -146,7 +145,8 @@ def report_issues(request: HttpRequest, report_id: int) -> HttpResponse:
 
 @login_required
 @require_GET
-@breadcrumb("Generate New Report", parent_url_name=OPENCOST_LIST_URL)
+@non_atomic_requests  # read-only, no txn held
+@breadcrumb("Generate New Report", parent_url_name="opencost:list")
 def generate_report_form(request: HttpRequest) -> HttpResponse:
     return render(
         request,
@@ -221,7 +221,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
     _flash_report_outcome(request, report)
 
-    return redirect(OPENCOST_LIST_URL)
+    return redirect("opencost:list")
 
 
 def _report_form_context(
@@ -241,7 +241,7 @@ def _report_form_context(
             "parameters_title": "Report Parameters",
             "title_label": "Report Title",
             "title_placeholder": "Enter a title for the report",
-            "cancel_url": reverse(OPENCOST_LIST_URL),
+            "cancel_url": reverse("opencost:list"),
             "submit_button_text": "Generate Report",
             "include_payment_status": False,
             "include_decimal_separator": False,
@@ -254,6 +254,7 @@ def _report_form_context(
 
 @login_required
 @require_GET
+@non_atomic_requests  # read-only, no txn held
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
     report = get_object_or_404(OpenCostReport, pk=report_id)
 
@@ -265,7 +266,7 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
             request,
             render_to_string("opencost/partials/no_data_message.html", {"excluded": excluded}),
         )
-        return redirect(OPENCOST_LIST_URL)
+        return redirect("opencost:list")
 
     response = HttpResponse(report.xml_content, content_type="application/xml")
 
@@ -318,5 +319,5 @@ def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     messages.success(request, f"Report '{report_title}' deleted successfully.")
 
     response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse(OPENCOST_LIST_URL)
+    response["HX-Redirect"] = reverse("opencost:list")
     return response
