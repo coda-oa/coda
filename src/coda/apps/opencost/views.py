@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -268,7 +269,8 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 
     response = HttpResponse(report.xml_content, content_type="application/xml")
 
-    filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
+    stem = slugify(report.title) or "report"
+    filename = f"{stem}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
 
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
 

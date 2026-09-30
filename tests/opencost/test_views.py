@@ -6,6 +6,7 @@ from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils.text import slugify
 
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
@@ -185,7 +186,7 @@ def test__download_xml__serves_the_stored_document_without_any_flash(client: Cli
     stored = OpenCostReport.objects.get(pk=report.pk).xml_content
     assert response.content.decode() == stored
     assert response["Content-Disposition"] == (
-        f'attachment; filename="{report.title}_{report.id}_'
+        f'attachment; filename="{slugify(report.title)}_{report.id}_'
         f'{report.generated_at.strftime("%Y%m%d")}.xml"'
     )
     # the undated contract stayed out of the document...
