@@ -26,10 +26,10 @@
                         <strong>Period:</strong> {{ report.period_start }} to {{ report.period_end }}
                     </p>
                     <p>
-                        <strong>Publications:</strong> {{ publications_count }}
+                        <strong>Publications:</strong> {{ publications|length }}
                     </p>
                     <p>
-                        <strong>Contracts:</strong> {{ contracts_count }}
+                        <strong>Contracts:</strong> {{ contracts|length }}
                     </p>
                     {% if applied_filters %}
                         <div class="flex justify-between align-center">
@@ -53,7 +53,7 @@
                  hx-swap="innerHTML"></div>
             <article class="my-2">
                 <header>
-                    <h2>Publications ({{ publications_count }})</h2>
+                    <h2>Publications ({{ publications|length }})</h2>
                 </header>
                 {% if publications %}
                     <div class="scroll-container max-h-30">
@@ -127,7 +127,7 @@
             </article>
             <article class="my-2">
                 <header>
-                    <h2>Contracts ({{ contracts_count }})</h2>
+                    <h2>Contracts ({{ contracts|length }})</h2>
                 </header>
                 {% if contracts %}
                     <div class="scroll-container max-h-30">
