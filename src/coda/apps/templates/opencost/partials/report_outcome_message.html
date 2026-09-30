@@ -1,0 +1,7 @@
+Report '{{ report.title }}' generated
+{% if summary %}
+    with {{ publications_count }} publications and {{ contracts_count }} contracts, but has {{ summary }}.
+    <a href='{{ detail_url }}'>Review what the XML leaves out</a>
+{% else %}
+    successfully with {{ publications_count }} publications and {{ contracts_count }} contracts.
+{% endif %}

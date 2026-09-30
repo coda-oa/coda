@@ -9,9 +9,8 @@ from django.db.models import Count, Prefetch, Q
 from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -30,7 +29,6 @@ from coda.apps.exports.services.filter_form import (
     form_error_lines,
 )
 from coda.apps.opencost.detail_rows import build_detail_rows
-from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -154,64 +152,36 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
 
 def _issue_summary(report: OpenCostReport) -> str:
     """The report's stored issue counts as words, e.g. '2 errors and 1 warning'."""
-    issue_counts = report.get_issue_counts()
-    issue_parts = []
-
-    if issue_counts["errors"] > 0:
-        error_text = "error" if issue_counts["errors"] == 1 else "errors"
-        issue_parts.append(f"{issue_counts['errors']} {error_text}")
-
-    if issue_counts["warnings"] > 0:
-        warning_text = "warning" if issue_counts["warnings"] == 1 else "warnings"
-        issue_parts.append(f"{issue_counts['warnings']} {warning_text}")
-
-    return " and ".join(issue_parts)
-
-
-def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
-    return mark_safe(
-        f"Report '{escape(report.title)}' generated with {report.publications.count()} publications "
-        f"and {report.contracts.count()} contracts, but has {_issue_summary(report)}. "
-        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
+    counts = report.get_issue_counts()
+    return " and ".join(
+        f"{count} {noun}{'s' if count != 1 else ''}"
+        for noun, count in (("error", counts["errors"]), ("warning", counts["warnings"]))
+        if count
     )
 
 
-def _build_success_message(report: OpenCostReport) -> str:
-    return (
-        f"Report '{report.title}' generated successfully with {report.publications.count()} "
-        f"publications and {report.contracts.count()} contracts."
+def _flash_report_outcome(request: HttpRequest, report: OpenCostReport) -> None:
+    """Flash a generate or regenerate run's result: a warning naming the issues, or success.
+
+    The message renders from a template so its wording lives in one place; the fragment
+    escapes the title once and comes back safe, which is what the messages block in
+    base.html needs to show the review link as a link.
+    """
+    summary = _issue_summary(report) if report.has_issues() else ""
+    message = render_to_string(
+        "opencost/partials/report_outcome_message.html",
+        {
+            "report": report,
+            "publications_count": report.publications.count(),
+            "contracts_count": report.contracts.count(),
+            "summary": summary,
+            "detail_url": reverse("opencost:detail", args=[report.id]),
+        },
     )
-
-
-def _build_regeneration_message(report: OpenCostReport, detail_url: str) -> str:
-    return mark_safe(
-        f"Report '{escape(report.title)}' regenerated with {report.publications.count()} "
-        f"publications and {report.contracts.count()} contracts, but has {_issue_summary(report)}. "
-        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
-    )
-
-
-def _build_regeneration_success_message(report: OpenCostReport) -> str:
-    return (
-        f"Report '{report.title}' regenerated successfully with {report.publications.count()} "
-        f"publications and {report.contracts.count()} contracts."
-    )
-
-
-def _no_data_message(excluded: list[ValidationWarning]) -> str:
-    if not excluded:
-        return "No data to export — the report has no publications or contracts to transform."
-
-    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
-
-    hidden = len(excluded) - 5
-    if hidden > 0:
-        details += f" (and {hidden} more)"
-
-    return (
-        "No file was downloaded: nothing in this report could be transformed into openCost XML. "
-        f"Reasons: {details}"
-    )
+    if summary:
+        messages.warning(request, message)
+    else:
+        messages.success(request, message)
 
 
 @login_required
@@ -243,13 +213,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
         messages.error(request, f"Error generating report: {str(e)}")
         return redirect("opencost:generate")
 
-    if report.has_issues():
-        detail_url = reverse("opencost:detail", args=[report.id])
-        message = _build_issue_message(report, detail_url)
-        messages.warning(request, message)
-    else:
-        message = _build_success_message(report)
-        messages.success(request, message)
+    _flash_report_outcome(request, report)
 
     return redirect(OPENCOST_LIST_URL)
 
@@ -290,12 +254,11 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
     if not report.xml_content:
         # Nothing was exportable; the stored issue log says why, in the same message the
         # download-time transform used to produce.
-        errors = [
-            ValidationWarning(**issue)
-            for issue in report.issues or []
-            if issue.get("level") == "error"
-        ]
-        messages.warning(request, _no_data_message(errors))
+        excluded = [issue for issue in report.issues or [] if issue.get("level") == "error"]
+        messages.warning(
+            request,
+            render_to_string("opencost/partials/no_data_message.html", {"excluded": excluded}),
+        )
         return redirect(OPENCOST_LIST_URL)
 
     response = HttpResponse(report.xml_content, content_type="application/xml")
@@ -326,10 +289,7 @@ def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
         # flash says so. A defect in building the flash is a bug, and bugs flash as 500s.
         messages.error(request, f"Error regenerating report: {str(e)}")
     else:
-        if report.has_issues():
-            messages.warning(request, _build_regeneration_message(report, detail_url))
-        else:
-            messages.success(request, _build_regeneration_success_message(report))
+        _flash_report_outcome(request, report)
 
     response = HttpResponse(status=200)
     response["HX-Redirect"] = detail_url
