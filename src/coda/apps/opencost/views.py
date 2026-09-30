@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from typing import cast
 
@@ -40,8 +41,11 @@ from coda.apps.opencost.report_service import (
 from coda.apps.opencost.report_service import (
     regenerate_report as regenerate_report_service,
 )
+from coda.apps.opencost.transformers import MissingEntityError
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
+
+logger = logging.getLogger(__name__)
 
 OPENCOST_LIST_URL = "opencost:list"
 
@@ -210,7 +214,8 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             filters=dto.to_storage(),
         )
     except Exception as e:
-        messages.error(request, f"Error generating report: {str(e)}")
+        logger.exception("Report generation failed for '%s'", title)
+        messages.error(request, f"Error generating report: {e!s}")
         return redirect("opencost:generate")
 
     _flash_report_outcome(request, report)
@@ -284,10 +289,16 @@ def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
 
     try:
         report = regenerate_report_service(report)
+    except MissingEntityError as e:
+        # The frozen membership names an entity CODA no longer has: the flash says which,
+        # and only the run itself is guarded - a defect in building the flash is a bug,
+        # and bugs flash as 500s.
+        messages.error(request, f"Error regenerating report: {e!s}")
     except Exception as e:
-        # Only the run itself is guarded: its failure is data the user can fix, and the
-        # flash says so. A defect in building the flash is a bug, and bugs flash as 500s.
-        messages.error(request, f"Error regenerating report: {str(e)}")
+        # Anything else is a defect or an infrastructure failure: it gets a traceback in
+        # the log, and the user still hears that the run failed.
+        logger.exception("Regeneration failed for report %s", report.id)
+        messages.error(request, f"Error regenerating report: {e!s}")
     else:
         _flash_report_outcome(request, report)
 
