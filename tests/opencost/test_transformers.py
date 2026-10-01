@@ -451,6 +451,38 @@ def test__publication_invoice__the_document_states_its_amount_as_the_position_re
 
 
 @pytest.mark.django_db
+def test__invoice_with_separate_vat_position__uses_net_invoice_total() -> None:
+    fr = modelfactory.fundingrequest(title="Publication with separate VAT")
+    invoice, _ = create_publication_with_invoice(
+        fr.publication,
+        invoice_number="INV-SEPARATE-VAT",
+        cost_amount=Decimal("1500.00"),
+        tax_rate=Decimal("0.19"),
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="VAT",
+        cost_amount=Decimal("285.00"),
+        cost_type="vat",
+        tax_rate=Decimal(0),
+    )
+
+    invoices = _exported_publication(_generate()).cost_data.invoice
+    assert invoices is not None
+    exported = invoices[0]
+    assert exported.amount_invoice is not None
+    assert exported.amount_invoice.amount == Decimal("1500.00")
+
+    amounts_by_type = {paid.cost_type: paid for paid in exported.amounts_paid.amount_paid}
+    assert set(amounts_by_type) == {PublicationCostType.gold_oa, PublicationCostType.vat}
+    assert amounts_by_type[PublicationCostType.gold_oa].amount == Decimal("1500.00")
+    assert amounts_by_type[PublicationCostType.gold_oa].vat == Decimal("285.00")
+    assert amounts_by_type[PublicationCostType.vat].amount == Decimal("285.00")
+    assert amounts_by_type[PublicationCostType.vat].vat is None
+
+
+@pytest.mark.django_db
 def test__invoice_of_two_positions__the_document_gives_both_amounts_of_that_one_invoice() -> None:
     fr = modelfactory.fundingrequest(title="Publication with Invoice and Multiple Positions")
 

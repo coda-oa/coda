@@ -547,16 +547,22 @@ def _positions_by_invoice(positions: Iterable[Position]) -> dict[int, list[LiveI
 
 
 def live_position(position: Position) -> LiveInvoicePosition:
-    """One CODA position in the shape the invoice rules read.
+    """One CODA position in the shape invoice rules read.
 
-    The tax amount is the position's own arithmetic, not a stored copy of it.
+    A VAT-cost position is the VAT amount-paid entry itself, so it has no separate VAT field.
+    Other positions carry their calculated VAT as a separate amount.
     """
+    vat = (
+        None
+        if position.cost_type == "vat"
+        else Decimal(str(position.cost_amount))
+        * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal(0))
+    )
     return LiveInvoicePosition(
         amount=position.cost_amount,
         currency=position.cost_currency,
         cost_type=position.cost_type,
-        vat=Decimal(str(position.cost_amount))
-        * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal(0)),
+        vat=vat,
     )
 
 

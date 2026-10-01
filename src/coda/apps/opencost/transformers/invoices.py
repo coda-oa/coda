@@ -74,24 +74,17 @@ def publication_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=PublicationAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_invoice_positions_total(rows),
+        amount_invoice=_invoice_net_amount(rows),
     )
 
 
-def _invoice_positions_total(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
-    """Total over every position held for this invoice.
-
-    Every row counts, including ones openCost was given no cost type for, so the total can
-    exceed the sum of the exported amounts: openCost asks for the price as stated on the
-    invoice, not for the sum of its items. Currency comes from the first row, which the
-    report's positions are read in amount order; CODA stamps one currency on every position
-    of an invoice, so which row is asked is moot for invoices CODA created.
-    """
+def _invoice_net_amount(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
+    """The invoice's net total, including non-VAT positions OpenCost cannot itemize."""
     if not rows:
         return None
 
-    total_amount = sum((row.amount for row in rows), Decimal(0))
-    return _amount_invoice(total_amount, rows[0].currency)
+    net_amount = sum((row.amount for row in rows if row.cost_type != "vat"), Decimal(0))
+    return _amount_invoice(net_amount, rows[0].currency)
 
 
 def contract_invoice(
@@ -111,7 +104,7 @@ def contract_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=ContractAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_invoice_positions_total(rows),
+        amount_invoice=_invoice_net_amount(rows),
     )
 
 
@@ -137,7 +130,7 @@ class PaidFactory[TPaid, TCostEnum: Enum](Protocol):
         amount: Decimal,
         currency: str,
         cost_type: TCostEnum,
-        vat: Decimal,
+        vat: Decimal | None,
     ) -> TPaid: ...
 
 
@@ -185,7 +178,7 @@ class InvoiceCostTypes[TPaid, TCostEnum: Enum]:
                 amount=position.amount,
                 currency=position.currency,
                 cost_type=self.cost_type(raw_cost_type),
-                vat=position.vat or Decimal(0),
+                vat=position.vat,
             ),
             position.cost_type,
         )
