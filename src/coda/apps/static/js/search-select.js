@@ -168,8 +168,9 @@ class SearchSelect extends HTMLElement {
       } else if (e.key === "Enter") {
         this.searchBox.focus();
         this.searchResults.classList.remove("visible");
-        this.setValueToActiveElementOrFirstMatch();
-        this.dispatchChangeEvent();
+        if (this.setValueToActiveElementOrFirstMatch()) {
+          this.dispatchChangeEvent();
+        }
       } else if (e.key === "Escape") {
         this.searchBox.blur();
       } else {
@@ -182,9 +183,11 @@ class SearchSelect extends HTMLElement {
       if (e.target.tagName === "LI") {
         this.searchBox.value = e.target.textContent.trim();
         this.setActiveElement(e.target, this.visibleItems.indexOf(e.target));
-        this.setValueToActiveElementOrFirstMatch();
+        const didCommit = this.setValueToActiveElementOrFirstMatch();
         this.searchResults.classList.remove("visible");
-        this.dispatchChangeEvent();
+        if (didCommit) {
+          this.dispatchChangeEvent();
+        }
       }
     });
 
@@ -200,11 +203,11 @@ class SearchSelect extends HTMLElement {
 
     this.searchBox.addEventListener("change", () => {
       const previousValue = this.value;
-      this.setValueToActiveElementOrFirstMatch();
+      const didCommit = this.setValueToActiveElementOrFirstMatch();
       this.filterListItems();
       // A pointer selection dispatches on the host before the search input blurs.
       // The input's native change must not submit the same selection again.
-      if (this.value !== previousValue) {
+      if (didCommit && this.value !== previousValue) {
         this.dispatchChangeEvent();
       }
     });
@@ -220,14 +223,17 @@ class SearchSelect extends HTMLElement {
   }
 
   setValueToActiveElementOrFirstMatch() {
-    if (this.activeElement !== undefined) {
-      this.value = this.activeElement.getAttribute("value");
-      this.searchBox.value = this.activeElement.textContent.trim();
-    } else {
-      const match = this.firstMatch();
-      this.value = match?.getAttribute("value");
-      this.searchBox.value = match?.textContent.trim();
+    const activeElementIsCurrent =
+      this.visibleItems.includes(this.activeElement) && this.matches(this.activeElement);
+    const option = activeElementIsCurrent ? this.activeElement : this.firstMatch();
+
+    if (option === undefined) {
+      return false;
     }
+
+    this.value = option.getAttribute("value");
+    this.searchBox.value = option.textContent.trim();
+    return true;
   }
 
   firstMatch() {
