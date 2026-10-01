@@ -2,6 +2,32 @@ import datetime
 from dataclasses import dataclass
 from typing import Self
 
+from coda.domain.errors import DomainError
+
+
+class InvalidDateError(DomainError):
+    """A value could not be read as a YYYY-MM-DD calendar date."""
+
+    @classmethod
+    def invalid(cls, value: str) -> Self:
+        return cls(f"'{value}' is not a valid date (YYYY-MM-DD).")
+
+
+class InvalidDateRangeError(DomainError):
+    """The range's start falls after its end."""
+
+    def __init__(self, start: datetime.date, end: datetime.date) -> None:
+        super().__init__(f"Start date {start} must be before end date {end}")
+        self.start = start
+        self.end = end
+
+
+def _parse_iso(value: str) -> datetime.date:
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError as error:
+        raise InvalidDateError.invalid(value) from error
+
 
 @dataclass(frozen=True, slots=True)
 class DateRange:
@@ -19,7 +45,7 @@ class DateRange:
 
     def __post_init__(self) -> None:
         if self.start > self.end:
-            raise ValueError(f"Start date {self.start} must be before end date {self.end}")
+            raise InvalidDateRangeError(self.start, self.end)
 
     @classmethod
     def year(cls, year: int) -> Self:
@@ -28,10 +54,12 @@ class DateRange:
         return cls(year_start, year_end)
 
     @classmethod
-    def try_fromisoformat(cls, *, start: str | None = None, end: str | None = None) -> Self:
-        start_date = datetime.date.fromisoformat(start) if start else datetime.date.min
-        end_date = datetime.date.fromisoformat(end) if end else datetime.date.max
-        return cls(start_date, end_date)
+    def from_iso(cls, *, start: str | None = None, end: str | None = None) -> Self:
+        """Build a range from raw YYYY-MM-DD strings, reporting each problem as a domain error."""
+        return cls(
+            _parse_iso(start) if start else datetime.date.min,
+            _parse_iso(end) if end else datetime.date.max,
+        )
 
     def is_unbounded(self) -> bool:
         return self.start == datetime.date.min and self.end == datetime.date.max

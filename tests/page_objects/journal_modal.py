@@ -4,7 +4,6 @@ from tests.page_objects.entity_creation_modal import EntityCreationModal
 
 
 class JournalModal(EntityCreationModal):
-
     # Journal-specific field checks
     def should_have_title_input(self) -> None:
         expect(self._modal.locator("#id_title")).to_be_visible()

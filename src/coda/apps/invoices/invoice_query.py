@@ -3,24 +3,36 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import singledispatch
-from typing import TypeVar
+from typing import TypedDict, TypeVar
 
 from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, QuerySet, Sum, Value, When
 from django.db.models.functions import Coalesce, ExtractYear
+from django_stubs_ext import WithAnnotations
 
+from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.invoices.mappers._list import InvoiceListMapper
-from coda.apps.search import words_icontains
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
+from coda.apps.search import words_icontains
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency
 
+
+class _InvoicePositionAnnotations(TypedDict):
+    net_total: Decimal
+    tax_total: Decimal
+    first_position_currency: str
+    has_invalid_contract_years: bool
+
+
+type InvoiceWithPositionAnnotations = "WithAnnotations[InvoiceModel, _InvoicePositionAnnotations]"
+
 T = TypeVar("T")
 
 
-def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
+def empty_if_none[T](crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
     def _wrapped(value: T | None) -> Q:
         if value is None:
             return Q()
@@ -296,19 +308,30 @@ def search_to_list_items(
     }
     sort_function = sort_functions.get(sort_by, _ordered_date_desc)
     qs = _annotate_position_based_data(InvoiceListMapper.prefetch(sort_function(search(*criteria))))
+    return LazyBulkQuerySet(
+        queryset=qs,
+        bulk_converter=_map_invoice_list_items,
+    )
+
+
+def _map_invoice_list_items(
+    models: QuerySet[InvoiceWithPositionAnnotations],
+) -> list[InvoiceListItem]:
     return [
         InvoiceListMapper.map(
             model,
-            net_total=getattr(model, "net_total"),
-            tax_total=getattr(model, "tax_total"),
-            first_position_currency=getattr(model, "first_position_currency"),
-            has_invalid_contract_years=getattr(model, "has_invalid_contract_years"),
+            net_total=model.net_total,
+            tax_total=model.tax_total,
+            first_position_currency=model.first_position_currency,
+            has_invalid_contract_years=model.has_invalid_contract_years,
         )
-        for model in qs
+        for model in models
     ]
 
 
-def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+def _annotate_position_based_data(
+    qs: QuerySet[InvoiceModel],
+) -> QuerySet[InvoiceWithPositionAnnotations]:
     return qs.annotate(
         net_total=Coalesce(
             Sum(
@@ -318,7 +341,7 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
                     output_field=DecimalField(),
                 )
             ),
-            Decimal("0"),
+            Decimal(0),
         ),
         tax_total=Coalesce(
             Sum(
@@ -328,7 +351,7 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
                     output_field=DecimalField(),
                 )
             ),
-            Decimal("0"),
+            Decimal(0),
         ),
         first_position_currency=Coalesce("positions__cost_currency", Value("EUR")),
         has_invalid_contract_years=Exists(

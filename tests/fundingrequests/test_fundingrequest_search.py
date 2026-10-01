@@ -299,12 +299,34 @@ def test__searching_for_funding_requests_by_publications_publication_state__show
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize("contract_year", ["abc", "20.5"])
-def test__bad_contract_year_param__is_ignored_instead_of_500(
-    client: Client, contract_year: str
-) -> None:
+def test__bad_contract_year_param__is_ignored_by_filter(client: Client, contract_year: str) -> None:
     requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
 
     response = search_fundingrequests(client, {"contract_year": contract_year})
+
+    assert response.status_code == 200
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ("param", "value"),
+    [
+        ("processing_status", "zzz"),
+        ("payment_status", "bogus"),
+        ("payment_methods", "bogus"),
+        ("open_access_type", "bogus"),
+        ("publication_type", "bogus"),
+    ],
+)
+def test__unparsable_filter_param__is_ignored_by_filter(
+    client: Client, param: str, value: str
+) -> None:
+    """A value the filter cannot parse narrows nothing instead of failing the request."""
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {param: value})
 
     assert response.status_code == 200
     assert_contains(response.context, requests)

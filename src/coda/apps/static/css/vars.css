@@ -51,6 +51,9 @@
   --coda-spacing: var(--pico-spacing);
   --coda-gap: var(--coda-spacing);
 
+  --coda-color: var(--pico-color);
+  --coda-muted-color: var(--pico-muted-color);
+
   --coda-text-contrast-color: black;
 }
 

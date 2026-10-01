@@ -1,0 +1,52 @@
+{% url 'invoices:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="invoice-list" %}
+<div class="filter-group">
+    <h3 class="filter-group-title">Payment</h3>
+    <div class="form-row">
+        {{ filter_form.payment_status.label_tag }}
+        {{ filter_form.payment_status }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.funding_source.label_tag }}
+        {{ filter_form.funding_source }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Contract</h3>
+    <div class="form-row">
+        {{ filter_form.contract_name.label_tag }}
+        {{ filter_form.contract_name }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.contract_year.label_tag }}
+        {{ filter_form.contract_year }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Invoice date</h3>
+    <div class="form-row">
+        <label for="date_start">Date start</label>
+        {{ filter_form.date_range.subwidgets.0 }}
+    </div>
+    <div class="form-row">
+        <label for="date_end">Date end</label>
+        {{ filter_form.date_range.subwidgets.1 }}
+        {% include "partials/filter_date_error.html" %}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Data quality</h3>
+    <label class="filter-switch-row" for="has_external_id">
+        {{ filter_form.has_external_id }}
+        <span>{{ filter_form.has_external_id.label }}</span>
+    </label>
+    <label class="filter-switch-row" for="has_foreign_currency">
+        {{ filter_form.has_foreign_currency }}
+        <span>{{ filter_form.has_foreign_currency.label }}</span>
+    </label>
+    <label class="filter-switch-row" for="has_errors">
+        {{ filter_form.has_errors }}
+        <span>{{ filter_form.has_errors.label }}</span>
+    </label>
+</div>

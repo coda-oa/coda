@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,83 +13,75 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
-from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.forms import InvoiceListFilterForm
 from coda.apps.invoices.mappers import InvoiceDetailMapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
+from coda.apps.invoices.models import FundingSource
+from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.views.position_context import DefaultContext as _DefaultContext
-from coda.apps.invoices.views.position_context import funding_sources_context
+from coda.apps.invoices.views.position_context import (
+    funding_source_options_context,
+    institutions_context,
+)
+from coda.apps.listfilters import (
+    ChipBuilder,
+    FilterSummary,
+    ListRegionMixin,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
-    FundingSourceId,
     Invoice,
     InvoiceId,
-    PaymentStatus,
     UnassignedCosts,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency
 
-_advanced_search_fields = [
-    "payment_status",
-    "date_start",
-    "date_end",
-    "funding_source",
-    "has_external_id",
-    "has_foreign_currency",
-    "contract_name",
-    "contract_year",
-]
+_DATE_START_KEY = "date_start"
+_DATE_END_KEY = "date_end"
 
 
-def _contract_year_criterion(param: str, request: HttpRequest) -> iq.InvoiceSearchCriterion | None:
-    try:
-        year = int(param)
-    except ValueError:
-        return None
-    return iq.ContractYearCriterion(year, request.GET.get("contract_positions_only") == "true")
+def build_filter_summary(
+    request: HttpRequest,
+    contracts: Sequence[Contract],
+    funding_sources: Iterable[FundingSource],
+    *,
+    date_range: DateRange | None,
+    date_range_error: str | None,
+) -> FilterSummary:
+    """One removable chip per active filter, in the sidebar's group order.
 
-
-_query_params_to_criteria: dict[
-    str, Callable[[str, HttpRequest], iq.InvoiceSearchCriterion | None]
-] = {
-    "search_term": lambda param, _: iq.GenericSearchCriterion(param),
-    "funding_source": lambda param, _: iq.FundingSourceCriterion(FundingSourceId(int(param))),
-    "contract_name": lambda param, request: iq.ContractCriterion(
-        param, request.GET.get("contract_positions_only") == "true"
-    ),
-    "contract_year": _contract_year_criterion,
-    "has_external_id": lambda *_: iq.MissingExternalIdCriterion(),
-    "has_foreign_currency": lambda *_: iq.MissingCurrencyConversionCriterion(
-        GlobalPreferences.get_home_currency()
-    ),
-    "has_errors": lambda *_: iq.HasErrorsCriterion(),
-    "payment_status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
-}
-
-
-def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
-    query = []
-    for param_name, get_query in _query_params_to_criteria.items():
-        if param := request.GET.get(param_name):
-            criterion = get_query(param, request)
-            if criterion is not None:
-                query.append(criterion)
-
-    try:
-        if "date_start" in request.GET or "date_end" in request.GET:
-            date_range = DateRange.try_fromisoformat(
-                start=request.GET.get("date_start"),
-                end=request.GET.get("date_end"),
-            )
-            query.append(iq.DateRangeCriterion(date_range))
-    except ValueError as e:
-        messages.warning(request, str(e))
-
-    return query
+    Unknown ids (stale URLs) fall back to the raw value.
+    """
+    chips = ChipBuilder(
+        request, list_url_name="invoices:list", region_url_name="invoices:list_region"
+    )
+    chips.single("payment_status")
+    chips.single(
+        "funding_source",
+        labels={str(source.pk): source.name for source in funding_sources},
+    )
+    chips.single(
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", prefix="Year ")
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id=_DATE_START_KEY,
+        end_source_id=_DATE_END_KEY,
+        date_range=date_range,
+        error=date_range_error,
+    )
+    chips.switch("has_external_id", "Without external ID")
+    chips.switch("has_foreign_currency", "Foreign currency")
+    chips.switch("has_errors", "With errors")
+    return chips.summary()
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -97,29 +89,60 @@ def get_contract_list_context() -> dict[str, Any]:
 
 
 @breadcrumb("Invoices", parent_url_name="invoices:finances_home")
-class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
+class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"
-    template_name = "invoices/invoice_list.html"
     entity_list_item_template = "invoices/invoice_list_item.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx["payment_statuses"] = [p.value for p in PaymentStatus]
-        ctx.update(funding_sources_context())
+        ctx.update(funding_source_options_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
-        ctx["expand_advanced_search"] = any(
-            self.request.GET.get(key) for key in _advanced_search_fields
-        )
         ctx.update(get_contract_list_context())
+        filter_form = InvoiceListFilterForm(
+            self.request.GET,
+            funding_sources=ctx["funding_sources"],
+            contracts=ctx["contract_list"],
+        )
+        filter_form.is_valid()
+        date_errors = filter_form.errors.get("date_range")
+        date_range_error = str(date_errors[0]) if date_errors else None
+        summary = build_filter_summary(
+            self.request,
+            ctx["contract_list"],
+            ctx["funding_sources"],
+            date_range=filter_form.cleaned_data.get("date_range"),
+            date_range_error=date_range_error,
+        )
+        ctx["active_filters"] = summary.chips
+        ctx["filter_count"] = summary.count
+        ctx["filter_errors"] = summary.errors
+        ctx["filter_form"] = filter_form
 
         return ctx
 
-    def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
-        return list(iq.search_to_list_items(*build_query(request)))
+    def get_entities(self, request: HttpRequest) -> Sequence[InvoiceListItem]:
+        filter_form = InvoiceListFilterForm(request.GET)
+        criteria, sort_order = filter_form.search_criteria(
+            home_currency=GlobalPreferences.get_home_currency
+        )
+        return iq.search_to_list_items(*criteria, sort_by=sort_order.value)
+
+
+class InvoiceListView(_InvoiceListBaseView):
+    template_name = "invoices/invoice_list.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | institutions_context()
+
+
+class InvoiceListRegionView(ListRegionMixin, _InvoiceListBaseView):
+    template_name = "invoices/invoice_filtered_list.html"
+    list_url_name = "invoices:list"
 
 
 invoice_list = InvoiceListView.as_view()
+invoice_list_region = InvoiceListRegionView.as_view()
 
 
 @dataclass
@@ -154,7 +177,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "invoices/detail.html",
         _DefaultContext
-        | funding_sources_context()
+        | funding_source_options_context()
         | {
             "invoice": base_vm,
             "conversions": invoice.conversions(),

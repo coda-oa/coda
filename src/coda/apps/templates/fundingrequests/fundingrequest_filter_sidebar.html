@@ -1,0 +1,66 @@
+{% url 'fundingrequests:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
+<div class="filter-group">
+    <h3 class="filter-group-title">Status</h3>
+    <div class="form-row">
+        {{ filter_form.processing_status.label_tag }}
+        {{ filter_form.processing_status }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.payment_status.label_tag }}
+        {{ filter_form.payment_status }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.payment_methods.label_tag }}
+        {{ filter_form.payment_methods }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.open_access_type.label_tag }}
+        {{ filter_form.open_access_type }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Publication</h3>
+    <div class="segment" role="radiogroup" aria-label="Publication type">
+        {% for radio in filter_form.publication_type %}
+            {{ radio.tag }}
+            <label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+        {% endfor %}
+    </div>
+    <div class="form-row">
+        <label for="id_start_date">Start Date</label>
+        {{ filter_form.date_range.subwidgets.0 }}
+    </div>
+    <div class="form-row">
+        <label for="id_end_date">End Date</label>
+        {{ filter_form.date_range.subwidgets.1 }}
+        {% include "partials/filter_date_error.html" %}
+    </div>
+    <div class="form-row">
+        {{ filter_form.publication_states.label_tag }}
+        {{ filter_form.publication_states }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Contract</h3>
+    <div class="form-row">
+        {{ filter_form.contract_name.label_tag }}
+        {{ filter_form.contract_name }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.contract_year.label_tag }}
+        {{ filter_form.contract_year }}
+    </div>
+    <label class="filter-switch-row" for="invalid_contract_years">
+        {{ filter_form.invalid_contract_years }}
+        <span>{{ filter_form.invalid_contract_years.label }}</span>
+    </label>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Labels</h3>
+    <div class="form-row">
+        {{ filter_form.exclude_labels.label_tag }}
+        {{ filter_form.exclude_labels }}
+    </div>
+</div>

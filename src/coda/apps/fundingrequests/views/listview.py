@@ -2,9 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse
 
@@ -12,52 +10,28 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.forms import (
+    FundingRequestListFilterForm,
+    parse_label_ids,
+    payment_status_choices,
+    publication_state_choices,
+)
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
+from coda.apps.listfilters import (
+    ChipBuilder,
+    FilterSummary,
+    ListRegionMixin,
+)
 from coda.apps.views import EntityListView
-from coda.coda_itertools import map_or_none
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.publication import OpenAccessType
-from coda.domain.publication.publication import UnpublishedState
 
-_advanced_search_fields = [
-    "exclude_labels",
-    "processing_status",
-    "open_access_type",
-    "payment_status",
-    "start_date",
-    "end_date",
-    "publication_type",
-    "contract_name",
-    "contract_year",
-    "publication_states",
-    "payment_methods",
-]
+_DEFAULT_PUBLICATION_TYPE = "all"
 
-_payment_status_map = {
-    "paid": fq.PaymentStatus.Paid,
-    "unpaid": fq.PaymentStatus.Unpaid,
-    "invoice_received": fq.PaymentStatus.InvoiceReceived,
-    "covered_by_contract": fq.PaymentStatus.CoveredByContract,
-}
 
-_payment_status_choices = [
-    ("paid", "Paid"),
-    ("unpaid", "Unpaid"),
-    ("invoice_received", "Invoice Received"),
-    ("covered_by_contract", "Covered by Contract"),
-]
-
-_publication_state_choices = [
-    ("Published", "Published"),
-    *((s.name, s.value) for s in UnpublishedState),
-]
-
-_default_choices = {"publication_type": "all"}
+_DATE_START_KEY = "start_date"
+_DATE_END_KEY = "end_date"
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
@@ -66,10 +40,11 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     entity_name = "Funding Requests"
     entity_create_url = "fundingrequests:create_wizard"
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
-    entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
-        django_queryset = query(request)
+        filter_form = FundingRequestListFilterForm(request.GET)
+        criteria, sort_order = filter_form.search_criteria()
+        django_queryset = fq.search(*criteria, sort_order=fq.SortOrder[sort_order.name])
         return LazyBulkQuerySet(
             queryset=django_queryset,
             bulk_converter=list_query.get_list_items,
@@ -79,74 +54,45 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
 
-        expand_advanced_search = any(
-            self.request.GET.get(key)
-            for key in _advanced_search_fields
-            if self.request.GET.get(key) and self.request.GET.get(key) != _default_choices.get(key)
-        )
-
         labels = list(Label.objects.all().order_by("name"))
-        publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
-        selected_publication_types = self.request.GET.get("publication_type")
-
-        payment_methods = [(pm.value, pm.value) for pm in PaymentMethod]
+        filter_form = FundingRequestListFilterForm(
+            self.request.GET,
+            contracts=ctx["contract_list"],
+            labels=labels,
+        )
+        filter_form.is_valid()
+        date_errors = filter_form.errors.get("date_range")
+        date_range_error = str(date_errors[0]) if date_errors else None
+        summary = build_filter_summary(
+            self.request,
+            labels,
+            ctx["contract_list"],
+            date_range=filter_form.cleaned_data.get("date_range"),
+            date_range_error=date_range_error,
+        )
 
         return ctx | {
             "labels": labels,
             "label_pills": build_label_pills(self.request, labels),
-            "processing_states": [rr.value for rr in ReviewResult],
-            "open_access_types": [oat.value for oat in OpenAccessType],
-            "expand_advanced_search": expand_advanced_search,
-            "payment_status_choices": _payment_status_choices,
-            "publication_types": publication_types,
-            "selected_publication_types": selected_publication_types,
-            "payment_methods": payment_methods,
-            "publication_states": _publication_state_choices,
+            "filter_count": summary.count,
+            "filter_errors": summary.errors,
+            "label_state": sorted(parse_label_ids(self.request.GET.getlist("labels"))),
+            "active_filters": summary.chips,
+            "filter_form": filter_form,
         }
 
 
+_LISTVIEW_URL = "fundingrequests:list"
+_LIST_REGION_URL = "fundingrequests:list_region"
+
+
+class FundingRequestListRegionView(ListRegionMixin, FundingRequestListView):
+    template_name = "fundingrequests/fundingrequest_filtered_list.html"
+    list_url_name = _LISTVIEW_URL
+
+
 fundingrequest_list = FundingRequestListView.as_view()
-
-
-def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-    review_results = [ReviewResult(rr) for rr in request.GET.getlist("processing_status")]
-    open_access_types = [OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")]
-    requested_payment_statuses = [
-        _payment_status_map[status] for status in request.GET.getlist("payment_status")
-    ]
-    payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
-    show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
-    publication_states = request.GET.getlist("publication_states")
-
-    try:
-        date_range = DateRange.try_fromisoformat(
-            start=start_date,
-            end=end_date,
-        )
-    except ValueError as e:
-        messages.warning(request, str(e))
-        return fq.search()
-
-    params = fq.FundingRequestSearchParams(
-        date_range=date_range,
-        review_results=review_results,
-        payment_statuses=requested_payment_statuses,
-        labels=sorted(_label_ids(request.GET.getlist("labels"))),
-        exclude_labels=sorted(_label_ids(request.GET.getlist("exclude_labels"))),
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=fq.PublicationEntityType.try_parse(request.GET.get("publication_type")),
-        search_term=request.GET.get("search_term", "").strip(),
-        contract_id=map_or_none(int, request.GET.get("contract_name")),
-        contract_year=map_or_none(int, request.GET.get("contract_year")),
-        show_invalid_contract_years=show_invalid_contract_years,
-    )
-
-    criteria = fq.build_criteria(params)
-    return fq.search(*criteria)
+fundingrequest_list_region = FundingRequestListRegionView.as_view()
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -159,17 +105,18 @@ class LabelPill:
     color: str
     state: Literal["default", "included"]
     toggle_url: str
+    toggle_fragment_url: str
 
 
-def _label_ids(values: list[str]) -> set[int]:
-    """Parse label ids from raw query values, ignoring non-int values."""
-    ids = set()
-    for value in values:
-        try:
-            ids.add(int(value))
-        except ValueError:
-            continue
-    return ids
+def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
+    params = request.GET.copy()
+    params.pop("labels", None)
+    params.pop("page", None)
+    if labels:
+        params.setlist("labels", [str(x) for x in sorted(labels)])
+    encoded = params.urlencode()
+    path = reverse(url_name)
+    return f"{path}?{encoded}" if encoded else path
 
 
 def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
@@ -179,14 +126,12 @@ def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
     the new label list. An empty list is omitted. ``exclude_labels`` is
     managed by the advanced-search.
     """
-    params = request.GET.copy()
-    params.pop("labels", None)
-    params.pop("page", None)
-    if labels:
-        params.setlist("labels", [str(x) for x in sorted(labels)])
-    encoded = params.urlencode()
-    path = reverse("fundingrequests:list")
-    return f"{path}?{encoded}" if encoded else path
+    return _pill_url(request, _LISTVIEW_URL, labels=labels)
+
+
+def label_pill_fragment_url(request: HttpRequest, *, labels: set[int]) -> str:
+    """List-region variant of `label_pill_url` for in-place list updates."""
+    return _pill_url(request, _LIST_REGION_URL, labels=labels)
 
 
 def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[LabelPill]:
@@ -196,13 +141,81 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
     toggle link removes it; every other label renders as ``default`` and its
     toggle link adds it.
     """
-    included = _label_ids(request.GET.getlist("labels"))
+    included = parse_label_ids(request.GET.getlist("labels"))
     return [
         LabelPill(
             name=label.name,
             color=label.hexcolor,
             state="included" if label.pk in included else "default",
             toggle_url=label_pill_url(request, labels=included ^ {label.pk}),
+            toggle_fragment_url=label_pill_fragment_url(request, labels=included ^ {label.pk}),
         )
         for label in labels
     ]
+
+
+def build_filter_summary(
+    request: HttpRequest,
+    labels: Sequence[Label],
+    contracts: Sequence[Contract],
+    *,
+    date_range: DateRange | None,
+    date_range_error: str | None,
+) -> FilterSummary:
+    """One removable chip per active filter value, in the rail's group order.
+
+    Text is the bare value except where that would be ambiguous (dates, contract
+    year, excluded labels, switch). Unknown ids (stale URLs) fall back to the raw
+    value.
+    """
+    chips = ChipBuilder(
+        request,
+        list_url_name=_LISTVIEW_URL,
+        region_url_name=_LIST_REGION_URL,
+    )
+    chips.multi("processing_status")
+    chips.multi("payment_status", labels=dict(payment_status_choices))
+    chips.multi("payment_methods")
+    chips.multi("open_access_type")
+
+    publication_type = request.GET.get("publication_type")
+    if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
+        chips.add("publication_type", publication_type, publication_type.title())
+
+    chips.multi("publication_states", labels=dict(publication_state_choices))
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id="id_start_date",
+        end_source_id="id_end_date",
+        date_range=date_range,
+        error=date_range_error,
+    )
+    chips.single(
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", prefix="Year ")
+    chips.switch("invalid_contract_years", "Invalid years only")
+
+    names = {str(label.pk): label.name for label in labels}
+    colors = {str(label.pk): label.hexcolor for label in labels}
+    for value in request.GET.getlist("labels"):
+        if value:
+            chips.add(
+                "labels",
+                value,
+                names.get(value, value),
+                kind="label",
+                label_color=colors.get(value),
+            )
+    for value in request.GET.getlist("exclude_labels"):
+        if value:
+            chips.add(
+                "exclude_labels",
+                value,
+                f"Not: {names.get(value, value)}",
+                kind="label",
+                label_color=colors.get(value),
+            )
+    return chips.summary()

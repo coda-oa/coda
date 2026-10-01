@@ -1,0 +1,9 @@
+{% include "partials/pagination_nav.html" %}
+{% include "entity_list.html" with list_item_template="invoices/invoice_list_item.html" %}
+{% if request.GET and entities|length == 0 %}
+    <p class="my-2">
+        No invoices match the selected filters.
+        <a href="{% url 'invoices:list' %}">Clear all filters</a>
+    </p>
+{% endif %}
+{% include "partials/pagination_nav.html" %}

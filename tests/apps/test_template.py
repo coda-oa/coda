@@ -43,6 +43,7 @@ def test__check_update_view__returns_empty_when_no_update(
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__check_update_view__returns_banner_when_update_available(
     monkeypatch: pytest.MonkeyPatch,
     client: Client,

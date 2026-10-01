@@ -1,7 +1,7 @@
 {% load getlist %}
 <div class="form-row">
     <label for="exclude_labels">Exclude labels</label>
-    <search-select-multi name="exclude_labels" class="w-100" id="exclude_labels">
+    <search-select-multi name="exclude_labels" class="w-100" id="exclude_labels" placeholder="Select labels to exclude">
     {% for label in labels %}
         <option slot="options"
                 value="{{ label.pk }}"
