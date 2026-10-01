@@ -517,6 +517,37 @@ def test_part_of_contract_names_a_group_the_document_holds(
     assert any(link.group_id is not None for link in links) is contract_in_document
 
 
+@pytest.mark.django_db
+def test__contract_without_home_institution__publication_link_has_no_group_id() -> None:
+    _home_institution(configure=False)
+    affiliation = create_institution_with_identifiers(
+        name="Affiliated University",
+        ror="https://ror.org/0affiliated",
+    )
+    contract = create_contract_with_identifiers(
+        name="Home-dependent Agreement",
+        esac="ESAC-HOME-ONLY",
+    )
+    create_contract_with_invoice(contract, invoice_number="INV-HOME-ONLY")
+
+    publication = _publication("Affiliated Publication", affiliation=None)
+    publication.relevant_authors.update(affiliation=affiliation)
+    create_publication_with_invoice(publication, invoice_number="INV-PUBLICATION")
+    AttachedContract.objects.create(
+        contract=contract,
+        publication=publication,
+        contract_year=2024,
+    )
+
+    document = _document(_generate())
+    assert document is not None
+    assert document.publication is not None
+    assert not document.contract
+    part_of_contract = document.publication[0].cost_data.part_of_contract
+    assert part_of_contract is not None
+    assert part_of_contract.group_id is None
+
+
 @pytest.mark.parametrize("build", SCENARIOS, ids=lambda build: build.__name__)
 @pytest.mark.django_db
 def test_stored_issue_log_reads_issue_by_issue_and_matches_the_counts(

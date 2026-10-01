@@ -26,12 +26,7 @@ from coda.apps.opencost.data_aggregation import (
     InstitutionHierarchyCache,
     get_institution_data,
 )
-from coda.apps.opencost.issues import (
-    GlobalWarning,
-    ValidationWarning,
-    create_warning,
-    record_issue,
-)
+from coda.apps.opencost.issues import ReportItem, ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -95,18 +90,43 @@ class MissingEntityError(Exception):
 class ItemOutcome:
     """How one item row fared: in the document or not, at which position, and how dirty."""
 
-    exported: bool
+    was_exported: bool
     had_errors: bool
     xml_ordinal: int | None
+
+    @staticmethod
+    def excluded() -> "ItemOutcome":
+        """An item the document does not hold.
+
+        Nothing is left out without an error being reported about it, so an excluded row always
+        carries one - even where the wording that explains it is its parent's.
+        """
+        return ItemOutcome(was_exported=False, had_errors=True, xml_ordinal=None)
+
+    @staticmethod
+    def exported(report_item: ReportItem, xml_ordinal: int) -> "ItemOutcome":
+        """An item the document holds, at the position it holds it at."""
+        return ItemOutcome(
+            was_exported=True, had_errors=report_item.has_errors(), xml_ordinal=xml_ordinal
+        )
 
 
 @dataclass(frozen=True)
 class InvoiceOutcome:
     """How one invoice row fared, indexed within its parent item's exported invoices."""
 
-    exported: bool
+    was_exported: bool
     had_errors: bool
     xml_index: int | None
+
+    @staticmethod
+    def excluded() -> "InvoiceOutcome":
+        """An invoice row the document does not hold, whether it was the reason or inherited it."""
+        return InvoiceOutcome(was_exported=False, had_errors=True, xml_index=None)
+
+    @staticmethod
+    def exported(report_item: ReportItem, xml_index: int) -> "InvoiceOutcome":
+        return InvoiceOutcome(True, report_item.has_errors(), xml_index)
 
 
 class LiveTransform(NamedTuple):
@@ -210,78 +230,74 @@ def _transform_contracts(
         # A group id is only worth publishing once the contract has invoices of its own for a
         # publication's part_of_contract to join.
         group_id = str(uuid4())
-        if invoice_rows:
-            group_ids[row.contract_id] = group_id
 
-        row_issues: list[ValidationWarning] = []
+        report_item = ReportItem(row)
         element = _contract_element(
             report,
-            row,
+            report_item,
             contract,
             invoice_rows,
             group_id,
             live_invoices,
             home_institution,
-            row_issues,
             invoice_outcomes,
         )
         if element is None:
-            outcomes[row.contract_id] = _excluded()
-            issues.extend(row_issues)
+            outcomes[row.contract_id] = ItemOutcome.excluded()
+            issues.extend(report_item.issues)
             continue
 
+        if invoice_rows:
+            group_ids[row.contract_id] = group_id
+
         elements.append(element)
-        outcomes[row.contract_id] = _exported(row_issues, len(elements) - 1)
-        issues.extend(row_issues)
+        outcomes[row.contract_id] = ItemOutcome.exported(report_item, len(elements) - 1)
+        issues.extend(report_item.issues)
 
     return ContractPhase(elements, outcomes, invoice_outcomes, group_ids)
 
 
 def _contract_element(
     report: OpenCostReport,
-    row: OpenCostReportContract,
+    report_item: ReportItem,
     contract: Contract,
     invoice_rows: Sequence[OpenCostReportContractInvoice],
     group_id: str,
     live_invoices: Mapping[int, Invoice],
     home_institution: HomeInstitutionCache,
-    row_issues: list[ValidationWarning],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> ContractType | None:
     institution = institution_from(home_institution.institution_name, home_institution.identifiers)
     if institution is None:
         # XSD requires institution to have at least one name or id.
         # Without institution data we cannot produce a valid record.
-        record_issue(row_issues, GlobalWarning.create(row, NO_INSTITUTION_MESSAGE))
+        report_item.global_issue(NO_INSTITUTION_MESSAGE)
         return None
 
     participation = get_participation(contract.start_date, contract.end_date)
     if participation is None:
         # XSD requires the participation block with both dates.
-        record_issue(row_issues, create_warning(row, NO_PARTICIPATION_MESSAGE))
+        report_item.issue(NO_PARTICIPATION_MESSAGE)
         return None
 
-    invoice_issues: list[ValidationWarning] = []
+    invoice_issues = ReportItem(report_item.item)
     positions = _positions_by_invoice(contract.position_set.all())
     invoice_elements = _contract_invoice_elements(
-        row, invoice_rows, positions, live_invoices, invoice_issues, invoice_outcomes
+        invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
     )
     if not invoice_elements:
         # XSD requires at least one invoice_group — without cost data
         # we cannot produce a valid record.
-        record_issue(
-            row_issues,
-            create_warning(row, entity_exclusion([w.message for w in invoice_issues])),
-        )
+        report_item.issue(entity_exclusion([issue.message for issue in invoice_issues]))
         return None
 
-    row_issues.extend(invoice_issues)
+    report_item.absorb(invoice_issues)
 
     primary_identifier_value = get_contract_primary_identifier(contract)
     if not primary_identifier_value:
         # ESAC is mandatory in the schema, so the contract is exported
         # with the placeholder value instead of a real identifier.
-        record_issue(row_issues, create_warning(row, NO_ESAC_MESSAGE, level="warning"))
+        report_item.issue(NO_ESAC_MESSAGE, level="warning")
 
     return ContractType(
         contract_name=contract.name,
@@ -307,37 +323,30 @@ def _contract_element(
 
 
 def _contract_invoice_elements(
-    report_item: OpenCostReportContract,
+    report_item: ReportItem,
     invoice_rows: Sequence[OpenCostReportContractInvoice],
     positions: Mapping[int, list[LiveInvoicePosition]],
     live_invoices: Mapping[int, Invoice],
-    invoice_issues: list[ValidationWarning],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> list[ContractInvoiceType]:
-    """The contract's invoice elements, each with the outcome of the row it came from.
-
-    The contract's own positions decide what an invoice is being given: rows on an invoice this
-    contract holds none of are said to have nothing reportable, exactly as an invoice collected
-    without any would have been.
-    """
+    """Each invoice element and the issues attributed to its report item."""
     elements: list[ContractInvoiceType] = []
     for invoice_row in invoice_rows:
         rows = positions.get(invoice_row.invoice_id, [])
-        row_issues: list[ValidationWarning] = []
+        invoice_report_item = ReportItem(report_item.item)
         element = contract_invoice(
-            report_item,
+            invoice_report_item,
             live_invoice(_require(live_invoices, invoice_row.invoice_id, "invoice")),
             rows,
-            row_issues,
         )
         if element is None:
-            invoice_outcomes[invoice_row.id] = _excluded_invoice()
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.excluded()
         else:
             elements.append(element)
-            invoice_outcomes[invoice_row.id] = InvoiceOutcome(
-                True, _has_errors(row_issues), len(elements) - 1
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.exported(
+                invoice_report_item, len(elements) - 1
             )
-        invoice_issues.extend(row_issues)
+        report_item.absorb(invoice_report_item)
 
     return elements
 
@@ -360,39 +369,37 @@ def _transform_publications(
         invoice_rows = list(row.invoices.all())
         _left_out(invoice_rows, invoice_outcomes)
 
-        row_issues: list[ValidationWarning] = []
+        report_item = ReportItem(row)
         element = _publication_element(
-            row,
+            report_item,
             publication,
             invoice_rows,
             live_invoices,
             home_institution,
             institution_cache,
             group_ids,
-            row_issues,
             invoice_outcomes,
         )
         if element is None:
-            outcomes[row.publication_id] = _excluded()
-            issues.extend(row_issues)
+            outcomes[row.publication_id] = ItemOutcome.excluded()
+            issues.extend(report_item.issues)
             continue
 
         elements.append(element)
-        outcomes[row.publication_id] = _exported(row_issues, len(elements) - 1)
-        issues.extend(row_issues)
+        outcomes[row.publication_id] = ItemOutcome.exported(report_item, len(elements) - 1)
+        issues.extend(report_item.issues)
 
     return PublicationPhase(elements, outcomes, invoice_outcomes)
 
 
 def _publication_element(
-    row: OpenCostReportPublication,
+    report_item: ReportItem,
     publication: Publication,
     invoice_rows: Sequence[OpenCostReportInvoice],
     live_invoices: Mapping[int, Invoice],
     home_institution: HomeInstitutionCache,
     institution_cache: InstitutionHierarchyCache,
     group_ids: Mapping[int, str],
-    row_issues: list[ValidationWarning],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> PublicationType | None:
     institution = institution_from(
@@ -401,16 +408,13 @@ def _publication_element(
     if institution is None:
         # XSD requires institution to have at least one name or id.
         # Without institution data we cannot produce a valid record.
-        record_issue(
-            row_issues,
-            GlobalWarning.create(row, entity_exclusion([NO_INSTITUTION_REASON])),
-        )
+        report_item.global_issue(entity_exclusion([NO_INSTITUTION_REASON]))
         return None
 
-    invoice_issues: list[ValidationWarning] = []
+    invoice_issues = ReportItem(report_item.item)
     positions = _positions_by_invoice(publication.position_set.all())
     invoice_elements = _publication_invoice_elements(
-        row, invoice_rows, positions, live_invoices, invoice_issues, invoice_outcomes
+        invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
     )
 
     linked_contract = _part_of_contract(publication, group_ids)
@@ -418,13 +422,10 @@ def _publication_element(
     if not invoice_elements and linked_contract is None:
         # XSD requires at least one of invoice or part_of_contract.
         # Without cost data we cannot produce a valid record.
-        record_issue(
-            row_issues,
-            create_warning(row, entity_exclusion([w.message for w in invoice_issues])),
-        )
+        report_item.issue(entity_exclusion([issue.message for issue in invoice_issues]))
         return None
 
-    row_issues.extend(invoice_issues)
+    report_item.absorb(invoice_issues)
 
     doi = get_publication_doi(publication)
     if doi:
@@ -432,7 +433,7 @@ def _publication_element(
     else:
         publisher_name, journal_name = get_publisher_and_journal(publication)
         primary_identifier = no_doi_primary_identifier(
-            row, publication.title, publisher_name, journal_name, row_issues
+            report_item, publication.title, publisher_name, journal_name
         )
     return PublicationType(
         primary_identifier=primary_identifier,
@@ -449,37 +450,30 @@ def _publication_element(
 
 
 def _publication_invoice_elements(
-    report_item: OpenCostReportPublication,
+    report_item: ReportItem,
     invoice_rows: Sequence[OpenCostReportInvoice],
     positions: Mapping[int, list[LiveInvoicePosition]],
     live_invoices: Mapping[int, Invoice],
-    invoice_issues: list[ValidationWarning],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> list[PublicationInvoiceType]:
-    """The publication's invoice elements, each with the outcome of the row it came from.
-
-    The publication's own positions decide what an invoice is being given: a row for an invoice
-    it holds no positions on has nothing reportable, exactly as one collected without any would
-    have had.
-    """
+    """Each invoice element and the issues attributed to its report item."""
     elements: list[PublicationInvoiceType] = []
     for invoice_row in invoice_rows:
         rows = positions.get(invoice_row.invoice_id, [])
-        row_issues: list[ValidationWarning] = []
+        invoice_report_item = ReportItem(report_item.item)
         element = publication_invoice(
-            report_item,
+            invoice_report_item,
             live_invoice(_require(live_invoices, invoice_row.invoice_id, "invoice")),
             rows,
-            row_issues,
         )
         if element is None:
-            invoice_outcomes[invoice_row.id] = _excluded_invoice()
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.excluded()
         else:
             elements.append(element)
-            invoice_outcomes[invoice_row.id] = InvoiceOutcome(
-                True, _has_errors(row_issues), len(elements) - 1
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.exported(
+                invoice_report_item, len(elements) - 1
             )
-        invoice_issues.extend(row_issues)
+        report_item.absorb(invoice_report_item)
 
     return elements
 
@@ -593,32 +587,4 @@ def _left_out(
     and an outcome they were never given is a row whose state nobody can tell. The invoice
     builders overwrite this for every row they do look at.
     """
-    outcomes.update({invoice_row.id: _excluded_invoice() for invoice_row in invoice_rows})
-
-
-def _excluded_invoice() -> InvoiceOutcome:
-    """An invoice row the document does not hold, whether it was the reason or inherited it."""
-    return InvoiceOutcome(exported=False, had_errors=True, xml_index=None)
-
-
-def _excluded() -> ItemOutcome:
-    """An item the document does not hold.
-
-    Nothing is left out without an error being reported about it, so an excluded row always
-    carries one - even where the wording that explains it is its parent's.
-    """
-    return ItemOutcome(exported=False, had_errors=True, xml_ordinal=None)
-
-
-def _exported(row_issues: Sequence[ValidationWarning], xml_ordinal: int) -> ItemOutcome:
-    """An item the document holds, at the position it holds it at."""
-    return ItemOutcome(exported=True, had_errors=_has_errors(row_issues), xml_ordinal=xml_ordinal)
-
-
-def _has_errors(issues: Sequence[ValidationWarning]) -> bool:
-    """Whether anything reported about a row said it could not be exported cleanly.
-
-    Warnings stay in the issue log alone: only an error says the XML that was written is
-    incomplete for this row.
-    """
-    return any(issue.level == "error" for issue in issues)
+    outcomes.update({invoice_row.id: InvoiceOutcome.excluded() for invoice_row in invoice_rows})

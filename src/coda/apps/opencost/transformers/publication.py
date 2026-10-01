@@ -8,8 +8,7 @@ was reached.
 from collections.abc import Iterable
 
 from coda.apps.contracts.models import Contract
-from coda.apps.opencost.issues import ValidationWarning, create_warning, record_issue
-from coda.apps.opencost.models import OpenCostReportPublication
+from coda.apps.opencost.issues import ReportItem
 from coda.coda_itertools import map_or_none
 from opencost import (
     BibliographicInformation,
@@ -30,19 +29,18 @@ UNKNOWN_PUBLISHER = "Unknown Publisher"
 
 
 def no_doi_primary_identifier(
-    report_item: OpenCostReportPublication,
+    report_item: ReportItem,
     title: str,
     publisher: str,
     journal: str,
-    issues: list[ValidationWarning] | None,
 ) -> PublicationPrimaryIdentifier:
     """openCost's fallback for a DOI-less publication: exported with title and journal instead.
 
     With no publisher either the export says so and names ``Unknown Publisher``.
     """
-    record_issue(issues, create_warning(report_item, NO_DOI_MESSAGE, level="warning"))
+    report_item.issue(NO_DOI_MESSAGE, level="warning")
     if not publisher:
-        record_issue(issues, create_warning(report_item, NO_PUBLISHER_MESSAGE, level="warning"))
+        report_item.issue(NO_PUBLISHER_MESSAGE, level="warning")
 
     return PublicationPrimaryIdentifier(
         bibliographic_information=BibliographicInformation(

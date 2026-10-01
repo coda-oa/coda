@@ -1,6 +1,7 @@
 import abc
 import logging
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import ClassVar, Literal
 
 from django.urls import reverse
@@ -123,18 +124,49 @@ _WARNING_TYPES = {
 }
 
 
-def create_warning(
-    item: "AnyOpenCostReportItem", message: str, level: Literal["error", "warning"] = "error"
-) -> ValidationWarning:
-    return _WARNING_TYPES[type(item)].create(item, message, level)
+@dataclass
+class ReportItem:
+    """One report row and the issues collected for it during transformation."""
 
+    item: AnyOpenCostReportItem
+    issues: list[ValidationWarning] = field(default_factory=list)
 
-def record_issue(issues: list[ValidationWarning] | None, warning: ValidationWarning) -> None:
-    """Record why snapshot data is missing from the generated XML."""
-    if warning.level == "error":
-        logger.warning("%s: %s", warning.entity_name, warning.message)
-    else:
-        logger.info("%s: %s", warning.entity_name, warning.message)
+    def issue(
+        self,
+        message: str,
+        level: Literal["error", "warning"] = "error",
+    ) -> None:
+        warning = _WARNING_TYPES[type(self.item)].create(self.item, message, level)
+        self._record(warning)
 
-    if issues is not None:
-        issues.append(warning)
+    def global_issue(
+        self,
+        message: str,
+        level: Literal["error", "warning"] = "error",
+    ) -> None:
+        self._record(GlobalWarning.create(self.item, message, level))
+
+    def absorb(self, other: "ReportItem") -> None:
+        """Merge issues for the same report row without logging them a second time."""
+        if self.item != other.item:
+            raise ValueError("Cannot absorb issues from a different report item")
+        self.issues.extend(other.issues)
+
+    def has_errors(self) -> bool:
+        return any(issue.level == "error" for issue in self.issues)
+
+    def _record(self, issue: ValidationWarning) -> None:
+        if issue.level == "error":
+            logger.warning("%s: %s", issue.entity_name, issue.message)
+        else:
+            logger.info("%s: %s", issue.entity_name, issue.message)
+        self.issues.append(issue)
+
+    def __iter__(self) -> Iterator[ValidationWarning]:
+        return iter(self.issues)
+
+    def __getitem__(self, index: int) -> ValidationWarning:
+        return self.issues[index]
+
+    def __len__(self) -> int:
+        return len(self.issues)

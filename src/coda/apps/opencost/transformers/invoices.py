@@ -18,12 +18,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Protocol
 
-from coda.apps.opencost.issues import (
-    AnyOpenCostReportItem,
-    ValidationWarning,
-    create_warning,
-    record_issue,
-)
+from coda.apps.opencost.issues import ReportItem
 from coda.coda_itertools import map_or_none
 from opencost import (
     AmountInvoice,
@@ -63,15 +58,14 @@ class LiveInvoicePosition:
 
 
 def publication_invoice(
-    report_item: AnyOpenCostReportItem,
+    report_item: ReportItem,
     report_invoice: LiveInvoice,
     positions: Iterable[LiveInvoicePosition],
-    issues: list[ValidationWarning] | None,
 ) -> PublicationInvoiceType | None:
     """One invoice element, or ``None`` when openCost cannot be given this invoice at all."""
     rows = list(positions)
     amounts = PUBLICATION_COST_TYPES.amounts_for(rows)
-    dates = _dates_if_exportable(report_item, report_invoice, issues, amounts)
+    dates = _dates_if_exportable(report_item, report_invoice, amounts)
     if dates is None:
         return None
 
@@ -101,15 +95,14 @@ def _invoice_positions_total(rows: Sequence[LiveInvoicePosition]) -> AmountInvoi
 
 
 def contract_invoice(
-    report_item: AnyOpenCostReportItem,
+    report_item: ReportItem,
     report_invoice: LiveInvoice,
     positions: Iterable[LiveInvoicePosition],
-    issues: list[ValidationWarning] | None,
 ) -> ContractInvoiceType | None:
     """One contract invoice element."""
     rows = list(positions)
     amounts = CONTRACT_COST_TYPES.amounts_for(rows)
-    dates = _dates_if_exportable(report_item, report_invoice, issues, amounts)
+    dates = _dates_if_exportable(report_item, report_invoice, amounts)
     if dates is None:
         return None
 
@@ -210,9 +203,8 @@ CONTRACT_COST_TYPES = InvoiceCostTypes(
 
 
 def _dates_if_exportable[TPaid](
-    report_item: AnyOpenCostReportItem,
+    report_item: ReportItem,
     report_invoice: LiveInvoice,
-    issues: list[ValidationWarning] | None,
     amounts: AmountsPaid[TPaid],
 ) -> Dates | None:
     """The dates block, or ``None`` when this invoice may not be exported — saying why.
@@ -227,31 +219,19 @@ def _dates_if_exportable[TPaid](
 
     if dates is None:
         # XSD requires an invoice or payment date.
-        record_issue(
-            issues,
-            create_warning(report_item, _no_invoice_date_warning_message(label)),
-        )
+        report_item.issue(_no_invoice_date_warning_message(label))
         return None
 
     if not amounts.items:
         # XSD requires at least one amount_paid per invoice.
-        record_issue(
-            issues,
-            create_warning(
-                report_item, _no_positions_warning_message(label, amounts.rejected_cost_types)
-            ),
-        )
+        report_item.issue(_no_positions_warning_message(label, amounts.rejected_cost_types))
         return None
 
     if amounts.rejected_cost_types:
-        record_issue(
-            issues,
-            create_warning(
-                report_item,
-                _excluded_positions_warning_message(
-                    label, amounts.rejected_cost_types, amounts.row_count
-                ),
-            ),
+        report_item.issue(
+            _excluded_positions_warning_message(
+                label, amounts.rejected_cost_types, amounts.row_count
+            )
         )
 
     return dates

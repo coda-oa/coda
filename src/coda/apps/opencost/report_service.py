@@ -382,7 +382,7 @@ def _store_publication_outcomes(
     """Record on every publication row whether it reached the document, and where."""
     for row in rows:
         outcome = outcomes[row.publication_id]
-        row.exported = outcome.exported
+        row.exported = outcome.was_exported
         row.had_errors = outcome.had_errors
         row.xml_ordinal = outcome.xml_ordinal
 
@@ -397,7 +397,7 @@ def _store_contract_outcomes(
     """Record on every contract row whether it reached the document, and where."""
     for row in rows:
         outcome = outcomes[row.contract_id]
-        row.exported = outcome.exported
+        row.exported = outcome.was_exported
         row.had_errors = outcome.had_errors
         row.xml_ordinal = outcome.xml_ordinal
 
@@ -412,7 +412,7 @@ def _store_publication_invoice_outcomes(
     """Record on every publication invoice row whether it reached the document, and at which index."""
     for row in rows:
         outcome = outcomes[row.id]
-        row.exported = outcome.exported
+        row.exported = outcome.was_exported
         row.had_errors = outcome.had_errors
         row.xml_index = outcome.xml_index
 
@@ -427,7 +427,7 @@ def _store_contract_invoice_outcomes(
     """Record on every contract invoice row whether it reached the document, and at which index."""
     for row in rows:
         outcome = outcomes[row.id]
-        row.exported = outcome.exported
+        row.exported = outcome.was_exported
         row.had_errors = outcome.had_errors
         row.xml_index = outcome.xml_index
 
