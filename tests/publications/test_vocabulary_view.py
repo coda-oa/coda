@@ -41,6 +41,60 @@ def test__create_limited_button__redirects_to_edit_view__has_base_vocabulary_in_
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__create_with_name__persists_named_limited_vocabulary(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {
+            "vocabulary_id": "None",
+            "base_vocabulary_id": base_model.pk,
+            "vocabulary_name": "My Terms",
+        },
+    )
+
+    assert response.status_code == 302
+    saved = VocabularyModel.objects.get(name="My Terms")
+    assert saved.is_limited
+    assert saved.base_vocabulary_id == base_model.pk
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__empty_name__re_renders_form_without_persisting(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {
+            "vocabulary_id": "None",
+            "base_vocabulary_id": base_model.pk,
+            "vocabulary_name": "",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "This field is required" in response.content.decode()
+    assert not VocabularyModel.objects.filter(is_limited=True).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__unknown_vocabulary_id__rejects_request(client: Client) -> None:
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {"vocabulary_id": "999999", "vocabulary_name": "Whatever"},
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__limited_vocabulary_with_disallowed_concept__accessing_edit_view__concept_trees_in_context(
     client: Client,
 ) -> None:
