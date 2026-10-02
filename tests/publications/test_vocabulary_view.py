@@ -1,21 +1,18 @@
 import pytest
-
-from django.urls import reverse
 from django.test import Client
-from coda.apps.publications.models import Vocabulary as VocabularyModel
+from django.urls import reverse
 
+from coda.apps.publications.models import Vocabulary as VocabularyModel
+from coda.apps.publications.repositories import vocabulary_repository
+from coda.apps.publications.services.vocabularies import build_concept_trees
+from coda.apps.publications.templatetags.vocabulary_ui import AnnotatedTree, concept_ui_tree
 from coda.domain.vocabulary import (
+    ConceptId,
     LimitedVocabulary,
     Vocabulary,
     VocabularyConcept,
     VocabularyId,
-    ConceptId,
 )
-
-from coda.apps.publications.services.vocabularies import build_concept_trees
-from coda.apps.publications.templatetags.vocabulary_ui import AnnotatedTree, concept_ui_tree
-
-from coda.apps.publications.repositories import vocabulary_repository
 
 
 @pytest.mark.django_db
@@ -192,6 +189,21 @@ def test__vocabulary_delete__in_use_vocabulary__responds_with_409(client: Client
 
     assert response.status_code == 409
     assert VocabularyModel.objects.filter(pk=base_model.pk).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__vocabulary_delete__unused_vocabulary_confirmed__removes_it(client: Client) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(reverse("publications:vocabulary_delete", kwargs={"pk": limited.id}))
+
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse("publications:vocabularies")
+    assert not VocabularyModel.objects.filter(pk=limited.id).exists()
 
 
 @pytest.mark.django_db
