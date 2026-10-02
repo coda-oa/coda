@@ -210,7 +210,11 @@ class LimitedVocabularyTargetForm(forms.Form):
     ``LimitedVocabulary`` via :meth:`vocabulary`.
     """
 
-    vocabulary_id = forms.IntegerField(required=False)
+    vocabulary_id = forms.ModelChoiceField(
+        queryset=Vocabulary.objects.filter(is_limited=True),
+        required=False,
+        empty_label=None,
+    )
     base_vocabulary_id = forms.ModelChoiceField(
         queryset=Vocabulary.objects.all(),
         required=False,
@@ -226,13 +230,7 @@ class LimitedVocabularyTargetForm(forms.Form):
 
     @staticmethod
     def _normalize_target(data: Any) -> Any:
-        if data is None:
-            return data
-        vocabulary_id = data.get("vocabulary_id")
-        if vocabulary_id == "None":
-            data = data.copy()
-            data["vocabulary_id"] = ""
-        elif vocabulary_id:
+        if data is not None and data.get("vocabulary_id"):
             data = data.copy()
             data.pop("base_vocabulary_id", None)
         return data
@@ -242,23 +240,19 @@ class LimitedVocabularyTargetForm(forms.Form):
         if self.has_error("vocabulary_id") or self.has_error("base_vocabulary_id"):
             return cleaned
 
-        vocabulary_id = cleaned.get("vocabulary_id")
-        base_vocabulary = cleaned.get("base_vocabulary_id")
-        if (vocabulary_id is None) == (base_vocabulary is None):
-            raise forms.ValidationError(
-                "Either vocabulary_id or base_vocabulary_id must be provided"
+        vocabulary_model = cleaned.get("vocabulary_id")
+        if vocabulary_model is not None:
+            self._vocabulary = vocabulary_repository.get_limited_by_id(
+                VocabularyId(vocabulary_model.pk)
             )
-
-        if vocabulary_id is not None:
-            try:
-                self._vocabulary = vocabulary_repository.get_limited_by_id(
-                    VocabularyId(vocabulary_id)
-                )
-            except vocabulary_repository.VocabularyNotFoundError as err:
-                self.add_error("vocabulary_id", str(err))
         else:
+            base_vocabulary = cleaned.get("base_vocabulary_id")
+            if base_vocabulary is None:
+                raise forms.ValidationError(
+                    "Either vocabulary_id or base_vocabulary_id must be provided"
+                )
             self._vocabulary = new_limited_vocabulary(
-                vocabulary_repository.get_by_id(VocabularyId(cast(Vocabulary, base_vocabulary).pk))
+                vocabulary_repository.get_by_id(VocabularyId(base_vocabulary.pk))
             )
         if self._vocabulary is not None:
             base = self._vocabulary.base_vocabulary

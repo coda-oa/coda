@@ -49,7 +49,6 @@ def test__save_vocabularies__create_with_name__persists_named_limited_vocabulary
     response = client.post(
         reverse("publications:save_vocabularies"),
         {
-            "vocabulary_id": "None",
             "base_vocabulary_id": base_model.pk,
             "vocabulary_name": "My Terms",
         },
@@ -71,7 +70,6 @@ def test__save_vocabularies__empty_name__re_renders_form_without_persisting(
     response = client.post(
         reverse("publications:save_vocabularies"),
         {
-            "vocabulary_id": "None",
             "base_vocabulary_id": base_model.pk,
             "vocabulary_name": "",
         },
@@ -151,7 +149,6 @@ def test__save_vocabularies__limited_base_vocabulary__persists_nested_vocabulary
     response = client.post(
         reverse("publications:save_vocabularies"),
         {
-            "vocabulary_id": "None",
             "base_vocabulary_id": str(limited.id),
             "vocabulary_name": "Nested",
         },
@@ -173,7 +170,6 @@ def test__save_vocabularies__overlong_name__re_renders_field_error_without_persi
     response = client.post(
         reverse("publications:save_vocabularies"),
         {
-            "vocabulary_id": "None",
             "base_vocabulary_id": base_model.pk,
             "vocabulary_name": "A" * 300,
         },
