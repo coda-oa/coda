@@ -21,12 +21,12 @@ from coda.domain.finance.taxrate import TaxRate
 from coda.domain.publication.publication import Authors, PublicationId
 from tests import domainfactory, modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
-from coda.domain.money import Money, Currency
+from coda.domain.money import Currency, DecimalSeparator, Money
 from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     _make_params,
     create_funding_request_with_concepts,
     create_invoice_with_funding_assignments,
@@ -748,7 +748,11 @@ def test__funding_request_with_comma_decimal_separator__export_to_csv__formats_m
     )
 
     requests_exports = export_fundingrequests_to_csv(
-        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+        _make_params(
+            date(2026, 1, 1),
+            date(2026, 12, 31),
+            decimal_separator=DecimalSeparator.German,
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
@@ -777,7 +781,11 @@ def test__funding_request_with_estimated_cost_and_review__comma_separator__forma
     create_invoice_with_funding_assignments(funding_request)
 
     requests_exports = export_fundingrequests_to_csv(
-        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+        _make_params(
+            date(2026, 1, 1),
+            date(2026, 12, 31),
+            decimal_separator=DecimalSeparator.German,
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")

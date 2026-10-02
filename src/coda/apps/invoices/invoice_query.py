@@ -17,7 +17,7 @@ from coda.apps.search import words_icontains
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
-from coda.domain.money import Currency
+from coda.domain.money import Currency, DecimalSeparator
 
 
 class _InvoicePositionAnnotations(TypedDict):
@@ -215,6 +215,7 @@ class InvoiceSearchParams:
     contract_year: str | int | None = None
     contract_year_positions_only: bool = False
     has_external_id: bool | None = None
+    decimal_separator: DecimalSeparator = DecimalSeparator.English
     has_foreign_currency: bool = False
     home_currency: Currency | None = None
     has_errors: bool = False

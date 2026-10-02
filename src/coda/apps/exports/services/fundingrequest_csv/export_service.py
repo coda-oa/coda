@@ -1,8 +1,5 @@
-from io import StringIO
-
-import polars as pl
-
 from coda.apps.exports.services.fundingrequest_csv import queries
+from coda.apps.exports.services.csv_writer import build_csv_from_rows
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
 from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
@@ -62,30 +59,15 @@ CSV_COLUMNS = [
 ]
 
 
-MONEY_COLUMNS = {
-    "estimated_amount",
-    "decided_funding_amount",
-    "position_amount",
-    "tax_rate",
-    "funded_amount",
-}
-
-
-def _format_money_value(value: str, key: str, decimal_separator: str) -> str:
-    if decimal_separator == "," and key in MONEY_COLUMNS:
-        return value.replace(".", ",")
-    return value
-
-
-def _single_line(value: str) -> str:
-    return (
-        value.replace("\r\n", " ")
-        .replace("\n", " ")
-        .replace("\r", " ")
-        .replace("\u2028", " ")
-        .replace("\u2029", " ")
-        .replace("\ufeff", "")
-    )
+MONEY_COLUMNS = frozenset(
+    {
+        "estimated_amount",
+        "decided_funding_amount",
+        "position_amount",
+        "tax_rate",
+        "funded_amount",
+    }
+)
 
 
 def export_fundingrequests_to_csv(
@@ -107,27 +89,7 @@ def export_fundingrequests_to_csv(
         for fr in funding_requests
     ]
 
-    # 4. Flatten to CSV rows
-    all_rows = []
-    for dto in export_dtos:
-        rows = flatten_detailed(dto)
-        for row in rows:
-            all_rows.append(
-                {
-                    key: _format_money_value(_single_line(value), key, params.decimal_separator)
-                    for key, value in row.items()
-                }
-            )
+    # 4. Flatten to CSV rows and serialize (value formatting included)
+    all_rows = [row for dto in export_dtos for row in flatten_detailed(dto)]
 
-    # 5. Build Polars DataFrame from rows
-    if not all_rows:
-        schema = {column: pl.String for column in CSV_COLUMNS}
-        df = pl.DataFrame(schema=schema)
-    else:
-        df = pl.DataFrame(all_rows)
-
-    # 6. Write CSV to StringIO with separator semicolon
-    buffer = StringIO()
-    df.write_csv(buffer, separator=";")
-
-    return buffer.getvalue()
+    return build_csv_from_rows(all_rows, CSV_COLUMNS, MONEY_COLUMNS, params.decimal_separator)

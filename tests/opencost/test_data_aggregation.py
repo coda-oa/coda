@@ -19,7 +19,7 @@ from tests.opencost.helpers import (
 )
 from decimal import Decimal
 
-from tests.exports.fundingrequest_csv.helpers import _make_params
+from tests.exports.helpers import _make_params
 
 
 @pytest.mark.django_db
