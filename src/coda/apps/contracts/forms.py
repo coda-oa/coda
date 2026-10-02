@@ -47,7 +47,9 @@ class ContractForm(forms.Form):
         return NonEmptyStr(self.cleaned_data["name"])
 
     def get_period(self) -> DateRange:
-        return DateRange(start=self.cleaned_data["start_date"], end=self.cleaned_data["end_date"])
+        return DateRange.create(
+            start=self.cleaned_data["start_date"], end=self.cleaned_data["end_date"]
+        )
 
     def get_billing(self) -> PublicationBilling:
         return PublicationBilling(self.cleaned_data["publication_billing"])
