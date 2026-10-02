@@ -66,8 +66,7 @@ def concept_ui_tree(
     zebra_counter = [0]
     levels: set[int] = set()
     nodes = [
-        _annotate_node(node, vocabulary, allowed_side, 1, zebra_counter, levels)
-        for node in tree
+        _annotate_node(node, vocabulary, allowed_side, 1, zebra_counter, levels) for node in tree
     ]
     return AnnotatedTree(nodes=nodes, levels=levels)
 

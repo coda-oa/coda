@@ -95,6 +95,22 @@ def test__save_vocabularies__unknown_vocabulary_id__rejects_request(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__move_to_forbidden__unknown_concept_code__rejects_request(client: Client) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(
+        reverse("publications:vocabulary_move_to_forbidden"),
+        {"vocabulary_id": limited.id, "allowed_concepts_check": ["GHOST"]},
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__limited_vocabulary_with_disallowed_concept__accessing_edit_view__concept_trees_in_context(
     client: Client,
 ) -> None:

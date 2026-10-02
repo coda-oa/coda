@@ -25,8 +25,10 @@ from coda.domain.vocabulary import (
 )
 
 
-def get_posted_concepts(request: HttpRequest, key: str) -> set[str]:
-    return {c for c in request.POST.getlist(key) if c}
+def _apply_disallowed(concept_ids: list[str], vocabulary: LimitedVocabulary) -> None:
+    vocabulary.clear_disallowed()
+    for concept_id in concept_ids:
+        vocabulary.disallow(concept_id)
 
 
 @breadcrumb("Vocabularies")
@@ -47,7 +49,10 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 
     # If this is a POST request (from HTMX moves), apply the posted state
     if request.method == "POST":
-        _apply_posted_disallowed(request, limited)
+        form = LimitedVocabularyTargetForm(request.POST)
+        if not form.is_valid():
+            return HttpResponseBadRequest("Invalid vocabulary data")
+        _apply_disallowed(form.cleaned_data["disallowed_concepts"], limited)
 
     return render(
         request,
@@ -74,7 +79,7 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
     if form.is_valid():
         vocabulary = form.vocabulary()
         vocabulary.name = form.cleaned_data["vocabulary_name"]
-        _apply_posted_disallowed(request, vocabulary)
+        _apply_disallowed(form.cleaned_data["disallowed_concepts"], vocabulary)
         vocabulary_repository.save(vocabulary)
         return redirect("publications:vocabularies")
 
@@ -84,18 +89,12 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
 
     vocabulary = target.vocabulary()
     vocabulary.name = request.POST.get("vocabulary_name") or vocabulary.name
-    _apply_posted_disallowed(request, vocabulary)
+    _apply_disallowed(target.cleaned_data["disallowed_concepts"], vocabulary)
     return render(
         request,
         "publications/vocabulary.html",
         _tree_context(vocabulary) | {"form": form},
     )
-
-
-def _apply_posted_disallowed(request: HttpRequest, vocabulary: LimitedVocabulary) -> None:
-    vocabulary.clear_disallowed()
-    for concept_id in get_posted_concepts(request, "disallowed_concepts"):
-        vocabulary.disallow(concept_id)
 
 
 def _tree_context(vocabulary: LimitedVocabulary) -> dict[str, Any]:
@@ -117,9 +116,9 @@ def _move_concepts_between_lists(
         return HttpResponseBadRequest("Could not resolve vocabulary from submitted data")
 
     vocabulary = form.vocabulary()
-    _apply_posted_disallowed(request, vocabulary)
+    _apply_disallowed(form.cleaned_data["disallowed_concepts"], vocabulary)
 
-    for concept_id in get_posted_concepts(request, selected_concepts_param):
+    for concept_id in form.cleaned_data[selected_concepts_param]:
         if move_from_allowed_to_forbidden:
             vocabulary.disallow(concept_id)
         else:
