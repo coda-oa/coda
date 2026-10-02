@@ -115,6 +115,7 @@ def _tree_context(vocabulary: LimitedVocabulary) -> dict[str, Any]:
     allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
     return {
         "vocabulary": vocabulary,
+        "form": LimitedVocabularySaveForm(initial={"vocabulary_name": vocabulary.name}),
         "allowed_tree": allowed_tree,
         "forbidden_tree": forbidden_tree,
         "base_vocabulary_id": vocabulary.base_vocabulary.id,
