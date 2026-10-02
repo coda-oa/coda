@@ -1,3 +1,6 @@
+{% load vocabulary_ui %}
+{% vocabulary_ui_tree allowed_tree vocabulary "allowed" as allowed_ui %}
+{% vocabulary_ui_tree forbidden_tree vocabulary "forbidden" as forbidden_ui %}
 <div id="vocabulary-table">
     <div class="flex my-2">
         <span class="voc-concept-column"><strong>Allowed</strong></span>
@@ -29,7 +32,7 @@
                 <details class="dropdown" id="allowed-levels-dropdown">
                     <summary>Select levels...</summary>
                     <ul>
-                        {% for level in allowed_level_range %}
+                        {% for level in allowed_ui.level_range %}
                             <li>
                                 <label>
                                     <input type="checkbox" name="level-{{ level }}" />
@@ -48,7 +51,7 @@
                 <details class="dropdown" id="disallowed-levels-dropdown">
                     <summary>Select levels...</summary>
                     <ul>
-                        {% for level in forbidden_level_range %}
+                        {% for level in forbidden_ui.level_range %}
                             <li>
                                 <label>
                                     <input type="checkbox" name="level-{{ level }}" />
@@ -66,7 +69,7 @@
         <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
             <fieldset id="allowed-checkboxes" datagroup="disallow">
                 <ul class="undecorated">
-                    {% for node in allowed_tree %}
+                    {% for node in allowed_ui.nodes %}
                         {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="allowed" depth=0 %}
                     {% endfor %}
                 </ul>
@@ -114,7 +117,7 @@
         <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
             <fieldset id="forbidden-checkboxes" datagroup="allow">
                 <ul class="undecorated">
-                    {% for node in forbidden_tree %}
+                    {% for node in forbidden_ui.nodes %}
                         {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="disallowed" depth=0 %}
                     {% endfor %}
                 </ul>

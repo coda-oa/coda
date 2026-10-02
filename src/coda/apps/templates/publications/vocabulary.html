@@ -7,18 +7,26 @@
               action="{% url 'publications:save_vocabularies' %}"
               id="vocabularies_form">
             {% csrf_token %}
-            <input type="hidden" name="vocabulary_id" value="{{ vocabulary.id }}">
-            {% if base_vocabulary_id %}
+            {% if vocabulary.id is not None %}
+                <input type="hidden" name="vocabulary_id" value="{{ vocabulary.id }}">
+            {% endif %}
+            {% if base_vocabulary_id is not None %}
                 <input type="hidden"
                        name="base_vocabulary_id"
                        value="{{ base_vocabulary_id }}">
             {% endif %}
             <div id="edit-title-container" class="my-1">
-                <label for="vocabulary_name">Edit Vocabulary Name:</label>
-                <input type="text"
-                       id="vocabulary_name"
-                       name="vocabulary_name"
-                       value="{{ vocabulary.name }}">
+                <label for="id_vocabulary_name">Edit Vocabulary Name:</label>
+                {{ form.vocabulary_name }}
+                {% if form.vocabulary_name.errors %}
+                    <small class="mt-1">{{ form.vocabulary_name.errors.0 }}</small>
+                {% endif %}
+                {% if form.base_vocabulary_id.errors %}
+                    <small class="mt-1">{{ form.base_vocabulary_id.errors.0 }}</small>
+                {% endif %}
+                {% if form.non_field_errors %}
+                    <small class="mt-1">{{ form.non_field_errors.0 }}</small>
+                {% endif %}
             </div>
             <div class="mb-2">
                 <label for="base_vocabulary_name">Base Vocabulary Name:</label>
