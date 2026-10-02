@@ -89,6 +89,75 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__create_contract_view__without_dates__creates_contract_with_unbounded_period(
+    client: Client,
+) -> None:
+    publishers = make_publishers()
+    journals = make_journals(publishers)
+    contract = make_contract(publishers, journals)
+
+    data = (
+        contract_form_data(contract)
+        | {"start_date": "", "end_date": ""}
+        | to_htmx_formset_data(entity_form_data(publishers), prefix="publishers")
+        | to_htmx_formset_data(entity_form_data(journals), prefix="journals")
+    )
+
+    response = client.post(reverse("contracts:create"), data)
+
+    assert response.status_code == 302
+    actual = repository.first()
+    assert actual is not None
+    assert actual.period.is_unbounded()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__create_contract_view__with_only_start_date__creates_contract_with_open_ended_period(
+    client: Client,
+) -> None:
+    publishers = make_publishers()
+    journals = make_journals(publishers)
+    contract = make_contract(publishers, journals)
+
+    data = (
+        contract_form_data(contract)
+        | {"start_date": "2025-01-01", "end_date": ""}
+        | to_htmx_formset_data(entity_form_data(publishers), prefix="publishers")
+        | to_htmx_formset_data(entity_form_data(journals), prefix="journals")
+    )
+
+    response = client.post(reverse("contracts:create"), data)
+
+    assert response.status_code == 302
+    actual = repository.first()
+    assert actual is not None
+    assert actual.period == DateRange(start=datetime.date(2025, 1, 1), end=datetime.date.max)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_saved_contract__update_contract_view__without_dates__makes_period_unbounded(
+    client: Client,
+) -> None:
+    contract = make_contract(make_publishers(), make_journals(make_publishers()))
+    contract_id = repository.create(contract)
+
+    data = (
+        contract_form_data(contract)
+        | {"start_date": "", "end_date": ""}
+        | to_htmx_formset_data(entity_form_data(contract.publishers), prefix="publishers")
+        | to_htmx_formset_data(entity_form_data(contract.journals), prefix="journals")
+    )
+
+    response = client.post(reverse("contracts:update", kwargs={"pk": contract_id}), data)
+
+    assert response.status_code == 302
+    assert repository.get_by_id(contract_id).period.is_unbounded()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__given_saved_contract__goto_update_contract_view__shows_contract(client: Client) -> None:
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
     contract_id = repository.create(contract)
