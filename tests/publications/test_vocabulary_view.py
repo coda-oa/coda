@@ -95,6 +95,111 @@ def test__save_vocabularies__unknown_vocabulary_id__rejects_request(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__edit_page_payload_with_both_hidden_ids__renames_vocabulary(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {
+            "vocabulary_id": str(limited.id),
+            "base_vocabulary_id": str(base_model.pk),
+            "vocabulary_name": "Renamed",
+        },
+    )
+
+    assert response.status_code == 302
+    assert VocabularyModel.objects.get(pk=limited.id).name == "Renamed"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__move_to_forbidden__edit_page_payload_with_both_hidden_ids__re_renders_table(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(
+        reverse("publications:vocabulary_move_to_forbidden"),
+        {
+            "vocabulary_id": str(limited.id),
+            "base_vocabulary_id": str(base_model.pk),
+        },
+    )
+
+    assert response.status_code == 200
+    assert 'id="vocabulary-table"' in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__limited_base_vocabulary__persists_nested_vocabulary(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {
+            "vocabulary_id": "None",
+            "base_vocabulary_id": str(limited.id),
+            "vocabulary_name": "Nested",
+        },
+    )
+
+    assert response.status_code == 302
+    nested = VocabularyModel.objects.get(name="Nested")
+    assert nested.base_vocabulary_id == limited.id
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__save_vocabularies__overlong_name__re_renders_field_error_without_persisting(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    before = VocabularyModel.objects.count()
+
+    response = client.post(
+        reverse("publications:save_vocabularies"),
+        {
+            "vocabulary_id": "None",
+            "base_vocabulary_id": base_model.pk,
+            "vocabulary_name": "A" * 300,
+        },
+    )
+
+    assert response.status_code == 200
+    assert "at most 255 characters" in response.content.decode()
+    assert VocabularyModel.objects.count() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__vocabulary_delete__in_use_vocabulary__responds_with_409(client: Client) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(reverse("publications:vocabulary_delete", kwargs={"pk": base_model.pk}))
+
+    assert response.status_code == 409
+    assert VocabularyModel.objects.filter(pk=base_model.pk).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize(
     "url_name",
     [
@@ -152,8 +257,15 @@ def test__limited_vocabulary_with_disallowed_concept__accessing_edit_view__conce
     assert response.status_code == 200
     assert "allowed_tree" in response.context
     assert "forbidden_tree" in response.context
-    assert "allowed_concepts_check" in response.content.decode()
-    assert "disallowed_concepts_check" in response.content.decode()
+    html = response.content.decode()
+    assert "allowed_concepts_check" in html
+    assert "disallowed_concepts_check" in html
+    # the template tag's side mapping must be visible in the rendered markup:
+    # forbidden concept C appears only inside the forbidden fieldset
+    allowed_region, separator, forbidden_region = html.partition('id="forbidden-checkboxes"')
+    assert separator
+    assert 'value="C"' in forbidden_region
+    assert 'value="C"' not in allowed_region
 
     allowed_ui = concept_ui_tree(response.context["allowed_tree"], limited_vocab, True)
     forbidden_ui = concept_ui_tree(response.context["forbidden_tree"], limited_vocab, False)

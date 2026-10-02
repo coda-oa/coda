@@ -201,16 +201,18 @@ class ConceptCodesField(forms.Field):
 class LimitedVocabularyTargetForm(forms.Form):
     """Resolves which limited vocabulary a vocabulary-editing POST refers to.
 
-    The vocabulary editor posts either an existing ``vocabulary_id`` (edit) or a
-    ``base_vocabulary_id`` (create). The view layer used to ``int()`` these raw
-    values and let unknown ids escape as 500s; this form turns every bad or
-    ambiguous reference into a validation error and exposes the reconstructed
-    in-memory ``LimitedVocabulary`` via :meth:`vocabulary`.
+    The vocabulary editor posts an existing ``vocabulary_id`` (edit) or a
+    ``base_vocabulary_id`` (create); the edit page always sends both hidden
+    inputs, so a submitted ``vocabulary_id`` takes precedence and the base
+    reference is ignored. The view layer used to ``int()`` these raw values
+    and let unknown ids escape as 500s; this form turns every bad reference
+    into a validation error and exposes the reconstructed in-memory
+    ``LimitedVocabulary`` via :meth:`vocabulary`.
     """
 
     vocabulary_id = forms.IntegerField(required=False)
     base_vocabulary_id = forms.ModelChoiceField(
-        queryset=Vocabulary.objects.filter(is_limited=False),
+        queryset=Vocabulary.objects.all(),
         required=False,
         empty_label=None,
     )
@@ -219,11 +221,21 @@ class LimitedVocabularyTargetForm(forms.Form):
     disallowed_concepts = ConceptCodesField(required=False)
 
     def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
-        if data is not None and data.get("vocabulary_id") == "None":
+        super().__init__(self._normalize_target(data), *args, **kwargs)
+        self._vocabulary: LimitedVocabulary | None = None
+
+    @staticmethod
+    def _normalize_target(data: Any) -> Any:
+        if data is None:
+            return data
+        vocabulary_id = data.get("vocabulary_id")
+        if vocabulary_id == "None":
             data = data.copy()
             data["vocabulary_id"] = ""
-        super().__init__(data, *args, **kwargs)
-        self._vocabulary: LimitedVocabulary | None = None
+        elif vocabulary_id:
+            data = data.copy()
+            data.pop("base_vocabulary_id", None)
+        return data
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or {}
@@ -266,13 +278,14 @@ class LimitedVocabularyTargetForm(forms.Form):
 
 
 class LimitedVocabularySaveForm(LimitedVocabularyTargetForm):
-    vocabulary_name = forms.CharField(required=True, label="Vocabulary name")
+    vocabulary_name = forms.CharField(required=True, max_length=255, label="Vocabulary name")
 
 
 def new_limited_vocabulary(base_vocabulary: VocabularyProtocol) -> LimitedVocabulary:
+    suffix = " (limited)"
     return LimitedVocabulary(
         id=None,
         base_vocabulary=base_vocabulary,
-        name=f"{base_vocabulary.name} (limited)",
+        name=f"{base_vocabulary.name[: 255 - len(suffix)]}{suffix}",
         version=base_vocabulary.version,
     )

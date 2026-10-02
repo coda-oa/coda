@@ -22,6 +22,9 @@
             {% if form.vocabulary_name.errors %}
                 <small class="mt-1">{{ form.vocabulary_name.errors.0 }}</small>
             {% endif %}
+            {% if form.base_vocabulary_id.errors %}
+                <small class="mt-1">{{ form.base_vocabulary_id.errors.0 }}</small>
+            {% endif %}
             {% if form.non_field_errors %}
                 <small class="mt-1">{{ form.non_field_errors.0 }}</small>
             {% endif %}

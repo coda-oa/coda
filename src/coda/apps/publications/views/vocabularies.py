@@ -187,5 +187,8 @@ def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
 @require_http_methods(["POST", "DELETE"])
 def delete(request: HttpRequest, pk: int) -> HttpResponse:
     _get_vocabulary_or_404(pk)
-    vocabularies.delete(VocabularyId(pk))
+    try:
+        vocabularies.delete(VocabularyId(pk))
+    except vocabulary_repository.VocabularyInUseError:
+        return HttpResponse(status=409)
     return HttpResponse(status=200, headers={"HX-Redirect": reverse("publications:vocabularies")})
