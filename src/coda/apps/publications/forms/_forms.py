@@ -8,10 +8,16 @@ from django import forms
 from coda.apps import widgets
 from coda.apps.formbase import CodaFormBase
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import LinkType, Publication, Vocabulary
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState, links
-from coda.domain.vocabulary import VocabularyConcept
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    VocabularyConcept,
+    VocabularyId,
+    VocabularyProtocol,
+)
 
 from ._fields import ConceptChoiceField, encode_concept_dto
 
@@ -173,3 +179,70 @@ def concept_json(concept: VocabularyConcept) -> str:
 
 def concept_form_values(concepts: Iterable[VocabularyConcept]) -> list[tuple[str, str]]:
     return [(concept_json(c), c.name) for c in concepts]
+
+
+class LimitedVocabularyTargetForm(forms.Form):
+    """Resolves which limited vocabulary a vocabulary-editing POST refers to.
+
+    The vocabulary editor posts either an existing ``vocabulary_id`` (edit) or a
+    ``base_vocabulary_id`` (create). The view layer used to ``int()`` these raw
+    values and let unknown ids escape as 500s; this form turns every bad or
+    ambiguous reference into a validation error and exposes the reconstructed
+    in-memory ``LimitedVocabulary`` via :meth:`vocabulary`.
+    """
+
+    vocabulary_id = forms.IntegerField(required=False)
+    base_vocabulary_id = forms.ModelChoiceField(
+        queryset=Vocabulary.objects.filter(is_limited=False),
+        required=False,
+        empty_label=None,
+    )
+
+    def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
+        if data is not None and data.get("vocabulary_id") == "None":
+            data = data.copy()
+            data["vocabulary_id"] = ""
+        super().__init__(data, *args, **kwargs)
+        self._vocabulary: LimitedVocabulary | None = None
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        if self.has_error("vocabulary_id") or self.has_error("base_vocabulary_id"):
+            return cleaned
+
+        vocabulary_id = cleaned.get("vocabulary_id")
+        base_vocabulary = cleaned.get("base_vocabulary_id")
+        if (vocabulary_id is None) == (base_vocabulary is None):
+            raise forms.ValidationError(
+                "Either vocabulary_id or base_vocabulary_id must be provided"
+            )
+
+        if vocabulary_id is not None:
+            try:
+                self._vocabulary = vocabulary_repository.get_limited_by_id(
+                    VocabularyId(vocabulary_id)
+                )
+            except vocabulary_repository.VocabularyNotFoundError as err:
+                self.add_error("vocabulary_id", str(err))
+        else:
+            self._vocabulary = new_limited_vocabulary(
+                vocabulary_repository.get_by_id(VocabularyId(cast(Vocabulary, base_vocabulary).pk))
+            )
+        return cleaned
+
+    def vocabulary(self) -> LimitedVocabulary:
+        assert self._vocabulary is not None
+        return self._vocabulary
+
+
+class LimitedVocabularySaveForm(LimitedVocabularyTargetForm):
+    vocabulary_name = forms.CharField(required=True, label="Vocabulary name")
+
+
+def new_limited_vocabulary(base_vocabulary: VocabularyProtocol) -> LimitedVocabulary:
+    return LimitedVocabulary(
+        id=None,
+        base_vocabulary=base_vocabulary,
+        name=f"{base_vocabulary.name} (limited)",
+        version=base_vocabulary.version,
+    )

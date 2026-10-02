@@ -19,6 +19,12 @@
                        id="vocabulary_name"
                        name="vocabulary_name"
                        value="{{ vocabulary.name }}">
+            {% if form.vocabulary_name.errors %}
+                <small class="mt-1">{{ form.vocabulary_name.errors.0 }}</small>
+            {% endif %}
+            {% if form.non_field_errors %}
+                <small class="mt-1">{{ form.non_field_errors.0 }}</small>
+            {% endif %}
             </div>
             <div class="mb-2">
                 <label for="base_vocabulary_name">Base Vocabulary Name:</label>
