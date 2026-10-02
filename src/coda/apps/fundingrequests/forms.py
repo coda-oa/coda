@@ -35,7 +35,11 @@ from coda.apps.widgets import (
     SearchSelectWidget,
     SwitchInput,
 )
-from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
+from coda.contexts.fundingrequest.dto.commands import (
+    ExternalFundingDto,
+    PaymentDto,
+    UpdateReviewDto,
+)
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
@@ -174,9 +178,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
-                organization_queryset
-            )
+            cast(
+                ModelChoiceField[FundingOrganization], self.fields["organization"]
+            ).queryset = organization_queryset
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -279,11 +283,32 @@ class ChooseLabelForm(forms.Form):
 
 
 class ReviewForm(forms.Form):
-    funding_sum = forms.DecimalField(
-        max_digits=10, decimal_places=2, initial=0, label="Funding sum"
+    ACTION_RETURN = "return"
+
+    action = forms.ChoiceField(
+        choices=[(result.value, result.value) for result in ReviewResult]
+        + [(ACTION_RETURN, ACTION_RETURN)],
     )
-    funding_currency = fields.currency_field(label="Currency")
-    reviewer_comments = forms.CharField(widget=forms.Textarea, required=False)
+    decided_funding_amount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        label="Decided funding amount",
+        widget=forms.TextInput(attrs={"type": "number", "min": "0", "step": "0.01"}),
+    )
+    decided_funding_currency = fields.currency_field(label="Currency")
+    reviewer_remarks = forms.CharField(widget=forms.Textarea, required=False)
+
+    def to_dto(self) -> UpdateReviewDto:
+        result = (
+            "" if self.cleaned_data["action"] == self.ACTION_RETURN else self.cleaned_data["action"]
+        )
+        return UpdateReviewDto(
+            decided_funding_amount=self.cleaned_data["decided_funding_amount"],
+            decided_funding_currency=self.cleaned_data["decided_funding_currency"],
+            reviewer_remarks=self.cleaned_data["reviewer_remarks"],
+            result=result,
+        )
 
 
 class FundingOrganizationLinkForm(forms.Form):
