@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from typing import cast
 
@@ -9,9 +10,9 @@ from django.db.models import Count, Prefetch, Q
 from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -29,24 +30,23 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
-from coda.apps.opencost.issues import ValidationWarning
+from coda.apps.opencost.detail_rows import build_detail_rows
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportPublication,
-    OpenCostReportPublicationContract,
 )
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
-from coda.apps.opencost.services.issues import collect_issues
-from coda.apps.opencost.services.queries import transform_ready_reports
-from coda.apps.opencost.xml_generation import generate_xml
-from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.opencost.report_service import (
+    regenerate_report as regenerate_report_service,
+)
+from coda.apps.opencost.transformers import MissingEntityError
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
-OPENCOST_LIST_URL = "opencost:list"
+logger = logging.getLogger(__name__)
 
 
 @breadcrumb("openCost Reports", parent_url_name="exports:export_home")
@@ -72,6 +72,10 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
                 query |= Q(**{f"{field}__icontains": search_term})
             queryset = queryset.filter(query)
 
+        # The badges read the issues JSON row-locally; the XML artifact is only ever needed
+        # one report at a time, so the list never carries it.
+        queryset = queryset.defer("xml_content")
+
         # Annotate with counts to avoid N+1 queries in the template
         queryset = queryset.annotate(
             publications_count=Count("publications", distinct=True),
@@ -82,98 +86,67 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
         return DomainQuerySet(queryset, lambda x: x)
 
 
-report_list_view = ReportListView.as_view()
+report_list_view = non_atomic_requests(ReportListView.as_view())
 
 
 @login_required
 @require_GET
-@breadcrumb("Report Details", parent_url_name=OPENCOST_LIST_URL)
+@non_atomic_requests  # read-only, no txn held
+@breadcrumb("Report Details", parent_url_name="opencost:list")
 def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
-    # Minimal prefetch - only data displayed on detail page
-    # identifiers/links/secondary_identifiers are only for XML generation
     report = get_object_or_404(
         OpenCostReport.objects.prefetch_related(
             Prefetch(
                 "publications",
                 queryset=OpenCostReportPublication.objects.select_related(
                     "publication__fundingrequest",  # For request_id in invoice link
-                ).prefetch_related(
-                    Prefetch(
-                        "linked_contracts",
-                        queryset=OpenCostReportPublicationContract.objects.select_related(
-                            "contract",  # For contract names in table
-                        ),
-                    ),
-                    "invoices",  # For counting only
-                ),
+                ).prefetch_related("invoices"),  # For counting only
             ),
             Prefetch(
                 "contracts",
                 queryset=OpenCostReportContract.objects.select_related(
                     "contract",  # For contract.id in links
-                ).prefetch_related(
-                    "invoices",  # For counting only
-                ),
+                ).prefetch_related("invoices"),  # For counting only
             ),
         ),
         pk=report_id,
     )
 
-    # Convert to lists to force evaluation
-    publications_list = list(report.publications.all())
-    contracts_list = list(report.contracts.all())
-
-    # Compute counts from already-prefetched data (no additional queries)
-    # Access the prefetch cache directly by converting to list first
-    for pub in publications_list:
-        # Force evaluation of prefetch cache into a list to count
-        linked_contracts_list = list(pub.linked_contracts.all())
-        invoices_list = list(pub.invoices.all())
-        setattr(pub, "linked_contracts_count", len(linked_contracts_list))
-        setattr(pub, "invoices_count", len(invoices_list))
-
-    for contract in contracts_list:
-        contract_invoices_list = list(contract.invoices.all())
-        setattr(contract, "invoices_count", len(contract_invoices_list))
-
-    applied_filters = build_applied_filters(report.filters)
-    redo_url = create_redo_url(report.filters, "opencost:generate")
+    rows = build_detail_rows(report)
 
     context = {
         "report": report,
-        "publications": publications_list,
-        "publications_count": len(publications_list),
-        "contracts": contracts_list,
-        "contracts_count": len(contracts_list),
-        "applied_filters": applied_filters,
-        "redo_url": redo_url,
+        "publications": rows.publications,
+        "contracts": rows.contracts,
+        "applied_filters": build_applied_filters(report.filters),
+        "redo_url": create_redo_url(report.filters, "opencost:generate"),
     }
 
     return render(request, "opencost/report_detail.html", context)
 
 
 @require_GET
-@non_atomic_requests  # read-only, ~0.1 s, no txn held
+@non_atomic_requests  # read-only, one row, no txn held
 def report_issues(request: HttpRequest, report_id: int) -> HttpResponse:
     if not request.user.is_authenticated:
         raise PermissionDenied  # 403: a fragment target cannot use a login page
-    report = get_object_or_404(transform_ready_reports(), pk=report_id)
-    issues = collect_issues(report)
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+    issues = report.issues or []
     return render(
         request,
         "opencost/partials/report_issues.html",
         {
             "report": report,
-            "failed": issues is None,
-            "errors": [w for w in issues or () if w.level == "error"],
-            "warnings_only": [w for w in issues or () if w.level == "warning"],
+            "errors": [w for w in issues if w.get("level") == "error"],
+            "warnings_only": [w for w in issues if w.get("level") == "warning"],
         },
     )
 
 
 @login_required
 @require_GET
-@breadcrumb("Generate New Report", parent_url_name=OPENCOST_LIST_URL)
+@non_atomic_requests  # read-only, no txn held
+@breadcrumb("Generate New Report", parent_url_name="opencost:list")
 def generate_report_form(request: HttpRequest) -> HttpResponse:
     return render(
         request,
@@ -182,60 +155,38 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
-    issue_counts = report.get_issue_counts()
-    issue_parts = []
-
-    if issue_counts["errors"] > 0:
-        error_text = "error" if issue_counts["errors"] == 1 else "errors"
-        issue_parts.append(f"{issue_counts['errors']} {error_text}")
-
-    if issue_counts["warnings"] > 0:
-        warning_text = "warning" if issue_counts["warnings"] == 1 else "warnings"
-        issue_parts.append(f"{issue_counts['warnings']} {warning_text}")
-
-    issue_text = " and ".join(issue_parts)
-
-    return mark_safe(
-        f"Report '{escape(report.title)}' generated with {report.publications.count()} publications "
-        f"and {report.contracts.count()} contracts, but has {issue_text}. "
-        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
+def _issue_summary(report: OpenCostReport) -> str:
+    """The report's stored issue counts as words, e.g. '2 errors and 1 warning'."""
+    counts = report.get_issue_counts()
+    return " and ".join(
+        f"{count} {noun}{'s' if count != 1 else ''}"
+        for noun, count in (("error", counts["errors"]), ("warning", counts["warnings"]))
+        if count
     )
 
 
-def _build_success_message(report: OpenCostReport) -> str:
-    return (
-        f"Report '{report.title}' generated successfully with {report.publications.count()} "
-        f"publications and {report.contracts.count()} contracts."
+def _flash_report_outcome(request: HttpRequest, report: OpenCostReport) -> None:
+    """Flash a generate or regenerate run's result: a warning naming the issues, or success.
+
+    The message renders from a template so its wording lives in one place; the fragment
+    escapes the title once and comes back safe, which is what the messages block in
+    base.html needs to show the review link as a link.
+    """
+    summary = _issue_summary(report) if report.has_issues() else ""
+    message = render_to_string(
+        "opencost/partials/report_outcome_message.html",
+        {
+            "report": report,
+            "publications_count": report.publications.count(),
+            "contracts_count": report.contracts.count(),
+            "summary": summary,
+            "detail_url": reverse("opencost:detail", args=[report.id]),
+        },
     )
-
-
-def _exclusion_message(excluded: list[ValidationWarning]) -> str:
-    """Summarise what the transformer had to leave out of the generated XML."""
-    count = f"{len(excluded)} record" if len(excluded) == 1 else f"{len(excluded)} records"
-    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
-
-    hidden = len(excluded) - 5
-    if hidden > 0:
-        details += f" (and {hidden} more)"
-
-    return f"The openCost XML leaves out {count}: {details}"
-
-
-def _no_data_message(excluded: list[ValidationWarning]) -> str:
-    if not excluded:
-        return "No data to export — the report has no publications or contracts to transform."
-
-    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
-
-    hidden = len(excluded) - 5
-    if hidden > 0:
-        details += f" (and {hidden} more)"
-
-    return (
-        "No file was downloaded: nothing in this report could be transformed into openCost XML. "
-        f"Reasons: {details}"
-    )
+    if summary:
+        messages.warning(request, message)
+    else:
+        messages.success(request, message)
 
 
 @login_required
@@ -258,36 +209,19 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     title = cleaned["title"].strip() or "OpenCost Report"
     dto = ExportFiltersDto.from_form_data(cleaned)
 
-    prefs = GlobalPreferences.objects.select_related("home_institution").first()
-    if prefs is None or prefs.home_institution_id is None:
-        # without a home institution no snapshot carries institution data, every record is
-        # excluded, and the resulting XML would be empty — so do not create the report
-        messages.error(
-            request,
-            "No home institution is set — the report was not generated, because none of its "
-            "records could be exported to openCost XML. Set the home institution in "
-            "preferences and generate again.",
-        )
-        return redirect("opencost:generate")
-
     try:
         report = generate_report_service(
             title=title,
             filters=dto.to_storage(),
         )
     except Exception as e:
-        messages.error(request, f"Error generating report: {str(e)}")
+        logger.exception("Report generation failed for '%s'", title)
+        messages.error(request, f"Error generating report: {e!s}")
         return redirect("opencost:generate")
 
-    if report.has_issues():
-        detail_url = reverse("opencost:detail", args=[report.id])
-        message = _build_issue_message(report, detail_url)
-        messages.warning(request, message)
-    else:
-        message = _build_success_message(report)
-        messages.success(request, message)
+    _flash_report_outcome(request, report)
 
-    return redirect(OPENCOST_LIST_URL)
+    return redirect("opencost:list")
 
 
 def _report_form_context(
@@ -307,7 +241,7 @@ def _report_form_context(
             "parameters_title": "Report Parameters",
             "title_label": "Report Title",
             "title_placeholder": "Enter a title for the report",
-            "cancel_url": reverse(OPENCOST_LIST_URL),
+            "cancel_url": reverse("opencost:list"),
             "submit_button_text": "Generate Report",
             "include_payment_status": False,
             "include_decimal_separator": False,
@@ -320,37 +254,60 @@ def _report_form_context(
 
 @login_required
 @require_GET
+@non_atomic_requests  # read-only, no txn held
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
-    report = get_object_or_404(transform_ready_reports(), pk=report_id)
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+
+    if not report.xml_content:
+        # Nothing was exportable; the stored issue log says why, in the same message the
+        # download-time transform used to produce.
+        excluded = [issue for issue in report.issues or [] if issue.get("level") == "error"]
+        messages.warning(
+            request,
+            render_to_string("opencost/partials/no_data_message.html", {"excluded": excluded}),
+        )
+        return redirect("opencost:list")
+
+    response = HttpResponse(report.xml_content, content_type="application/xml")
+
+    stem = slugify(report.title) or "report"
+    filename = f"{stem}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response
+
+
+@login_required
+@require_POST
+def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
+    """Rebuild the report's document over its stored membership, from current CODA data.
+
+    Answered like the delete view: the button posts through htmx, and the HX-Redirect sends
+    the browser on a full navigation to the detail page - the one way both the flash message
+    and the regenerated state it describes reach the user's eyes.
+    """
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+    detail_url = reverse("opencost:detail", args=[report.id])
 
     try:
-        # Convert prefetched querysets to lists for transformer functions
-        publications_list = list(report.publications.all())
-        contracts_list = list(report.contracts.all())
-
-        issues: list[ValidationWarning] = []
-        xml_string = generate_xml(report, publications_list, contracts_list, issues)
-
-        if not xml_string:
-            errors = [w for w in issues if w.level == "error"]
-            messages.warning(request, _no_data_message(errors))
-            return redirect(OPENCOST_LIST_URL)
-
-        response = HttpResponse(xml_string, content_type="application/xml")
-
-        filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
-
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-        errors = [w for w in issues if w.level == "error"]
-        if errors:
-            messages.warning(request, _exclusion_message(errors))
-
-        return response
-
+        report = regenerate_report_service(report)
+    except MissingEntityError as e:
+        # The frozen membership names an entity CODA no longer has: the flash says which,
+        # and only the run itself is guarded - a defect in building the flash is a bug,
+        # and bugs flash as 500s.
+        messages.error(request, f"Error regenerating report: {e!s}")
     except Exception as e:
-        messages.error(request, f"Error generating XML: {str(e)}")
-        return redirect(OPENCOST_LIST_URL)
+        # Anything else is a defect or an infrastructure failure: it gets a traceback in
+        # the log, and the user still hears that the run failed.
+        logger.exception("Regeneration failed for report %s", report.id)
+        messages.error(request, f"Error regenerating report: {e!s}")
+    else:
+        _flash_report_outcome(request, report)
+
+    response = HttpResponse(status=200)
+    response["HX-Redirect"] = detail_url
+    return response
 
 
 @login_required
@@ -362,5 +319,5 @@ def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     messages.success(request, f"Report '{report_title}' deleted successfully.")
 
     response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse(OPENCOST_LIST_URL)
+    response["HX-Redirect"] = reverse("opencost:list")
     return response

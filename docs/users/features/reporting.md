@@ -73,8 +73,14 @@ Validation errors and warnings don't prevent you from downloading and using the 
 ![](/_static/img/export_messages.png)
 
 ```{admonition} Note
-After fixing any issue with the data in the report, you have to generate a new report to have the changes included. 
+After fixing any issue with the data in the report, use the **Regenerate** button on the report's detail page to have the changes included.
 ```
+
+### Regenerating a Report
+
+The **Regenerate** button on a report's detail page rebuilds that report from your current CODA data: it re-reads the publications, contracts and invoices that match the report, recomputes its XML file and its validation issues, and then takes you back to the detail page with an up-to-date count of errors and warnings.
+
+This keeps the report's identity — its title, ID and reporting period stay the same — so fixing incomplete data and regenerating is preferable to creating a duplicate report. The download filename reflects the new generation date.
 
 ### Report Details
 
@@ -90,7 +96,7 @@ This detail view allows you to review the data before downloading the XML file a
 ![](/_static/img/export_detail_view.png)
 
 ```{admonition} Note
-openCost reports are **snapshots** of your data at the time of generation. If you update a publication or invoice after creating a report, you'll need to generate a new report to reflect those changes.
+Each openCost report holds the XML document as it was at its last generation. If you update a publication or invoice afterwards, the stored report does not change by itself — use the **Regenerate** button above to refresh it, or keep the old report as a historical record.
 ```
 
 ### Downloading the XML File

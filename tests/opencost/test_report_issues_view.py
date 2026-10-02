@@ -5,12 +5,11 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.messages import get_messages
-from django.db import connection
 from django.test import Client
-from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from coda.apps.opencost.services.issues import collect_issues
+from coda.apps.opencost.report_service import generate_report
+from coda.apps.preferences.models import GlobalPreferences
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
@@ -21,6 +20,11 @@ from tests.opencost.helpers import (
     create_position,
     create_publication_with_invoice,
 )
+
+FILTERS = {
+    "period_start": "2024-01-01",
+    "period_end": "2024-12-31",
+}
 
 
 def _fragment_content(client: Client, report_id: int) -> str:
@@ -55,14 +59,14 @@ def test__clean_report__issues_fragment__renders_nothing(client: Client) -> None
 def test__contract_without_participation_dates__issues_fragment__shows_error_card_and_link(
     client: Client,
 ) -> None:
-    contract = create_contract_with_identifiers(name="Undated Agreement")
+    """The fragment renders the generation-time issue; no re-check happens per request."""
+    contract = create_contract_with_identifiers(name="Undated Agreement", esac="ESAC-UNDATED")
+    contract.start_date = None
+    contract.end_date = None
+    contract.save()
     create_contract_with_invoice(contract)
 
     report = create_opencost_report()
-    report_contract = report.contracts.first()
-    assert report_contract is not None
-    report_contract.participation_from = None
-    report_contract.save()
 
     content = _fragment_content(client, report.id)
 
@@ -70,6 +74,7 @@ def test__contract_without_participation_dates__issues_fragment__shows_error_car
     assert "Errors (1)" in content
     assert "These records are missing from the XML:" in content
     assert "Undated Agreement" in content
+    assert "no participation start and end date" in content
     assert reverse("contracts:detail", kwargs={"pk": contract.pk}) in content
     assert "Open contract" in content
 
@@ -121,6 +126,8 @@ def test__publication_without_publisher__issues_fragment__shows_substitution_war
 ) -> None:
     fr = modelfactory.fundingrequest(title="Publication without publisher")
     fr.publication.links.filter(type__name="DOI").delete()
+    fr.publication.article_journal = None
+    fr.publication.save()
     create_publication_with_invoice(
         fr.publication,
         invoice_date=date(2024, 6, 1),
@@ -128,10 +135,6 @@ def test__publication_without_publisher__issues_fragment__shows_substitution_war
     )
 
     report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-    report_publication.publisher = ""
-    report_publication.save()
 
     content = _fragment_content(client, report.id)
 
@@ -143,6 +146,8 @@ def test__publication_without_publisher__issues_fragment__shows_substitution_war
 def test__records_without_institution__issues_fragment__shows_exclusions_with_preferences_link(
     client: Client,
 ) -> None:
+    """No home institution at generation: every record is excluded and the log says where to fix it."""
+    GlobalPreferences.objects.all().delete()
     fr = modelfactory.fundingrequest(title="Publication without institution")
     create_publication_with_invoice(
         fr.publication,
@@ -152,22 +157,12 @@ def test__records_without_institution__issues_fragment__shows_exclusions_with_pr
     contract = create_contract_with_identifiers(name="Contract without institution", esac="ESAC-1")
     create_contract_with_invoice(contract)
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-    report_publication.institution_name = ""
-    report_publication.institution_identifiers.all().delete()
-    report_publication.save()
-    report_contract = report.contracts.first()
-    assert report_contract is not None
-    report_contract.institution_name = ""
-    report_contract.institution_identifiers.all().delete()
-    report_contract.save()
+    report = generate_report(title="No Institution Report", filters=FILTERS)
 
     content = _fragment_content(client, report.id)
 
     assert "Errors (2)" in content
-    assert "Excluded entirely: it has no institution name or identifier." in content
+    assert "it has no institution name or identifier" in content
     assert content.count("Open preferences") == 2
     assert reverse("preferences:global_preferences") in content
 
@@ -195,18 +190,10 @@ def test__invoice_with_unmappable_cost_type__issues_fragment__names_the_fallback
         fr.publication,
         description="Surcharge",
         cost_amount=Decimal("200.00"),
-        cost_type="gold-oa",
+        cost_type="service fee",
     )
 
     report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-    report_invoice = report_publication.invoices.first()
-    assert report_invoice is not None
-
-    positions = sorted(report_invoice.positions.all(), key=lambda position: position.amount)
-    positions[0].cost_type = "service fee"
-    positions[0].save()
 
     content = _fragment_content(client, report.id)
 
@@ -226,17 +213,10 @@ def test__publication_excluded_entirely__issues_fragment__reports_it_once_withou
         fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-ISSUES-DROP-001",
+        cost_type="service fee",
     )
 
     report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-    report_invoice = report_publication.invoices.first()
-    assert report_invoice is not None
-    position = report_invoice.positions.first()
-    assert position is not None
-    position.cost_type = "service fee"
-    position.save()
 
     content = _fragment_content(client, report.id)
 
@@ -284,13 +264,14 @@ def test__more_than_50_errors__issues_fragment__caps_rows_and_shows_the_true_tot
     assert "… and 1 more." in content
     assert (
         "The rows above repeat the same problem across this report — fix the data "
-        "and generate a new report to shrink this list." in content
+        "and regenerate to shrink this list." in content
     )
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__issues_fragment__shows_the_snapshot_stamp(client: Client) -> None:
+def test__issues_fragment__shows_the_generation_stamp(client: Client) -> None:
+    """The panel is static per generation and says so: fixes flow through Regenerate."""
     contract = create_contract_with_identifiers(name="No ESAC Agreement")
     create_contract_with_invoice(contract)
 
@@ -298,53 +279,11 @@ def test__issues_fragment__shows_the_snapshot_stamp(client: Client) -> None:
 
     content = _fragment_content(client, report.id)
 
-    assert re.search(r"generated \w+\.? \d{1,2}, \d{4}", content)
+    assert re.search(r"generation \(\w+\.? \d{1,2}, \d{4}", content)
     assert (
         "Fixing a source record does not change this list: correct the data, "
-        "then generate a new report." in content
+        "then regenerate this report." in content
     )
-
-
-@pytest.mark.django_db
-def test__collect_issues_on_a_loaded_report__stays_within_the_query_budget() -> None:
-    fr = modelfactory.fundingrequest(title="Query Count Publication")
-    create_publication_with_invoice(
-        fr.publication,
-        invoice_date=date(2024, 6, 1),
-        invoice_number="INV-QUERY-001",
-    )
-    contract = create_contract_with_identifiers(name="Query Count Contract", esac="ESAC-QC")
-    create_contract_with_invoice(contract)
-
-    report = create_opencost_report()
-
-    with CaptureQueriesContext(connection) as ctx:
-        collect_issues(report)
-
-    # the transform itself must not query: everything it reads is prefetched
-    assert len(ctx.captured_queries) <= 20
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__failed_check__issues_fragment__shows_failure_card_without_fake_rows(
-    client: Client,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    report = create_opencost_report(title="Failing Check Report")
-
-    def boom(report: object) -> None:
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr("coda.apps.opencost.services.issues.to_opencost", boom)
-
-    response = client.get(reverse("opencost:issues", args=[report.id]))
-
-    assert response.status_code == 200
-    content = html.unescape(response.content.decode())
-    assert "Could not check this report" in content
-    assert "The data completeness check failed." in content
-    assert "Errors (1)" not in content
 
 
 @pytest.mark.django_db
@@ -383,7 +322,6 @@ def test__download_xml_with_substitutions_only__does_not_claim_that_records_are_
     response = client.get(reverse("opencost:download", args=[report.id]))
 
     assert response.status_code == 200
-    # the contract is exported anyway (with the ESAC placeholder), so the
-    # download flash must not announce that records were left out
+    # the stored document serves as it is - no download-time re-check, no flash at all
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert flash == []

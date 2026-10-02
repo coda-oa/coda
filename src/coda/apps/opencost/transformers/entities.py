@@ -1,11 +1,7 @@
-"""OpenCost entities that more than one kind of report item is built from."""
+"""The openCost institution and the exclusion wording every report item shares."""
 
-from coda.apps.opencost.models import (
-    OpenCostReportContract,
-    OpenCostReportContractInstitutionIdentifier,
-    OpenCostReportInstitutionIdentifier,
-    OpenCostReportPublication,
-)
+from collections.abc import Iterable
+
 from coda.coda_itertools import map_or_none
 from opencost import (
     InstitutionId,
@@ -27,38 +23,34 @@ def entity_exclusion(reasons: list[str]) -> str:
     return f"Excluded entirely: {reason}."
 
 
-def get_institution(
-    report_obj: OpenCostReportPublication | OpenCostReportContract,
-) -> InstitutionType | None:
-    names = []
-    if report_obj.institution_name:
-        names.append(
-            InstitutionName(value=report_obj.institution_name, type=InstitutionNameType.full)
-        )
+def institution_from(name: str, identifiers: Iterable[tuple[str, str]]) -> InstitutionType | None:
+    """The institution behind a name and its ``(identifier type, value)`` pairs.
 
-    identifiers = [
+    The name may be blank, and a pair whose type openCost has no member for is dropped.
+    """
+    names = []
+    if name:
+        names.append(InstitutionName(value=name, type=InstitutionNameType.full))
+
+    ids = [
         identifier
-        for inst_id in report_obj.institution_identifiers.all()
-        if (identifier := get_institution_identifier(inst_id)) is not None
+        for identifier_type, value in identifiers
+        if (identifier := institution_identifier(identifier_type, value)) is not None
     ]
 
     # XSD requires at least one name or id (minOccurs=1 on choice).
     # Return None when unavailable so the caller can skip this entity.
-    if not names and not identifiers:
+    if not names and not ids:
         return None
 
     return InstitutionType(
         name=names if names else None,
-        id=identifiers if identifiers else None,
+        id=ids if ids else None,
     )
 
 
-def get_institution_identifier(
-    inst_id: OpenCostReportInstitutionIdentifier | OpenCostReportContractInstitutionIdentifier,
-) -> InstitutionId | None:
+def institution_identifier(identifier_type: str, value: str) -> InstitutionId | None:
     return map_or_none(
-        lambda identifier_type: InstitutionId(
-            value=inst_id.value, type=InstitutionIdType(identifier_type)
-        ),
-        inst_id.identifier_type,
+        lambda type_name: InstitutionId(value=value, type=InstitutionIdType(type_name)),
+        identifier_type,
     )

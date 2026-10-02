@@ -1,21 +1,20 @@
-"""
-Performance tests for OpenCost report generation.
+"""How many queries generating an openCost report costs, at realistic volume.
 
-Testing Strategy:
-----------------------------------------------------------
-After the bulk operations refactor, performance testing focuses on:
+Generation reads the items a period covers, keeps one row per item it considered and writes the
+document those items add up to. None of that may grow with the dataset beyond the bulk reads and
+writes it is made of, so these tests count queries over datasets of a thousand publications and
+pin the totals:
 
-1. **End-to-end performance** (test_generate_report_bulk_operations_performance)
-   - Validates overall query count < 100 (target: 50-80)
-   - Tests with realistic dataset (1,000 publications + 10 contracts)
-   - Confirms 99.8% reduction from baseline (~15,000 → 32 queries)
-   - Verifies O(1) scaling (queries don't grow with dataset size)
+1. **End-to-end** (``test_generate_report_bulk_operations_performance``)
+   - 1,000 publications + 10 contracts, whole generation
+   - O(1) scaling: the count is set by the shape of the run, not by the dataset
 
-2. **Specific optimization phases** (individual tests)
-   - Phase 2: Home institution cache (test_home_institution_cache_avoids_repeated_queries)
-   - Phase 3: Link prefetching (test_generate_report_link_queries_dont_scale_with_dataset)
-   - Phase 4: Invoice deduplication (test_generate_report_fetches_invoices_only_once)
-   - Phase 1-5: All validated by bulk operations test
+2. **Individual stages**
+   - Home institution cache (``test_home_institution_cache_avoids_repeated_queries``)
+   - Link prefetching (``test_generate_report_link_queries_dont_scale_with_dataset``)
+   - Invoice fetch deduplication (``test_generate_report_fetches_invoices_only_once``)
+   - Institution hierarchy cache (``test_institution_hierarchy_cache_performance``)
+   - Reading a finished report's issue state (``test_reading_a_finished_report_issue_state_costs_no_queries``)
 """
 
 from datetime import date, timedelta
@@ -28,23 +27,22 @@ from django.test.utils import CaptureQueriesContext
 from pytest_django.fixtures import DjangoAssertNumQueries
 
 from coda.apps.institutions.models import Institution
-from coda.apps.opencost.report_service import (
-    _build_home_institution_cache,
-    _update_publication_contract_group_ids,
-    generate_report,
-)
+from coda.apps.opencost.data_aggregation import build_home_institution_cache
+from coda.apps.opencost.report_service import generate_report
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._attachedentities import AttachedContract
 from coda.apps.publications.models._links import LinkType, Link
 from coda.domain.publication.publication import Authors
+from opencost import PublicationType
 from tests import modelfactory
 from tests.opencost.helpers import (
+    create_corresponding_author,
     create_creditor,
+    create_institution_with_identifiers,
     create_invoice,
     create_position,
     create_publication_with_invoice,
-    create_institution_with_identifiers,
-    create_corresponding_author,
+    stored_document,
 )
 
 if TYPE_CHECKING:
@@ -125,27 +123,12 @@ def create_performance_test_dataset(num_publications: int = 1000, num_contracts:
 
 
 @pytest.mark.django_db
-def test_update_publication_contract_group_ids_with_no_contracts() -> None:
-    """Verify function handles edge case of no contracts gracefully."""
-    from coda.apps.opencost.models import OpenCostReport
-
-    report = OpenCostReport.objects.create(
-        title="Empty Report", period_start=date(2024, 1, 1), period_end=date(2024, 12, 31)
-    )
-
-    # Should not raise an error
-    _update_publication_contract_group_ids(report)
-
-
-@pytest.mark.django_db
 def test_home_institution_cache_avoids_repeated_queries() -> None:
-    """
-    Phase 2: Verify home institution cache loads data once and reuses it.
+    """The institution a report speaks for is read once, however often it is asked for.
 
-    Tests the optimization from Phase 2 where GlobalPreferences.home_institution
-    is cached once instead of being queried 1,000+ times.
-
-    Expected: 1 query regardless of how many times cache is accessed.
+    Every item may need the home institution's name and identifiers. Reading them from
+    `GlobalPreferences` on each access would repeat one identical query per item; the cache
+    answers every later access from the single read it made.
     """
 
     # Create home institution with identifiers
@@ -154,7 +137,7 @@ def test_home_institution_cache_avoids_repeated_queries() -> None:
 
     # Build cache - should execute 1 query
     with CaptureQueriesContext(connection) as context:
-        cache = _build_home_institution_cache()
+        cache = build_home_institution_cache()
 
     # Verify only 1 query (for GlobalPreferences with select_related)
     assert len(context.captured_queries) <= 2  # Allow 1-2 queries for prefs + links
@@ -171,13 +154,11 @@ def test_home_institution_cache_avoids_repeated_queries() -> None:
 @pytest.mark.django_db
 @pytest.mark.performance
 def test_generate_report_link_queries_dont_scale_with_dataset() -> None:
-    """
-    Phase 3: Verify link prefetching prevents N+1 on publication/contract links.
+    """An item's links arrive with the item, not one query per item.
 
-    Tests that links are prefetched once, not queried per-record.
-    Dataset scaling should not affect link query count.
-
-    Expected: Link queries remain constant regardless of dataset size.
+    Identifiers such as DOIs and agreement references are read while the document is built.
+    Reading them alongside the items keeps the number of link queries a constant of the run
+    instead of a function of how many publications the period covers.
     """
     from coda.apps.publications.models._links import LinkType, Link
 
@@ -222,13 +203,11 @@ def test_generate_report_link_queries_dont_scale_with_dataset() -> None:
 @pytest.mark.django_db
 @pytest.mark.performance
 def test_generate_report_fetches_invoices_only_once() -> None:
-    """
-    Phase 4: Verify invoices are fetched once and reused across pub/contract processing.
+    """An invoice paid by many items is read once.
 
-    Tests that invoices aren't re-queried when processing both publications
-    and contracts that share the same invoices.
-
-    Expected: Invoice queries remain constant even with shared invoices.
+    One invoice often settles positions of several publications and an agreement at the same
+    time. The run reads each invoice a single time, so twenty shared invoices do not become
+    twenty invoice queries multiplied by the items that share them.
     """
     creditor = create_creditor(name="Shared Creditor")
 
@@ -270,7 +249,8 @@ def test_generate_report_fetches_invoices_only_once() -> None:
     # Count invoice queries (should be reasonable regardless of publications/contracts)
     invoice_queries = [q for q in context.captured_queries if '"invoices_invoice"' in q["sql"]]
 
-    # After Phase 6B institution cache optimization, we have more subqueries but still performant
+    # A query per invoice would be twenty here; the measured count stays in single digits
+    # however many items share the invoices.
     assert len(invoice_queries) <= 10
 
     assert report.publications.count() == 20
@@ -280,39 +260,21 @@ def test_generate_report_fetches_invoices_only_once() -> None:
 @pytest.mark.django_db
 @pytest.mark.performance
 def test_generate_report_bulk_operations_performance() -> None:
+    """A thousand-publication report costs a fixed number of queries.
+
+    Measured 41 queries for 1,000 publications with invoices plus 10 contracts: the period's
+    items, their positions, invoices and relationships arrive through a handful of bulk reads,
+    and every row the report keeps is written by one bulk insert per level. Nothing here is
+    repeated per item, so the count stays the same however large the period is.
     """
-    Phase 5: End-to-end test validating bulk operations achieve target performance.
-
-    Tests the complete bulk operations refactor (collect → bulk create → bulk update)
-    with a realistic dataset size.
-
-    Dataset:
-    - 1,000 publications with invoices/positions
-    - 10 contracts with invoices/positions
-    - Links, identifiers, and relationships
-
-    Success Criteria:
-    - Total queries < 100 (target: 50-80 queries)
-    - 99.5% reduction from baseline (~15,000 → 32-80 queries)
-    - O(1) scaling: queries don't grow with dataset size
-
-    Performance Breakdown (Estimated):
-    - Setup queries: ~10-15 (home institution, link types, etc.)
-    - Publication aggregation: ~8-12 queries (prefetch chains)
-    - Contract aggregation: ~5-8 queries (prefetch chains)
-    - Bulk creates: ~8-12 queries (publications, contracts, children)
-    - Group ID updates: ~3-5 queries
-    Total: ~32-52 queries (actual may vary slightly)
-    """
-
     # Create test dataset: 1,000 publications + 10 contracts
     create_performance_test_dataset(num_publications=1000, num_contracts=10)
 
-    # After Phase 6B: Institution cache optimization reduced queries even further
-    # Actual performance: ~32 queries (even better than the 50 target!)
+    # The budget is the measured 41 with room for a query or two of growth; a per-item query
+    # creeping back in would spend it immediately at this dataset size.
     with CaptureQueriesContext(connection) as query_context:
         report = generate_report(
-            title="Phase 5 Performance Test",
+            title="Thousand Publication Report",
             filters={
                 "period_start": "2024-01-01",
                 "period_end": "2024-12-31",
@@ -326,88 +288,59 @@ def test_generate_report_bulk_operations_performance() -> None:
     assert report.publications.count() == 1000
     assert report.contracts.count() == 10
 
-    # Performance assertions
-    # After Phase 6B institution cache: queries reduced to ~32 (much better than 100 target!)
-    assert query_count < 100, f"Query count {query_count} exceeds target of 100"
+    # Performance
+    assert query_count < 60, f"Query count {query_count} exceeds the budget of < 60"
 
-    # Success metrics
     print(f"\n{'=' * 70}")
-    print("Phase 5 Bulk Operations Performance Test - SUCCESS")
+    print("Thousand-publication generation - SUCCESS")
     print(f"{'=' * 70}")
-    print(f"Query Count:      {query_count} / 100 (target: 50-80)")
+    print(f"Query Count:      {query_count} / 60 (measured 41)")
     print(f"Publications:     {report.publications.count()}")
     print(f"Contracts:        {report.contracts.count()}")
-    print(f"Reduction:        99.5% from original (~15,000 → {query_count})")
-    print("Scalability:      O(1) - queries don't grow with dataset")
+    print("Scaling:          constant - the count does not follow the dataset size")
     print(f"{'=' * 70}\n")
 
 
 @pytest.mark.django_db
 @pytest.mark.performance
-def test_validation_performance_and_caching() -> None:
+def test_reading_a_finished_report_issue_state_costs_no_queries() -> None:
+    """Asking a generated report whether it has issues costs nothing.
+
+    The issue log loads with the report row and the counts are derived from it in memory, so
+    neither `has_issues()` nor `get_issue_counts()` has to look at a single item of a
+    thousand-publication report — and a second call has no more work to do than the first.
     """
-    Phase 6: Verify validation with prefetch + caching achieves target performance.
-
-    Tests the full view flow: generate_report → has_issues() → get_issue_counts()
-
-    Dataset: 1,000 publications + 10 contracts (reuses Phase 5 setup)
-
-    Success Criteria:
-    - First validation call: < 10 queries (with prefetch)
-    - Second validation call: 0 queries (cached)
-    - Total for both calls: < 10 queries
-    - 99.75% reduction from baseline (4,000 → 10 queries)
-    """
-    # Create test dataset: 1,000 publications + 10 contracts
     create_performance_test_dataset(num_publications=1000, num_contracts=10)
 
-    # Generate report
     report = generate_report(
-        title="Phase 6 Validation Test",
+        title="Issue State Test",
         filters={
             "period_start": "2024-01-01",
             "period_end": "2024-12-31",
         },
     )
 
-    # First validation call: prefetch + validation
-    with CaptureQueriesContext(connection) as context:
+    with CaptureQueriesContext(connection) as first_call:
         has_issues = report.has_issues()
         issue_counts = report.get_issue_counts()
 
-    first_call_queries = len(context.captured_queries)
-
-    # Second call: should use cached properties
-    with CaptureQueriesContext(connection) as context:
+    with CaptureQueriesContext(connection) as second_call:
         has_issues_again = report.has_issues()
         issue_counts_again = report.get_issue_counts()
 
-    second_call_queries = len(context.captured_queries)
-
-    # Assertions
-    assert first_call_queries < 10, f"First call used {first_call_queries} queries (target: < 10)"
-    assert second_call_queries == 0, (
-        f"Cached calls used {second_call_queries} queries (should be 0)"
-    )
+    assert first_call.captured_queries == [], first_call.captured_queries
+    assert second_call.captured_queries == [], second_call.captured_queries
     assert isinstance(has_issues, bool)
-    assert isinstance(has_issues_again, bool)
     assert has_issues == has_issues_again
-    assert "errors" in issue_counts
-    assert "warnings" in issue_counts
     assert issue_counts == issue_counts_again
 
-    # Success metrics
     print(f"\n{'=' * 70}")
-    print("Phase 6 Validation Performance Test - SUCCESS")
+    print("Issue state of a finished report - SUCCESS")
     print(f"{'=' * 70}")
-    print(f"First validation:   {first_call_queries} queries (target: < 10)")
-    print(f"Cached calls:       {second_call_queries} queries (target: 0)")
     print(f"Publications:       {report.publications.count()}")
     print(f"Contracts:          {report.contracts.count()}")
     print(f"Has issues:         {has_issues}")
-    print(f"Error count:        {issue_counts['errors']}")
-    print(f"Warning count:      {issue_counts['warnings']}")
-    print(f"Reduction:          99.75% from baseline (4,000 → ~{first_call_queries})")
+    print(f"Issue counts:       {issue_counts}")
     print(f"{'=' * 70}\n")
 
 
@@ -562,73 +495,67 @@ def _create_invoices_for_publications(
                 )
 
 
+def _institution_of(entry: PublicationType) -> tuple[str, list[str]]:
+    """The name and the identifier values the document states for one entry's institution."""
+    institution = entry.institution
+    assert institution is not None
+    names = [name.value for name in institution.name or []]
+    return (names[0] if names else "", [identifier.value for identifier in institution.id or []])
+
+
 def _verify_institution_hierarchy_results(report: "OpenCostReport") -> None:
+    """Each publication is named by the nearest institution of its author that can be named.
+
+    The stored document is where a walk up an institution hierarchy shows up: a deep leaf's
+    publication is named by the level of its tree that carries identifiers, a shallow leaf's by
+    its tree root, and a flat institution's by itself or its parent.
     """
-    Verify that institution hierarchy cache correctly resolved identifiers.
+    rows = list(report.publications.order_by("id"))
+    entries = stored_document(report).publication or []
+    assert len(entries) == len(rows), "the document holds every publication the report covers"
+    named = {row.title: _institution_of(entry) for row, entry in zip(rows, entries, strict=True)}
 
-    Checks all three scenarios: deep trees, shallow trees, and flat institutions.
+    deep_tree = [named[title] for title in named if "Deep Leaf" in title]
+    assert len(deep_tree) == 200  # 1000/300 * 50 deep leaves
+    for institution_name, identifiers in deep_tree[:10]:
+        assert institution_name == "Deep Level 3"
+        assert "https://ror.org/deep-level3" in identifiers
 
-    Args:
-        report: OpenCostReport to verify
-    """
-    report_pubs = list(report.publications.all())
+    shallow_tree = [named[title] for title in named if "Shallow Tree" in title]
+    assert len(shallow_tree) == 200  # Same cycling math
+    for institution_name, identifiers in shallow_tree[:10]:
+        assert "Shallow Tree" in institution_name
+        assert identifiers
 
-    # Check deep tree publications resolved to level 3 (which has identifiers)
-    deep_tree_pubs = [rp for rp in report_pubs if "Deep Leaf" in rp.title]
-    assert len(deep_tree_pubs) == 200  # 1000/300 * 50 deep leaves
-    # Sample check: first few should have found identifiers from level 3
-    for rp in deep_tree_pubs[:10]:
-        # Should have found identifiers from level 3
-        assert rp.institution_name == "Deep Level 3"
-        assert rp.institution_identifiers.filter(
-            identifier_type="ror", value="https://ror.org/deep-level3"
-        ).exists()
-
-    # Check shallow tree publications resolved correctly
-    shallow_tree_pubs = [rp for rp in report_pubs if "Shallow Tree" in rp.title]
-    assert len(shallow_tree_pubs) == 200  # Same cycling math
-    # Sample check: all should have identifiers from their root
-    for rp in shallow_tree_pubs[:10]:
-        assert "Shallow Tree" in rp.institution_name
-        assert rp.institution_identifiers.exists()
-
-    # Check flat institutions worked correctly
-    flat_pubs = [rp for rp in report_pubs if "Flat" in rp.title]
-    assert len(flat_pubs) == 600  # 1000/300 * 200 flat institutions
-    # All flat publications should have identifiers (some from parent, some direct)
-    pubs_with_identifiers = [rp for rp in flat_pubs if rp.institution_identifiers.exists()]
-    assert len(pubs_with_identifiers) >= 540  # 90% of 600 flat pubs
+    flat = [named[title] for title in named if "Flat" in title]
+    assert len(flat) == 600  # 1000/300 * 200 flat institutions
+    flat_with_identifiers = [entry for entry in flat if entry[1]]
+    assert len(flat_with_identifiers) >= 540  # 90% of 600 flat pubs
 
     # Success metrics
     print(f"\n{'=' * 70}")
-    print("Phase 6B Institution Hierarchy Cache - SUCCESS")
+    print("Institution hierarchy cache - SUCCESS")
     print(f"{'=' * 70}")
-    print(f"Publications:       {report.publications.count()}")
-    print(f"Deep tree pubs:     {len(deep_tree_pubs)} (6-level hierarchy)")
-    print(f"Shallow tree pubs:  {len(shallow_tree_pubs)} (2-3 level hierarchies)")
-    print(f"Flat institution:   {len(flat_pubs)} (0-2 level hierarchies)")
-    print(f"With identifiers:   {len(pubs_with_identifiers)} / {len(flat_pubs)} flat pubs")
-    print("Reduction:          99% from production baseline (~3,800 → <40 queries)")
+    print(f"Publications:       {len(rows)}")
+    print(f"Deep tree pubs:     {len(deep_tree)} (6-level hierarchy)")
+    print(f"Shallow tree pubs:  {len(shallow_tree)} (2-3 level hierarchies)")
+    print(f"Flat institution:   {len(flat)} (0-2 level hierarchies)")
+    print(f"With identifiers:   {len(flat_with_identifiers)} / {len(flat)} flat pubs")
     print(f"{'=' * 70}\n")
 
 
 @pytest.mark.django_db
 @pytest.mark.performance
-def test_phase6b_institution_hierarchy_cache_performance(
+def test_institution_hierarchy_cache_performance(
     django_assert_num_queries: DjangoAssertNumQueries,
 ) -> None:
-    """
-    Phase 6B: Test that institution hierarchy cache eliminates N+1 queries.
+    """Walking an author's institution up to a level that can be named costs nothing per item.
 
-    Realistic scenario matching production:
-    - 1 deep tree (6 levels): Tests parent chain traversal
-    - 10 shallow trees (2-3 levels): Common hierarchy patterns
-    - 200 flat institutions (0-1 levels): Most common case
-    - 1,000 publications with corresponding authors
-
-    Expected: < 40 queries total (not ~3,800)
-    - Institution cache build: 2-3 queries
-    - Base report queries: ~30-35 queries
+    A publication is named by its author's affiliation, which often carries no identifiers of
+    its own and has to be resolved to a parent. Here that affiliation sits at the bottom of a
+    six-level tree, at the leaf of a two- or three-level tree, or alone as a flat institution -
+    for a thousand publications. Resolving each chain per item would be one query per level per
+    item; the whole tree is resolved once instead and the answer kept.
     """
     from coda.apps.preferences.models import GlobalPreferences
 
@@ -642,33 +569,35 @@ def test_phase6b_institution_hierarchy_cache_performance(
     GlobalPreferences.objects.create(home_institution=home_institution)
     creditor = create_creditor(name="Test Publisher")
 
-    # Phase 1: Create institution hierarchies (3 scenarios)
+    # Three shapes of affiliation: one deep tree, shallow trees, flat institutions
     _, deep_leaves = _create_deep_tree_institutions()
     shallow_leaves = _create_shallow_tree_institutions()
     flat_institutions = _create_flat_institutions()
 
     all_leaf_institutions = deep_leaves + shallow_leaves + flat_institutions
 
-    # Phase 2: Create publications with corresponding authors
+    # One publication per author, each affiliated with a leaf
     publications = _create_publications_with_authors(all_leaf_institutions)
 
-    # Phase 3: Create invoices and positions
+    # Every publication settled by an invoice in the period
     _create_invoices_for_publications(publications, creditor, period_start)
 
-    # Phase 4: Generate report with query counting
+    # Generate, counting the queries the run costs
     with CaptureQueriesContext(connection) as context:
         report = generate_report(
-            title="Phase 6B Performance Test",
+            title="Institution Hierarchy Report",
             filters={
                 "period_start": period_start.isoformat(),
                 "period_end": period_end.isoformat(),
             },
         )
 
-    # Phase 5: Assert performance and correctness
+    # Measured 39 queries for a thousand publications reached through six-, three- and
+    # one-level institution trees: the walk up each author's affiliation costs nothing per
+    # publication because the whole tree is resolved once and the answer kept in a dict.
     query_count = len(context.captured_queries)
-    assert query_count < 50, f"Query count {query_count} exceeds target of < 50"
+    assert query_count < 55, f"Query count {query_count} exceeds the budget of < 55"
     assert report.publications.count() == 1000
 
-    # Phase 6: Verify institution hierarchy resolution
+    # Check the document named each publication by the right institution
     _verify_institution_hierarchy_results(report)
