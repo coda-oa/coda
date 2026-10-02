@@ -332,6 +332,14 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
     assert error_message.message == "Invoice has unassigned costs"
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__getting_create_page__renders_empty_create_form(client: Client) -> None:
+    response = client.get(reverse("invoices:create"))
+    assert response.status_code == 200
+    assert response.context["form"].is_bound is False
+
+
 def search_publication(
     client: Client, title: str, other_post_data: dict[str, str] | None = None
 ) -> TemplateResponse:
