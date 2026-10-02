@@ -9,29 +9,29 @@
         {% include "fundingrequests/partials/checkrun.html" %}
     </div>
     <article>
-        <form action="{% url 'fundingrequests:review_submit' pk=fundingrequest.id %}"
-              method="post">
+        <form method="post">
             {% csrf_token %}
-            <label for="decided_funding_amount">Decided funding amount</label>
+            <label for="{{ form.decided_funding_amount.id_for_label }}">Decided funding amount</label>
             <div class="flex">
-                <input type="number"
-                       min="0"
-                       step="0.01"
-                       name="decided_funding_amount"
-                       id="decided_funding_amount"
-                       value="{{ fundingrequest.funding_amount.amount }}"
-                       required>
-                <search-select name="decided_funding_currency" id="decided_funding_currency" required>
-                {% for c in currencies %}
-                    <li value="{{ c.code }}"
-                        {% if c == selected_currency %}selected{% endif %}>{{ c.code }}</li>
-                {% endfor %}
-                </search-select>
+                {{ form.decided_funding_amount }}
+                {{ form.decided_funding_currency }}
             </div>
-            <label for="reviewer_remarks" class="my-2">
+            {% if form.decided_funding_amount.errors %}
+                <small class="mt-1">{{ form.decided_funding_amount.errors.0 }}</small>
+            {% endif %}
+            {% if form.decided_funding_currency.errors %}
+                <small class="mt-1">{{ form.decided_funding_currency.errors.0 }}</small>
+            {% endif %}
+            <label for="{{ form.reviewer_remarks.id_for_label }}" class="my-2">
                 Reviewer Remarks
-                <textarea name="reviewer_remarks" id="reviewer_remarks" rows="5">{{ fundingrequest.review_remarks }}</textarea>
+                {{ form.reviewer_remarks }}
             </label>
+            {% if form.reviewer_remarks.errors %}
+                <small class="mt-1">{{ form.reviewer_remarks.errors.0 }}</small>
+            {% endif %}
+            {% if form.action.errors %}
+                <small class="mt-1">{{ form.action.errors.0 }}</small>
+            {% endif %}
             <div class="grid my-2">
                 {% if fundingrequest.is_open %}
                     <button class="success" type="submit" name="action" value="approved">Approve</button>
@@ -41,7 +41,10 @@
                             name="action"
                             value="waived">Costs waived</button>
                     <button class="danger" type="submit" name="action" value="rejected">Reject</button>
-                    <button class="secondary outline" type="submit" name="action" value="return">Save and return</button>
+                    <button class="secondary outline"
+                            type="submit"
+                            name="action"
+                            value="return">Save and return</button>
                 {% else %}
                     <button type="submit" name="action" value="open">Open</button>
                     <button class="secondary" type="submit" name="action" value="return">Save and return</button>
