@@ -3,7 +3,7 @@ from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
@@ -25,6 +25,20 @@ from coda.domain.vocabulary import (
 )
 
 
+def _get_vocabulary_or_404(pk: int) -> VocabularyProtocol:
+    try:
+        return vocabulary_repository.get_by_id(VocabularyId(pk))
+    except vocabulary_repository.VocabularyNotFoundError:
+        raise Http404(f"Vocabulary {pk} not found")
+
+
+def _get_limited_or_404(pk: int) -> LimitedVocabulary:
+    try:
+        return vocabulary_repository.get_limited_by_id(VocabularyId(pk))
+    except vocabulary_repository.VocabularyNotFoundError:
+        raise Http404(f"Limited vocabulary {pk} not found")
+
+
 def _apply_disallowed(concept_ids: list[str], vocabulary: LimitedVocabulary) -> None:
     vocabulary.clear_disallowed()
     for concept_id in concept_ids:
@@ -43,7 +57,7 @@ class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol])
 @login_required
 @breadcrumb("Create Limited Vocabulary", parent_url_name="publications:vocabularies")
 def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
-    base_vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
+    base_vocabulary = _get_vocabulary_or_404(pk)
 
     limited = new_limited_vocabulary(base_vocabulary)
 
@@ -64,7 +78,7 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @breadcrumb("Edit Limited Vocabulary", parent_url_name="publications:vocabularies")
 def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
-    vocabulary = vocabulary_repository.get_limited_by_id(VocabularyId(pk))
+    vocabulary = _get_limited_or_404(pk)
     return render(
         request,
         "publications/vocabulary.html",
@@ -150,7 +164,7 @@ def move_to_allowed(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
+    vocabulary = _get_vocabulary_or_404(pk)
     usage = vocabularies.get_usage(VocabularyId(pk))
     if not usage.can_be_deleted():
         return render(
@@ -172,5 +186,6 @@ def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_http_methods(["POST", "DELETE"])
 def delete(request: HttpRequest, pk: int) -> HttpResponse:
+    _get_vocabulary_or_404(pk)
     vocabularies.delete(VocabularyId(pk))
     return HttpResponse(status=200, headers={"HX-Redirect": reverse("publications:vocabularies")})
