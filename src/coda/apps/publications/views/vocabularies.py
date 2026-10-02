@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -16,114 +15,14 @@ from coda.apps.publications.forms import (
     new_limited_vocabulary,
 )
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.apps.publications.services import vocabularies, concept_tree
+from coda.apps.publications.services import vocabularies
 from coda.apps.publications.services.vocabularies import build_concept_trees
 from coda.apps.views import EntityListView
 from coda.domain.vocabulary import (
     LimitedVocabulary,
-    VocabularyConcept,
     VocabularyId,
     VocabularyProtocol,
 )
-
-
-ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
-
-
-@dataclass
-class UITreeNode:
-    concept: VocabularyConcept
-    children: list["UITreeNode"]
-    is_allowed: bool  # For template: whether to show checkbox or just label
-    zebra_index: int  # For template: sequential index for zebra striping
-    level: int  # For template: hierarchy level (1=root, 2=children, etc.)
-
-
-@dataclass(frozen=True)
-class AnnotatedTree:
-    nodes: list["UITreeNode"]
-    levels_with_checkboxes: set[int]
-
-
-@dataclass(frozen=True)
-class AnnotatedTrees:
-    allowed_tree: list[UITreeNode]
-    forbidden_tree: list[UITreeNode]
-    max_level: int
-    allowed_levels_with_checkboxes: set[int]
-    forbidden_levels_with_checkboxes: set[int]
-
-
-def _annotate_node_for_ui(
-    node: concept_tree.ConceptTreeNode,
-    vocabulary: LimitedVocabulary,
-    is_allowed_tree: bool,
-    level: int,
-    zebra_counter: list[int],
-    levels_with_checkboxes: set[int],
-) -> UITreeNode:
-    zebra_counter[0] += 1
-    current_index = zebra_counter[0]
-
-    concept_in_base = vocabulary.base_vocabulary.has_concept(node.concept.concept_id)
-
-    show_checkbox = False
-    if concept_in_base:
-        is_concept_allowed = vocabulary.is_concept_allowed(node.concept.concept_id)
-        show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
-
-    if show_checkbox:
-        levels_with_checkboxes.add(level)
-
-    return UITreeNode(
-        concept=node.concept,
-        children=[
-            _annotate_node_for_ui(
-                child, vocabulary, is_allowed_tree, level + 1, zebra_counter, levels_with_checkboxes
-            )
-            for child in node.children
-        ],
-        is_allowed=show_checkbox,
-        zebra_index=current_index,
-        level=level,
-    )
-
-
-def _annotate_single_tree(
-    tree: list[concept_tree.ConceptTreeNode],
-    vocabulary: LimitedVocabulary,
-    is_allowed_tree: bool,
-) -> AnnotatedTree:
-    zebra_counter = [0]
-    levels_with_checkboxes: set[int] = set()
-
-    annotated_nodes = [
-        _annotate_node_for_ui(
-            node, vocabulary, is_allowed_tree, 1, zebra_counter, levels_with_checkboxes
-        )
-        for node in tree
-    ]
-    return AnnotatedTree(nodes=annotated_nodes, levels_with_checkboxes=levels_with_checkboxes)
-
-
-def annotate_trees_for_ui(
-    allowed_tree: list[concept_tree.ConceptTreeNode],
-    forbidden_tree: list[concept_tree.ConceptTreeNode],
-    vocabulary: LimitedVocabulary,
-) -> AnnotatedTrees:
-    allowed = _annotate_single_tree(allowed_tree, vocabulary, True)
-    forbidden = _annotate_single_tree(forbidden_tree, vocabulary, False)
-
-    all_levels_with_checkboxes = allowed.levels_with_checkboxes | forbidden.levels_with_checkboxes
-    overall_max_level = max(all_levels_with_checkboxes) if all_levels_with_checkboxes else 0
-
-    return AnnotatedTrees(
-        allowed_tree=allowed.nodes,
-        forbidden_tree=forbidden.nodes,
-        max_level=overall_max_level,
-        allowed_levels_with_checkboxes=allowed.levels_with_checkboxes,
-        forbidden_levels_with_checkboxes=forbidden.levels_with_checkboxes,
-    )
 
 
 def get_posted_concepts(request: HttpRequest, key: str) -> set[str]:
@@ -201,15 +100,10 @@ def _apply_posted_disallowed(request: HttpRequest, vocabulary: LimitedVocabulary
 
 def _tree_context(vocabulary: LimitedVocabulary) -> dict[str, Any]:
     allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
-    annotated = annotate_trees_for_ui(allowed_tree, forbidden_tree, vocabulary)
     return {
         "vocabulary": vocabulary,
-        "allowed_tree": annotated.allowed_tree,
-        "forbidden_tree": annotated.forbidden_tree,
-        "max_level": annotated.max_level,
-        "level_range": range(1, annotated.max_level + 1),
-        "allowed_level_range": sorted(annotated.allowed_levels_with_checkboxes),
-        "forbidden_level_range": sorted(annotated.forbidden_levels_with_checkboxes),
+        "allowed_tree": allowed_tree,
+        "forbidden_tree": forbidden_tree,
         "base_vocabulary_id": vocabulary.base_vocabulary.id,
         "base_vocabulary_name": vocabulary.base_vocabulary.name,
     }
