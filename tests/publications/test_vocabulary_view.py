@@ -196,6 +196,44 @@ def test__vocabulary_delete__in_use_vocabulary__responds_with_409(client: Client
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__request_delete__unused_vocabulary__confirms_via_modal_without_deleting(
+    client: Client,
+) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(
+        reverse("publications:vocabulary_request_delete", kwargs={"pk": limited.id})
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Delete Vocabulary?" in content
+    assert "Are you sure you want to permanently delete" in content
+    delete_url = reverse("publications:vocabulary_delete", kwargs={"pk": limited.id})
+    assert f'hx-post="{delete_url}"' in content
+    assert VocabularyModel.objects.filter(pk=limited.id).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__vocabulary_delete__unused_vocabulary_confirmed__removes_it(client: Client) -> None:
+    base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
+    limited = vocabulary_repository.create_limited(
+        base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
+    )
+
+    response = client.post(reverse("publications:vocabulary_delete", kwargs={"pk": limited.id}))
+
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse("publications:vocabularies")
+    assert not VocabularyModel.objects.filter(pk=limited.id).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize(
     "url_name",
     [

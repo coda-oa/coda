@@ -181,7 +181,16 @@ def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
             {"vocabulary": vocabulary, "usage": usage},
         )
 
-    return delete(request, pk)
+    return render(
+        request,
+        "partials/entity_deletion_modal.html",
+        {
+            "entity_type": "Vocabulary",
+            "entity_name": vocabulary.name,
+            "delete_url": reverse("publications:vocabulary_delete", kwargs={"pk": pk}),
+            "can_delete": True,
+        },
+    )
 
 
 @login_required
