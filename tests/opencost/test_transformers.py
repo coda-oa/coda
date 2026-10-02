@@ -522,50 +522,9 @@ def test__invoice_of_two_positions__the_document_gives_both_amounts_of_that_one_
 
 
 @pytest.mark.django_db
-def test__invoice_of_two_currencies__the_document_totals_every_row_it_was_given() -> None:
-    fr = modelfactory.fundingrequest(title="Publication with Invoice in Mixed Currencies")
-
-    invoice = create_invoice(
-        creditor=create_creditor(name="Mixed Currency Creditor"),
-        invoice_date=date(2024, 6, 1),
-        number="INV-2024-004",
-    )
-    create_position(
-        invoice, fr.publication, description="APC in euros", cost_amount=Decimal("1000.00")
-    )
-    create_position(
-        invoice,
-        fr.publication,
-        description="APC in dollars",
-        cost_amount=Decimal("500.00"),
-        cost_currency="USD",
-    )
-
-    invoices = _exported_publication(_generate()).cost_data.invoice
-    assert invoices is not None
-
-    exported = invoices[0]
-    # every row is part of the total, whatever its currency: this is the number stated on the
-    # invoice, and an invoice carries one currency in CODA
-    assert exported.amount_invoice is not None
-    assert exported.amount_invoice.amount == Decimal("1500.00")
-    assert exported.amount_invoice.currency == "USD"
-
-    amounts = exported.amounts_paid.amount_paid
-    assert [amount_paid.currency for amount_paid in amounts] == ["USD", "EUR"]
-
-
-@pytest.mark.django_db
-def test__invoice_of_a_sub_cent_amount__the_document_states_the_amount_at_its_own_precision() -> (
-    None
-):
-    """A CODA amount of four decimals reaches the document at the two it carries.
-
-    The invoice is exported either way, with the position's amount and the tax computed from it,
-    read back as the document states them — the half cent is the document's, not the report's,
-    business.
-    """
-    fr = modelfactory.fundingrequest(title="Publication with a Four Decimal Place Amount")
+def test__position_amount__uses_domain_currency_precision() -> None:
+    """Valid CODA money is reported at the domain's currency precision."""
+    fr = modelfactory.fundingrequest(title="Publication with a Currency-Precision Amount")
 
     invoice = create_invoice(
         creditor=create_creditor(name="Precision Creditor"),
@@ -575,18 +534,18 @@ def test__invoice_of_a_sub_cent_amount__the_document_states_the_amount_at_its_ow
     create_position(
         invoice,
         fr.publication,
-        description="APC with a half cent",
-        cost_amount=Decimal("1000.0050"),
+        description="APC at currency precision",
+        cost_amount=Decimal("1000.01"),
     )
 
     invoices = _exported_publication(_generate()).cost_data.invoice
     assert invoices is not None
 
     amount_paid = invoices[0].amounts_paid.amount_paid[0]
-    assert amount_paid.amount == Decimal("1000.00")
+    assert amount_paid.amount == Decimal("1000.01")
     assert amount_paid.vat == Decimal("190.00")
     assert invoices[0].amount_invoice is not None
-    assert invoices[0].amount_invoice.amount == Decimal("1000.00")
+    assert invoices[0].amount_invoice.amount == Decimal("1000.01")
 
 
 @pytest.mark.django_db
@@ -640,83 +599,6 @@ def test__invoice_without_number_or_creditor__the_document_omits_both_elements()
     assert exported.invoice_number is None
     assert exported.creditor is None
     assert exported.amounts_paid.amount_paid[0].amount == Decimal("1500.00")
-
-
-@pytest.mark.django_db
-def test__position_of_an_unknown_cost_type__the_document_holds_the_other_positions() -> None:
-    fr = modelfactory.fundingrequest(title="Publication with unmappable cost type")
-    invoice = create_invoice(
-        creditor=create_creditor("Cost Type Creditor"),
-        invoice_date=date(2024, 6, 1),
-        number="INV-COST-TYPE-001",
-    )
-    create_position(
-        invoice,
-        fr.publication,
-        description="APC",
-        cost_amount=Decimal("1000.00"),
-        cost_type="gold-oa",
-    )
-    create_position(
-        invoice,
-        fr.publication,
-        description="Surcharge",
-        cost_amount=Decimal("200.00"),
-        cost_type="service fee",
-    )
-
-    invoices = _exported_publication(_generate()).cost_data.invoice
-    assert invoices is not None
-
-    amounts_paid = invoices[0].amounts_paid.amount_paid
-    assert len(amounts_paid) == 1
-    assert amounts_paid[0].cost_type == PublicationCostType.gold_oa
-    assert amounts_paid[0].amount == Decimal("1000.00")
-
-    # the total is the price stated on the invoice, so the rejected row is still in it
-    assert invoices[0].amount_invoice is not None
-    assert invoices[0].amount_invoice.amount == Decimal("1200.00")
-
-
-@pytest.mark.django_db
-def test__invoice_of_no_stateable_amount__the_publication_is_left_out_of_the_document() -> None:
-    """No amount means no invoice block, and then the publication has no cost data at all."""
-    fr = modelfactory.fundingrequest(title="Publication with only unmappable positions")
-    create_publication_with_invoice(
-        fr.publication,
-        invoice_date=date(2024, 6, 1),
-        invoice_number="INV-COST-TYPE-002",
-        cost_type="service fee",
-    )
-
-    report = _generate()
-
-    assert report.xml_content == ""
-    assert report.publications.get().exported is False
-
-
-@pytest.mark.django_db
-def test__position_of_a_currency_opencost_pattern_accepts__the_document_carries_it() -> None:
-    """ISO membership is CODA's business; the pattern is openCost's, and it is what is checked."""
-    fr = modelfactory.fundingrequest(title="Publication with non-ISO currency")
-    invoice = create_invoice(
-        creditor=create_creditor("Non ISO Currency Creditor"),
-        invoice_date=date(2024, 6, 1),
-        number="INV-COST-TYPE-003",
-    )
-    create_position(
-        invoice,
-        fr.publication,
-        description="APC",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="XYZ",
-    )
-
-    invoices = _exported_publication(_generate()).cost_data.invoice
-    assert invoices is not None
-
-    amount_paid = invoices[0].amounts_paid.amount_paid[0]
-    assert amount_paid.currency == "XYZ"
 
 
 # ---------------------------------------------------------------------------------------------

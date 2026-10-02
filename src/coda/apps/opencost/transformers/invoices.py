@@ -1,14 +1,15 @@
 """Building openCost invoice elements out of a CODA invoice.
 
-An invoice is built the same way whichever kind it is: every position becomes one amount-paid
-element when openCost accepts its cost type, currency and amount, while the invoice total is the
-price stated on the invoice rather than the sum of those elements. The two kinds are written out
-separately below; what they must agree on — when an invoice cannot be exported at all, and what
-gets said about rows openCost could not be given an amount for — lives in
-``_dates_if_exportable`` alone.
+Publication and contract invoice elements share the same position-line calculations. Each line's
+net contribution forms ``amount_invoice``, including costs openCost cannot itemize as an
+``amount_paid`` entry. A separate VAT line contributes zero to ``amount_invoice`` and carries
+its tax as an ``amount_paid`` amount, without a ``vat`` field.
 
-A CODA invoice and its positions arrive through the ``LiveInvoice`` / ``LiveInvoicePosition``
-views below, which carry exactly the fields these rules ask about.
+The invoice kinds differ in their OpenCost cost-type vocabularies; common date and exclusion
+rules live in ``_dates_if_exportable``.
+
+An invoice's report-scoped positions arrive as ``OpenCostInvoiceLine`` values. Each line keeps
+its amount-paid amount distinct from its contribution to the invoice's net amount.
 """
 
 from collections.abc import Iterable, Sequence
@@ -16,10 +17,14 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import Protocol
+from typing import Protocol, Self
 
 from coda.apps.opencost.issues import ReportItem
 from coda.coda_itertools import map_or_none
+from coda.domain.finance.costtypes import CostType
+from coda.domain.finance.invoice_positions import RegularCostCalculation
+from coda.domain.finance.taxrate import TaxRate
+from coda.domain.money import Money
 from opencost import (
     AmountInvoice,
     ContractAmountPaidType,
@@ -48,19 +53,59 @@ class LiveInvoice:
 
 
 @dataclass(frozen=True)
-class LiveInvoicePosition:
-    """The amount fields an openCost amount-paid element needs, read from a CODA position."""
+class UnmappedCostType:
+    """A stored cost type that does not belong to this position's domain vocabulary."""
 
-    amount: Decimal
-    currency: str
-    cost_type: str
-    vat: Decimal | None
+    value: str
+
+    def is_vat(self) -> bool:
+        return self.value == "vat"
+
+
+type OpenCostCostType = CostType | UnmappedCostType
+
+
+@dataclass(frozen=True)
+class OpenCostInvoiceLine:
+    """One report-scoped position in OpenCost amount-paid and invoice-net terms."""
+
+    amount_paid: Money
+    cost_type: OpenCostCostType
+    vat: Money | None
+
+    def __post_init__(self) -> None:
+        if self.vat is not None and self.vat.currency != self.amount_paid.currency:
+            raise ValueError("VAT and amount-paid values must use the same currency.")
+
+    @property
+    def invoice_net_contribution(self) -> Money:
+        if self.cost_type.is_vat():
+            return Money(0, self.amount_paid.currency)
+
+        return self.amount_paid
+
+    @classmethod
+    def from_position(
+        cls,
+        *,
+        cost: Money,
+        cost_type: OpenCostCostType,
+        tax_rate: TaxRate,
+    ) -> Self:
+        is_vat = cost_type.is_vat()
+        calculation = RegularCostCalculation.from_money(cost, TaxRate(0) if is_vat else tax_rate)
+
+        return cls(
+            amount_paid=calculation.cost,
+            cost_type=cost_type,
+            vat=None if is_vat else calculation.tax(),
+        )
 
 
 def publication_invoice(
     report_item: ReportItem,
     report_invoice: LiveInvoice,
-    positions: Iterable[LiveInvoicePosition],
+    positions: Iterable[OpenCostInvoiceLine],
 ) -> PublicationInvoiceType | None:
     """One invoice element, or ``None`` when openCost cannot be given this invoice at all."""
     rows = list(positions)
@@ -74,23 +119,28 @@ def publication_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=PublicationAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_invoice_net_amount(rows),
+        amount_invoice=_amount_invoice_from_lines(rows),
     )
 
 
-def _invoice_net_amount(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
-    """The invoice's net total, including non-VAT positions OpenCost cannot itemize."""
+def _amount_invoice_from_lines(
+    rows: Sequence[OpenCostInvoiceLine],
+) -> AmountInvoice | None:
+    """Sum report-scoped net amounts and serialize them as one OpenCost invoice amount."""
     if not rows:
         return None
 
-    net_amount = sum((row.amount for row in rows if row.cost_type != "vat"), Decimal(0))
-    return _amount_invoice(net_amount, rows[0].currency)
+    net_amount = sum(
+        (row.invoice_net_contribution for row in rows),
+        start=Money(0, rows[0].amount_paid.currency),
+    )
+    return _amount_invoice(net_amount)
 
 
 def contract_invoice(
     report_item: ReportItem,
     report_invoice: LiveInvoice,
-    positions: Iterable[LiveInvoicePosition],
+    positions: Iterable[OpenCostInvoiceLine],
 ) -> ContractInvoiceType | None:
     """One contract invoice element."""
     rows = list(positions)
@@ -104,21 +154,13 @@ def contract_invoice(
         creditor=_text_or_none(report_invoice.creditor),
         amounts_paid=ContractAmountsPaid(amount_paid=amounts.items),
         dates=dates,
-        amount_invoice=_invoice_net_amount(rows),
+        amount_invoice=_amount_invoice_from_lines(rows),
     )
 
 
-def _amount_invoice(amount: Decimal | None, currency: str) -> AmountInvoice | None:
-    """The invoice total, or ``None`` when openCost cannot be given an amount and currency.
-
-    The amount keeps the precision it arrives at; the XML writer is what formats it. An unusable
-    currency is rejected by openCost's own model, which raises a ``ValueError`` subclass that
-    ``map_or_none`` turns into an absent element.
-    """
-    return map_or_none(
-        lambda currency_code: AmountInvoice(amount=amount, currency=currency_code),
-        currency,
-    )
+def _amount_invoice(amount: Money) -> AmountInvoice:
+    """Serialize a domain money amount at the OpenCost boundary."""
+    return AmountInvoice(amount=amount.amount, currency=amount.currency.code)
 
 
 class PaidFactory[TPaid, TCostEnum: Enum](Protocol):
@@ -150,7 +192,7 @@ class InvoiceCostTypes[TPaid, TCostEnum: Enum]:
     paid_type: PaidFactory[TPaid, TCostEnum]
     cost_type: type[TCostEnum]
 
-    def amounts_for(self, positions: Iterable[LiveInvoicePosition]) -> AmountsPaid[TPaid]:
+    def amounts_for(self, positions: Iterable[OpenCostInvoiceLine]) -> AmountsPaid[TPaid]:
         """One amount per position that openCost can be given an amount for."""
         rows = list(positions)
         items: list[TPaid] = []
@@ -161,26 +203,27 @@ class InvoiceCostTypes[TPaid, TCostEnum: Enum]:
             if amount_paid is None:
                 # None means an unusable cost type, amount or currency; the cost type is what
                 # names the position to a reader.
-                rejected_cost_types.append(position.cost_type)
+                rejected_cost_types.append(position.cost_type.value)
             else:
                 items.append(amount_paid)
 
         return AmountsPaid(items, rejected_cost_types, len(rows))
 
-    def _amount_paid(self, position: LiveInvoicePosition) -> TPaid | None:
+    def _amount_paid(self, position: OpenCostInvoiceLine) -> TPaid | None:
         """One exported amount, or ``None`` when the position cannot be given one.
 
-        Amounts go through at the precision they arrive at, so the exported number is the
-        number CODA holds and not a re-rounded copy of it.
+        The line's amount is already normalized through CODA's monetary calculation.
         """
+        if isinstance(position.cost_type, UnmappedCostType):
+            return None
         return map_or_none(
-            lambda raw_cost_type: self.paid_type(
-                amount=position.amount,
-                currency=position.currency,
-                cost_type=self.cost_type(raw_cost_type),
-                vat=position.vat,
+            lambda cost_type_value: self.paid_type(
+                amount=position.amount_paid.amount,
+                currency=position.amount_paid.currency.code,
+                cost_type=self.cost_type(cost_type_value),
+                vat=None if position.vat is None else position.vat.amount,
             ),
-            position.cost_type,
+            position.cost_type.value,
         )
 
 

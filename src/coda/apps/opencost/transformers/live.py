@@ -13,9 +13,8 @@ returned as an outcome keyed by the row's entity id (or the invoice row's own id
 never be attributed to the wrong row by an accident of fetch order.
 """
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import NamedTuple
 from uuid import uuid4
 
@@ -48,7 +47,8 @@ from coda.apps.opencost.transformers.contract import (
 from coda.apps.opencost.transformers.entities import entity_exclusion, institution_from
 from coda.apps.opencost.transformers.invoices import (
     LiveInvoice,
-    LiveInvoicePosition,
+    OpenCostInvoiceLine,
+    UnmappedCostType,
     contract_invoice,
     publication_invoice,
 )
@@ -60,6 +60,9 @@ from coda.apps.opencost.transformers.publication import (
     part_of_contract,
 )
 from coda.apps.publications.models import Publication
+from coda.domain.finance.costtypes import ContractCostType, CostType, PublicationCostType
+from coda.domain.finance.taxrate import TaxRate
+from coda.domain.money import Currency, Money
 from opencost import (
     ContractCostDataType,
     ContractInvoiceGroupType,
@@ -281,7 +284,7 @@ def _contract_element(
         return None
 
     invoice_issues = ReportItem(report_item.item)
-    positions = _positions_by_invoice(contract.position_set.all())
+    positions = _positions_by_invoice(contract.position_set.all(), ContractCostType)
     invoice_elements = _contract_invoice_elements(
         invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
     )
@@ -325,7 +328,7 @@ def _contract_element(
 def _contract_invoice_elements(
     report_item: ReportItem,
     invoice_rows: Sequence[OpenCostReportContractInvoice],
-    positions: Mapping[int, list[LiveInvoicePosition]],
+    positions: Mapping[int, list[OpenCostInvoiceLine]],
     live_invoices: Mapping[int, Invoice],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> list[ContractInvoiceType]:
@@ -412,7 +415,7 @@ def _publication_element(
         return None
 
     invoice_issues = ReportItem(report_item.item)
-    positions = _positions_by_invoice(publication.position_set.all())
+    positions = _positions_by_invoice(publication.position_set.all(), PublicationCostType)
     invoice_elements = _publication_invoice_elements(
         invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
     )
@@ -452,7 +455,7 @@ def _publication_element(
 def _publication_invoice_elements(
     report_item: ReportItem,
     invoice_rows: Sequence[OpenCostReportInvoice],
-    positions: Mapping[int, list[LiveInvoicePosition]],
+    positions: Mapping[int, list[OpenCostInvoiceLine]],
     live_invoices: Mapping[int, Invoice],
     invoice_outcomes: dict[int, InvoiceOutcome],
 ) -> list[PublicationInvoiceType]:
@@ -537,32 +540,35 @@ def _part_of_contract(
     return part_of_contract(attached.contract, group_ids.get(attached.contract_id))
 
 
-def _positions_by_invoice(positions: Iterable[Position]) -> dict[int, list[LiveInvoicePosition]]:
-    """Live positions grouped by the invoice they sit on, each group in the fetched order."""
-    grouped: dict[int, list[LiveInvoicePosition]] = {}
+def _positions_by_invoice(
+    positions: Iterable[Position],
+    cost_type_factory: Callable[[str], CostType],
+) -> dict[int, list[OpenCostInvoiceLine]]:
+    """Group ORM position rows as report-scoped OpenCost invoice lines."""
+    grouped: dict[int, list[OpenCostInvoiceLine]] = {}
     for position in positions:
-        grouped.setdefault(position.invoice_id, []).append(live_position(position))
+        grouped.setdefault(position.invoice_id, []).append(
+            open_cost_invoice_line(position, cost_type_factory)
+        )
 
     return grouped
 
 
-def live_position(position: Position) -> LiveInvoicePosition:
-    """One CODA position in the shape invoice rules read.
+def open_cost_invoice_line(
+    position: Position,
+    cost_type_factory: Callable[[str], CostType],
+) -> OpenCostInvoiceLine:
+    """Project a stored CODA position through its monetary rules into OpenCost terms."""
+    cost_type: CostType | UnmappedCostType
+    try:
+        cost_type = cost_type_factory(position.cost_type)
+    except ValueError:
+        cost_type = UnmappedCostType(position.cost_type)
 
-    A VAT-cost position is the VAT amount-paid entry itself, so it has no separate VAT field.
-    Other positions carry their calculated VAT as a separate amount.
-    """
-    vat = (
-        None
-        if position.cost_type == "vat"
-        else Decimal(str(position.cost_amount))
-        * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal(0))
-    )
-    return LiveInvoicePosition(
-        amount=position.cost_amount,
-        currency=position.cost_currency,
-        cost_type=position.cost_type,
-        vat=vat,
+    return OpenCostInvoiceLine.from_position(
+        cost=Money(position.cost_amount, Currency.from_code(position.cost_currency)),
+        cost_type=cost_type,
+        tax_rate=TaxRate(position.tax_rate),
     )
 
 
