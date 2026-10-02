@@ -7,7 +7,9 @@
     </div>
     {% for publisher in publishers %}
         <article class="flex justify-between align-center">
-            <p class="my-0">{{ publisher.publisher.name }}</p>
+            <p class="my-0">
+                <a href="{{ publisher.publisher.get_absolute_url }}">{{ publisher.publisher.name }}</a>
+            </p>
             <button type="button"
                     class="my-0 secondary"
                     hx-post="{% url "blocklist:unblock_publisher" pk=publisher.publisher.pk %}"

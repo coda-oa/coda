@@ -22,53 +22,47 @@
         <h3>Contract Identifiers</h3>
         <table>
             <thead>
-                <tr>
-                    <th>Identifier Type</th>
-                    <th>Value</th>
-                </tr>
+            <tr>
+                <th>Identifier Type</th>
+                <th>Value</th>
+            </tr>
             </thead>
             <tbody>
-                {% for link in contract.links.all %}
-                    <tr>
-                        <td>{{ link.type.name }}</td>
-                        <td>{{ link.value }}</td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="2">
-                            <em>No identifiers assigned.</em>
-                        </td>
-                    </tr>
-                {% endfor %}
+            {% for link in contract.links.all %}
+                <tr>
+                    <td>{{ link.type.name }}</td>
+                    <td>{{ link.value }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="2">
+                        <em>No identifiers assigned.</em>
+                    </td>
+                </tr>
+            {% endfor %}
             </tbody>
         </table>
+        <footer>
+            <h3>Publishers</h3>
+            <ul>
+                {% for pub in contract.publishers.all %}
+                    <li>
+                        <a href="{{ pub.get_absolute_url }}">{{ pub.name }}</a>
+                    </li>
+                {% empty %}
+                    <li>No publishers to display.</li>
+                {% endfor %}
+            </ul>
+            <h3>Journals</h3>
+            <ul>
+                {% for journal in contract.journals.all %}
+                    <li>
+                        <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
+                    </li>
+                {% empty %}
+                    <li>No journals to display.</li>
+                {% endfor %}
+            </ul>
+        </footer>
     </article>
-    {% if contract.publishers.all.exists %}
-        <section class="my-4">
-            <h2>Publishers</h2>
-            <div class="scroll-container max-h-30">
-                <ul class="undecorated grid-container">
-                    {% for pub in contract.publishers.all %}
-                        <li>
-                            <article>{{ pub.name }}</article>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </section>
-    {% endif %}
-    {% if contract.journals.all.exists %}
-        <section class="my-4">
-            <h2>Journals</h2>
-            <div class="scroll-container max-h-30">
-                <ul class="undecorated grid-container">
-                    {% for j in contract.journals.all %}
-                        <li>
-                            <article>{{ j.title }}</article>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </section>
-    {% endif %}
 {% endblock content %}
