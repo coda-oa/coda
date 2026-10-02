@@ -181,6 +181,23 @@ def concept_form_values(concepts: Iterable[VocabularyConcept]) -> list[tuple[str
     return [(concept_json(c), c.name) for c in concepts]
 
 
+class ConceptCodesField(forms.Field):
+    """Checkbox group of concept ids posted by the vocabulary editor.
+
+    The widget makes ``value_from_datadict`` read every posted value; membership
+    in the base vocabulary is validated by the form's ``clean()`` because the
+    valid set is only known once the vocabulary has been resolved.
+    """
+
+    widget = forms.CheckboxSelectMultiple
+
+    def to_python(self, value: Any) -> list[str]:
+        if value in self.empty_values:
+            return []
+        values = value if isinstance(value, list) else [value]
+        return [str(v) for v in values if v not in (None, "")]
+
+
 class LimitedVocabularyTargetForm(forms.Form):
     """Resolves which limited vocabulary a vocabulary-editing POST refers to.
 
@@ -197,6 +214,9 @@ class LimitedVocabularyTargetForm(forms.Form):
         required=False,
         empty_label=None,
     )
+    allowed_concepts_check = ConceptCodesField(required=False)
+    disallowed_concepts_check = ConceptCodesField(required=False)
+    disallowed_concepts = ConceptCodesField(required=False)
 
     def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
         if data is not None and data.get("vocabulary_id") == "None":
@@ -228,6 +248,16 @@ class LimitedVocabularyTargetForm(forms.Form):
             self._vocabulary = new_limited_vocabulary(
                 vocabulary_repository.get_by_id(VocabularyId(cast(Vocabulary, base_vocabulary).pk))
             )
+        if self._vocabulary is not None:
+            base = self._vocabulary.base_vocabulary
+            for key in (
+                "allowed_concepts_check",
+                "disallowed_concepts_check",
+                "disallowed_concepts",
+            ):
+                unknown = [c for c in cleaned.get(key, []) if not base.has_concept(c)]
+                if unknown:
+                    self.add_error(key, f"Unknown concept ids: {', '.join(unknown)}")
         return cleaned
 
     def vocabulary(self) -> LimitedVocabulary:
