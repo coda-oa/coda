@@ -95,6 +95,25 @@ def test__save_vocabularies__unknown_vocabulary_id__rejects_request(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "url_name",
+    [
+        "publications:vocabulary_create_limited",
+        "publications:vocabulary_edit_limited",
+        "publications:vocabulary_request_delete",
+        "publications:vocabulary_delete",
+    ],
+)
+def test__vocabulary_views__unknown_vocabulary_pk__responds_with_404(
+    client: Client, url_name: str
+) -> None:
+    response = client.post(reverse(url_name, kwargs={"pk": 999999}))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__move_to_forbidden__unknown_concept_code__rejects_request(client: Client) -> None:
     base_model = VocabularyModel.objects.create(name="Base Vocabulary", version="1.0")
     limited = vocabulary_repository.create_limited(
