@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="flex justify-between align-center my-2">
-        <h1>Publisher</h1>
-        <div>
+        <hgroup class="mb-0">
+            <h1>Publisher</h1>
+            <p>{{ publisher.name }}</p>
+        </hgroup>
+        <div class="flex align-center">
             {% if is_blocked %}
                 <button class="outline success"
                         hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}"
@@ -21,13 +24,11 @@
                class="secondary">Edit</a>
         </div>
     </div>
-
     <article>
         <header>
-            <h2 class="my-0">{{ publisher.name }}</h2>
+            <h2 class="mb-0">Corresponding journals</h2>
         </header>
-        <h3>Corresponding journals</h3>
-        <ul>
+        <ul class="undecorated scroll-container max-h-30">
             {% for journal in journals %}
                 <li>
                     <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
@@ -37,5 +38,5 @@
             {% endfor %}
         </ul>
     </article>
-
+    {% include "partials/related_funding_requests.html" %}
 {% endblock content %}
