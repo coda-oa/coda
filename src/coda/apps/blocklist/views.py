@@ -13,9 +13,9 @@ from coda.apps.blocklist.models import (
     BlockList,
     JournalBlockReason,
 )
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
@@ -115,7 +115,9 @@ def block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.block_publisher(publisher)
 
-    return HttpResponse(headers={"HX-Redirect": reverse("publishing:publishers:list")})
+    return maybe_redirect(
+        request, default_url=reverse("publishing:publishers:detail", kwargs={"pk": publisher.pk})
+    )
 
 
 @login_required
@@ -129,9 +131,16 @@ def unblock_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     return maybe_redirect(request)
 
 
-def maybe_redirect(request: HttpRequest) -> HttpResponse:
-    redirect_url = request.POST.get("redirect_url", "")
+def maybe_redirect(request: HttpRequest, default_url: str = "") -> HttpResponse:
+    """Redirect the HTMX caller back to where the request came from.
+
+    Resolution order: an explicitly posted ``redirect_url`` (rarely needed),
+    the page the request was triggered from (htmx's ``HX-Current-URL``), then
+    the caller-supplied default.
+    """
+    redirect_url = (
+        request.POST.get("redirect_url") or request.headers.get("HX-Current-URL") or default_url
+    )
     if redirect_url:
         return HttpResponse(headers={"HX-Redirect": redirect_url})
-
     return HttpResponse()
