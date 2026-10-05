@@ -49,7 +49,6 @@ class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
     entity_list_item_template = "journals/journal_list_item.html"
     search_fields = ["title", "eissn"]
     use_generic_entity_filter = True
-    entity_filter_template = "entity_generic_filter.html"
     search_placeholder = "Search by title or eissn..."
 
 

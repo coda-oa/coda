@@ -3,6 +3,12 @@
         <li>{% include list_item_template %}</li>
     {% endfor %}
 </ul>
-{% if entities|length == 0 and not request.GET.query and not request.GET.search_term %}
-    <p class="my-2">No items to display.</p>
+{% if entities|length == 0 %}
+    <p class="my-2">
+        {% if query %}
+            No results found for "{{ query }}".
+        {% else %}
+            No items to display.
+        {% endif %}
+    </p>
 {% endif %}

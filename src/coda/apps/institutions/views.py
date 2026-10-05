@@ -76,7 +76,7 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
     entity_create_url = "institutions:create"
     entity_secondary_create_url = INSTITUTION_IMPORT_VIEW_URL
     use_generic_entity_filter = True
-    supports_archiving = True
+    entity_filter_extra_template = "partials/archived_filter_checkbox.html"
     search_placeholder = "Search institutions..."
 
     def get_entities(self, request: HttpRequest) -> Any:

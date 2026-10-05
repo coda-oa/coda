@@ -48,7 +48,6 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
     entity_name = "Funding Sources"
     entity_create_url = "invoices:fundingsource_create"
     entity_list_item_template = "invoices/fundingsources/list.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingSource]:
