@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
+from django.utils.http import urlencode
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -51,18 +52,14 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
         return PublisherViewModel(
             id=publisher.id,
             name=publisher.name,
-            is_blocked=self.is_publisher_blocked(publisher),
+            is_blocked=self.blocklist.is_publisher_blocked(publisher),
             get_absolute_url=publisher.get_absolute_url(),
         )
-
-    def is_publisher_blocked(self, publisher: Publisher) -> bool:
-        return self.blocklist.is_publisher_blocked(publisher)
 
 
 @breadcrumb("Publisher Detail", parent_url_name="publishing:publishers:list", preserve_filters=True)
 class PublisherDetailView(LoginRequiredMixin, DetailView[Publisher]):
     model = Publisher
-    template_name = "publishers/publisher_detail.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -90,7 +87,6 @@ class PublisherForm(forms.ModelForm[Publisher]):
 @breadcrumb("Create Publisher", parent_url_name="publishing:publishers:list")
 class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherForm]):
     template_name = "generic_form_view.html"
-    model = Publisher
     form_class = PublisherForm
     success_url = reverse_lazy("publishing:publishers:list")
 
@@ -103,7 +99,7 @@ class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherFor
 @breadcrumb("Update Publisher", parent_url_name="publishing:publishers:list")
 class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherForm]):
     template_name = "generic_form_view.html"
-    model = Publisher
+    queryset = Publisher.objects.all()
     form_class = PublisherForm
     success_url = reverse_lazy("publishing:publishers:list")
 
@@ -116,12 +112,32 @@ class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherFor
 @login_required
 @require_GET
 def publisher_create_modal(request: HttpRequest) -> HttpResponse:
-    form = PublisherForm()
+    return _render_publisher_modal(request, PublisherForm(), request.GET.get("context", ""))
+
+
+@login_required
+@require_POST
+def publisher_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = PublisherForm(request.POST)
     context_param = request.GET.get("context", "")
 
+    if form.is_valid():
+        publisher = form.save()
+        return render(
+            request,
+            _get_success_template(context_param),
+            {"publisher": publisher},
+        )
+
+    return _render_publisher_modal(request, form, context_param)
+
+
+def _render_publisher_modal(
+    request: HttpRequest, form: PublisherForm, context_param: str
+) -> HttpResponse:
     submit_url = reverse("publishing:publishers:create_modal_submit")
     if context_param:
-        submit_url += f"?context={context_param}"
+        submit_url += f"?{urlencode({'context': context_param})}"
 
     target_wrapper = (
         "nested-entity-creation-modal-wrapper"
@@ -139,47 +155,6 @@ def publisher_create_modal(request: HttpRequest) -> HttpResponse:
             "modal_target_wrapper": target_wrapper,
         },
     )
-
-
-@login_required
-@require_POST
-def publisher_create_modal_submit(request: HttpRequest) -> HttpResponse:
-    form = PublisherForm(request.POST)
-    context_param = request.GET.get("context", "")
-
-    if form.is_valid():
-        publisher = form.save()
-
-        template = _get_success_template(context_param)
-
-        return render(
-            request,
-            template,
-            {
-                "publisher": publisher,
-            },
-        )
-    else:
-        submit_url = reverse("publishing:publishers:create_modal_submit")
-        if context_param:
-            submit_url += f"?context={context_param}"
-
-        target_wrapper = (
-            "nested-entity-creation-modal-wrapper"
-            if context_param == "journal_modal"
-            else "entity-creation-modal-wrapper"
-        )
-
-        return render(
-            request,
-            "partials/entity_creation_modal.html",
-            {
-                "entity_name": "Publisher",
-                "form": form,
-                "entity_create_url_path": submit_url,
-                "modal_target_wrapper": target_wrapper,
-            },
-        )
 
 
 def _get_success_template(context_param: str) -> str:
