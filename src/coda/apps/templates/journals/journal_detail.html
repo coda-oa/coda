@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="flex justify-between align-center my-2">
-        <h1>Journal</h1>
-        <div>
+        <hgroup class="mb-0">
+            <h1>Journal</h1>
+            <p>{{ journal.title }}</p>
+        </hgroup>
+        <div class="flex align-center">
             {% if is_blocked %}
                 <button class="outline success"
                         hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}"
@@ -22,7 +25,7 @@
     </div>
     <article>
         <header>
-            <h2 class="my-0">{{ journal.title }}</h2>
+            <h2 class="mb-0">Journal metadata</h2>
         </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
         <p class="mb-0">
