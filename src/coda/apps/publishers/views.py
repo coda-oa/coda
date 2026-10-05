@@ -36,10 +36,13 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     entity_name = "Publishers"
     entity_create_url = "publishing:publishers:create"
     use_generic_entity_filter = True
+    blocked_publisher_ids: set[int]
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
         super().setup(request, *args, **kwargs)
-        self.blocklist = BlockList.objects.get()
+        self.blocked_publisher_ids = set(
+            BlockList.objects.get().blocked_publishers().values_list("publisher_id", flat=True)
+        )
 
     def get_entities(self, request: Any) -> Sequence[PublisherViewModel]:
         search_term = request.GET.get("query", "").strip()
@@ -52,7 +55,7 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
         return PublisherViewModel(
             id=publisher.id,
             name=publisher.name,
-            is_blocked=self.blocklist.is_publisher_blocked(publisher),
+            is_blocked=publisher.id in self.blocked_publisher_ids,
             get_absolute_url=publisher.get_absolute_url(),
         )
 
