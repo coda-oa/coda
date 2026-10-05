@@ -35,7 +35,8 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     entity_list_item_template = "publishers/publisher_list_item.html"
     entity_name = "Publishers"
     entity_create_url = "publishing:publishers:create"
-    entity_filter_template = "publishers/publisher_filter.html"
+    use_generic_entity_filter = True
+    entity_filter_extra_template = "publishers/publisher_blocked_checkbox.html"
     blocked_publisher_ids: set[int]
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:

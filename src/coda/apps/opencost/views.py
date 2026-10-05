@@ -56,7 +56,6 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
     entity_name = "openCost Reports"
     entity_list_item_template = "opencost/report_list_item.html"
     use_generic_entity_filter = True
-    entity_filter_template = "entity_generic_filter.html"
     search_fields = ["title"]
     search_placeholder = "Search by report title"
     entity_create_url = "opencost:generate"

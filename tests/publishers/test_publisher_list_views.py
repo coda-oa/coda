@@ -51,7 +51,7 @@ def test__publisher_list__blocked_only_shows_only_blocked_publishers(client: Cli
     assert 'aria-checked="true"' in content
     assert 'hx-target="#entity-list-region"' in content
     assert 'hx-get="/publishing/publishers/"' in content
-    assert 'hx-trigger="submit, change from:#id-blocked-only"' in content
+    assert 'hx-trigger="submit, change from:.filter-switch"' in content
 
 
 @pytest.mark.django_db
@@ -72,3 +72,13 @@ def test__publisher_list__blocked_only_combines_with_search(client: Client) -> N
     assert "Blocked Springer" in content
     assert "Blocked Elsevier" not in content
     assert "Free Springer" not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__publisher_list__search_without_matches_shows_no_results_note(client: Client) -> None:
+    modelfactory.publisher(name="Blocked Press")
+
+    response = client.get(reverse("publishing:publishers:list"), {"query": "Nothing"})
+
+    assert 'No results found for "Nothing".' in response.content.decode()
