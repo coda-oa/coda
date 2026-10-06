@@ -5,6 +5,7 @@ from typing import Any, Literal
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.urls import reverse
+from django.utils.functional import cached_property
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
@@ -12,7 +13,6 @@ from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.forms import (
     FundingRequestListFilterForm,
-    parse_label_ids,
     payment_status_choices,
     publication_state_choices,
 )
@@ -41,8 +41,15 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     entity_create_url = "fundingrequests:create_wizard"
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
 
+    @cached_property
+    def _used_labels(self) -> list[Label]:
+        """Labels attached to at least one request — the only filterable set."""
+        return list(
+            Label.objects.filter(requests__isnull=False).distinct().order_by("name")
+        )
+
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
-        filter_form = FundingRequestListFilterForm(request.GET)
+        filter_form = FundingRequestListFilterForm(request.GET, labels=self._used_labels)
         criteria, sort_order = filter_form.search_criteria()
         django_queryset = fq.search(*criteria, sort_order=fq.SortOrder[sort_order.name])
         return LazyBulkQuerySet(
@@ -54,7 +61,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
 
-        labels = list(Label.objects.all().order_by("name"))
+        labels = self._used_labels
         filter_form = FundingRequestListFilterForm(
             self.request.GET,
             contracts=ctx["contract_list"],
@@ -67,16 +74,20 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             self.request,
             labels,
             ctx["contract_list"],
+            included=filter_form.selected_label_ids,
+            excluded=filter_form.excluded_label_ids,
             date_range=filter_form.cleaned_data.get("date_range"),
             date_range_error=date_range_error,
         )
 
         return ctx | {
             "labels": labels,
-            "label_pills": build_label_pills(self.request, labels),
+            "label_pills": build_label_pills(
+                self.request, labels, included=filter_form.selected_label_ids
+            ),
             "filter_count": summary.count,
             "filter_errors": summary.errors,
-            "label_state": sorted(parse_label_ids(self.request.GET.getlist("labels"))),
+            "label_state": sorted(filter_form.selected_label_ids),
             "active_filters": summary.chips,
             "filter_form": filter_form,
         }
@@ -134,14 +145,14 @@ def label_pill_fragment_url(request: HttpRequest, *, labels: set[int]) -> str:
     return _pill_url(request, _LIST_REGION_URL, labels=labels)
 
 
-def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[LabelPill]:
-    """Build one pill per label, reflecting the current ``labels`` filter.
+def build_label_pills(
+    request: HttpRequest, labels: Sequence[Label], *, included: set[int]
+) -> list[LabelPill]:
+    """One pill per label.
 
-    A label in the ``labels`` query param renders as ``included`` and its
-    toggle link removes it; every other label renders as ``default`` and its
-    toggle link adds it.
+    Labels in ``included`` render selected and their toggle removes them from
+    the label filter; every other label renders plain and its toggle adds it.
     """
-    included = parse_label_ids(request.GET.getlist("labels"))
     return [
         LabelPill(
             name=label.name,
@@ -159,14 +170,17 @@ def build_filter_summary(
     labels: Sequence[Label],
     contracts: Sequence[Contract],
     *,
+    included: set[int],
+    excluded: set[int],
     date_range: DateRange | None,
     date_range_error: str | None,
 ) -> FilterSummary:
     """One removable chip per active filter value, in the rail's group order.
 
     Text is the bare value except where that would be ambiguous (dates, contract
-    year, excluded labels, switch). Unknown ids (stale URLs) fall back to the raw
-    value.
+    year, excluded labels, switch). A deleted Contract falls back to its raw id;
+    label chips come from the resolved include/exclude sets, so ids the form
+    dropped never appear.
     """
     chips = ChipBuilder(
         request,
@@ -198,24 +212,15 @@ def build_filter_summary(
     chips.single("contract_year", prefix="Year ")
     chips.switch("invalid_contract_years", "Invalid years only")
 
-    names = {str(label.pk): label.name for label in labels}
-    colors = {str(label.pk): label.hexcolor for label in labels}
-    for value in request.GET.getlist("labels"):
-        if value:
+    names = {label.pk: label.name for label in labels}
+    colors = {label.pk: label.hexcolor for label in labels}
+
+    def label_chips(param: str, ids: set[int], prefix: str = "") -> None:
+        for value in sorted(ids):
             chips.add(
-                "labels",
-                value,
-                names.get(value, value),
-                kind="label",
-                label_color=colors.get(value),
+                param, str(value), prefix + names[value], kind="label", label_color=colors[value]
             )
-    for value in request.GET.getlist("exclude_labels"):
-        if value:
-            chips.add(
-                "exclude_labels",
-                value,
-                f"Not: {names.get(value, value)}",
-                kind="label",
-                label_color=colors.get(value),
-            )
+
+    label_chips("labels", included)
+    label_chips("exclude_labels", excluded, "Not: ")
     return chips.summary()
