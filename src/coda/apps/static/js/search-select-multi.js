@@ -68,6 +68,7 @@ TEMPLATE.innerHTML =  /*html*/ `
 
         .option:hover {
             background-color: var(--coda-secondary-background);
+            color: var(--coda-secondary-inverse);
         }
 
         .selected-options {
