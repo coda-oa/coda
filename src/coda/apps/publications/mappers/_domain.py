@@ -8,9 +8,9 @@ from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.mappers import prefixed
+from coda.apps.publications.models import PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
-from coda.apps.publications.models import PublicationAttachedConcept
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.domain.author import AuthorNames
 from coda.domain.contract import ContractYear, PublisherId
@@ -103,7 +103,7 @@ def _common_args(model: PublicationModel) -> dict[str, Any]:
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(
             ContractYear(c.contract_year, ContractDomainMapper.map(c.contract))
-            for c in model.attached_contracts.order_by("id")
+            for c in model.attached_contracts.all()
         ),
         links=_deserialize_links(model.links.all()),
     )
