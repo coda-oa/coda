@@ -67,7 +67,8 @@ def pill_state(dom: Element, name: str) -> str:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__label_pill__link_points_at_filtered_list(client: Client) -> None:
-    label_create("Pill A", Color())
+    label = label_create("Pill A", Color())
+    label_attach(modelfactory.fundingrequest(), label)
 
     response = goto_list_page(client)
     pills = pill_elements(parse_html(response.content.decode()))
@@ -99,7 +100,10 @@ def test__label_filter__list_shows_only_requests_with_label(client: Client) -> N
 @pytest.mark.usefixtures("logged_in")
 def test__label_filter__pills_reflect_active_filter(client: Client) -> None:
     alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
-    label_create("Beta", Color.from_rgb(0, 0, 255))
+    beta = label_create("Beta", Color.from_rgb(0, 0, 255))
+    labeled = modelfactory.fundingrequest()
+    label_attach(labeled, alpha)
+    label_attach(labeled, beta)
 
     response = get_list_region(client, {"labels": [alpha.pk]})
 
@@ -120,6 +124,7 @@ def test__filter_count__is_zero_without_filters(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__filter_count__counts_each_selected_value(client: Client) -> None:
     label = label_create("Counted Label", Color())
+    label_attach(modelfactory.fundingrequest(title="Counted paper"), label)
 
     response = goto_list_page(
         client,
@@ -207,6 +212,7 @@ def test__filter_count__excludes_search_and_sort(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__clear_all__shown_with_active_filters(client: Client) -> None:
     label = label_create("Counted Label", Color())
+    label_attach(modelfactory.fundingrequest(title="Clearable paper"), label)
     response = get_list_region(client, {"labels": [label.pk]})
 
     assert clear_all_text(response.content.decode()) == "Clear all"
@@ -226,6 +232,10 @@ def test__list_page__carries_label_state_for_form_submission(client: Client) -> 
     alpha = label_create("Alpha", Color())
     beta = label_create("Beta", Color())
 
+    labeled = modelfactory.fundingrequest()
+    label_attach(labeled, alpha)
+    label_attach(labeled, beta)
+
     response = goto_list_page(client, {"labels": [beta.pk, alpha.pk]})
 
     assert hidden_values(parse_html(response.content.decode()), "labels") == [
@@ -238,6 +248,7 @@ def test__list_page__carries_label_state_for_form_submission(client: Client) -> 
 @pytest.mark.usefixtures("logged_in")
 def test__list_region__carries_label_state_for_form_submission(client: Client) -> None:
     alpha = label_create("Alpha", Color())
+    label_attach(modelfactory.fundingrequest(), alpha)
     response = get_list_region(client, {"labels": [alpha.pk]})
 
     assert hidden_values(parse_html(response.content.decode()), "labels") == [str(alpha.pk)]

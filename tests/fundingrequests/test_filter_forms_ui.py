@@ -443,6 +443,7 @@ def test__fundingrequest_form_sidebar__rebinds_all_filter_inputs(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
     label = label_create("Form sidebar label", Color.from_rgb(0, 128, 0))
+    label_attach(modelfactory.fundingrequest(title="Form sidebar label paper"), label)
     contract = modelfactory.contract()
     list_page = FundingRequestListPage(coda_page, live_server.url)
     query = (

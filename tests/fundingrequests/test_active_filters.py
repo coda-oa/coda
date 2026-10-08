@@ -81,6 +81,7 @@ def test__summary__uses_names_users_recognize(client: Client) -> None:
         publication_billing=PublicationBilling.Individually.value,
     )
     alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    label_attach(modelfactory.fundingrequest(title="Alpha paper"), alpha)
 
     response = get_list_region(
         client,
@@ -185,12 +186,23 @@ def test__removing_a_filter__returns_to_the_first_result_page(client: Client) ->
 
 
 @pytest.mark.usefixtures("logged_in")
-def test__summary__tolerates_stale_references(client: Client) -> None:
-    """A deleted contract/label in a saved URL shows its raw value instead of crashing."""
-    response = get_list_region(client, contract_name="99999", exclude_labels="99999")
+def test__summary__tolerates_stale_contract_references(client: Client) -> None:
+    """A deleted contract in a saved URL shows its raw value instead of crashing."""
+    response = get_list_region(client, contract_name="99999")
 
     assert response.status_code == 200
-    assert chip_texts(response) == ["99999", "Not: 99999"]
+    assert chip_texts(response) == ["99999"]
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__summary__drops_label_ids_outside_the_filter_set(client: Client) -> None:
+    """A label the filters do not offer filters nothing and gets no chip."""
+    unused = label_create("Gone", Color.from_rgb(0, 0, 0))
+    response = get_list_region(client, labels=str(unused.pk), exclude_labels=str(unused.pk))
+
+    assert response.status_code == 200
+    assert chip_texts(response) == []
+    assert response.context["filter_count"] == 0
 
 
 @pytest.mark.usefixtures("logged_in")
@@ -258,6 +270,8 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
     contract = modelfactory.contract()
     alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
     beta = label_create("Beta", Color.from_rgb(0, 255, 0))
+    label_attach(modelfactory.fundingrequest(title="Alpha rail paper"), alpha)
+    label_attach(modelfactory.fundingrequest(title="Beta rail paper"), beta)
 
     response = get_list_region(
         client,

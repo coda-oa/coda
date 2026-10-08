@@ -4,12 +4,14 @@ from urllib.parse import urlsplit
 import pytest
 from django.http import QueryDict
 from django.test import Client, RequestFactory
+from django.test.html import parse_html
 from django.urls import reverse
 
 from coda.apps.fundingrequests.views.listview import label_pill_url
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from tests import modelfactory
+from tests.filterdom import hidden_values
 
 
 def test__label_pill_url__preserves_other_get_params_and_sets_labels_sorted() -> None:
@@ -48,6 +50,9 @@ def test__label_pill_url__empty_label_list__yields_bare_list_url() -> None:
 def test__label_pills__render_state_and_toggle_url_per_label(client: Client) -> None:
     alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
     beta = label_create("Beta", Color.from_rgb(0, 0, 255))
+    labeled = modelfactory.fundingrequest()
+    label_attach(labeled, alpha)
+    label_attach(labeled, beta)
 
     response = client.get(reverse("fundingrequests:list"), {"labels": [alpha.pk]})
 
@@ -88,6 +93,31 @@ def test__labels_and_exclude_labels__filter_results_and_keep_dropdown_in_sync(
     html = response.content.decode()
     assert re.search(rf'value="{beta.pk}"[^>]*selected', html)
     assert not re.search(rf'value="{alpha.pk}"[^>]*selected', html)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__label_filter__only_offers_labels_used_by_requests(client: Client) -> None:
+    """An unused label gets no pill, no option, and selects nothing via the URL."""
+    unused = label_create("Unused", Color.from_rgb(128, 128, 128))
+    used = label_create("Used", Color.from_rgb(255, 0, 0))
+    labeled = modelfactory.fundingrequest(title="Used label paper")
+    label_attach(labeled, used)
+
+    response = client.get(reverse("fundingrequests:list"))
+
+    assert [pill.name for pill in response.context["label_pills"]] == ["Used"]
+    html = response.content.decode()
+    assert f'value="{used.pk}"' in html
+    assert f'value="{unused.pk}"' not in html
+
+    filtered = client.get(reverse("fundingrequests:list"), {"labels": [unused.pk]})
+
+    assert [pill.name for pill in filtered.context["label_pills"]] == ["Used"]
+    assert filtered.context["filter_count"] == 0
+    ids = [viewmodel.id for viewmodel in filtered.context["entities"]]
+    assert ids == [labeled.id]
+    assert hidden_values(parse_html(filtered.content.decode()), "labels") == []
 
 
 @pytest.mark.django_db

@@ -372,13 +372,16 @@ class FundingRequestListFilterForm(forms.Form):
 
     A value that fails validation lands in ``form.errors`` and its criterion is
     dropped; the raw param stays in the URL so its chip keeps it removable.
+    The form resolves the ``labels``/``exclude_labels`` params against the
+    ``labels`` set: ids outside it filter nothing and get no chip, so the URL
+    cannot select a label the filters do not offer.
     """
 
     def __init__(
         self,
         *args: Any,
         contracts: Iterable[Contract] = (),
-        labels: Iterable[Label] = (),
+        labels: Iterable[Label],
         **kwargs: Any,
     ) -> None:
         kwargs.setdefault("label_suffix", "")
@@ -401,6 +404,12 @@ class FundingRequestListFilterForm(forms.Form):
         label_widget.option_attrs = {
             str(label.pk): {"data-color": label.hexcolor} for label in label_options
         }
+        self.selected_label_ids: set[int] = set()
+        self.excluded_label_ids: set[int] = set()
+        if data is not None:
+            selectable = {label.pk for label in label_options}
+            self.selected_label_ids = parse_label_ids(data.getlist("labels")) & selectable
+            self.excluded_label_ids = parse_label_ids(data.getlist("exclude_labels")) & selectable
 
     search_term = forms.CharField(required=False)
     processing_status = forms.TypedMultipleChoiceField(
@@ -512,8 +521,8 @@ class FundingRequestListFilterForm(forms.Form):
             date_range=cleaned.get("date_range"),
             review_results=cleaned.get("processing_status", []),
             payment_statuses=cleaned.get("payment_status", []),
-            labels=sorted(parse_label_ids(cleaned.get("labels", []))),
-            exclude_labels=sorted(parse_label_ids(cleaned.get("exclude_labels", []))),
+            labels=sorted(self.selected_label_ids),
+            exclude_labels=sorted(self.excluded_label_ids),
             payment_methods=cleaned.get("payment_methods", []),
             open_access_types=cleaned.get("open_access_type", []),
             publication_states=cleaned.get("publication_states", []),
