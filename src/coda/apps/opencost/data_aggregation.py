@@ -129,8 +129,15 @@ def select_publication_ids(
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
 
+    # A publication can legitimately appear on several positions: as multiple
+    # line items on one invoice (APC + payment fee + credit lines) and across
+    # several invoices in the period. The DISTINCT collapses those to the set
+    # of publications, so Meta.ordering ("id") must be neutralized first —
+    # otherwise Django adds the ordering column to the SELECT DISTINCT list
+    # and every duplicate row survives deduplication.
     publication_ids_with_positions = (
         Position.objects.filter(invoice__in=invoices_in_period)
+        .order_by()
         .values_list("publication_id", flat=True)
         .distinct()
     )
@@ -288,7 +295,7 @@ def select_contract_ids(
     if contract:
         contract_ids_qs = contract_ids_qs.filter(contract_id=contract)
 
-    return set(contract_ids_qs.values_list("contract_id", flat=True).distinct())
+    return set(contract_ids_qs.order_by().values_list("contract_id", flat=True).distinct())
 
 
 def fetch_contracts_by_ids(
