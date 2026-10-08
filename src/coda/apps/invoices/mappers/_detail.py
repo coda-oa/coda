@@ -87,9 +87,7 @@ class InvoiceDetailMapper:
             creditor=invoice.creditor,
             creditor_name=model.creditor.name,
             currency=invoice.currency(),
-            positions=[
-                _map_position_dto(pos_model) for pos_model in model.positions.order_by("id")
-            ],
+            positions=[_map_position_dto(pos_model) for pos_model in model.positions.all()],
             tax=invoice.tax(),
             total=invoice.total(),
             net=invoice.net(),
