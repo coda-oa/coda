@@ -1,6 +1,7 @@
 """
 This module is responsible for importing currency data from an XML file and generating an enum class representing the currencies.
 """
+
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeAlias, TypeGuard
@@ -37,6 +38,10 @@ enum_methods = """
     @staticmethod
     def allcodes() -> set[str]:
         return {c.code for c in Currency}
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(c.code, f"{c.code} - {c.name}") for c in cls]
 
     @property
     def code(self) -> str:
