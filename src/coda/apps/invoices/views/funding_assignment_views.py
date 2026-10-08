@@ -16,7 +16,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PositionDto,
     PositionList,
 )
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto, to_position
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.money import Currency
@@ -43,7 +43,7 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         )
 
         display_mode = CostBasis(position_dto.cost_basis_mode)
-        position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
+        position = to_position(position_dto, currency, parse_safe=True)
 
         add_empty_assignment = (
             position.unassigned_costs().amount == 0 and len(position.funding_assignments()) != 0
@@ -51,7 +51,7 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         position.assign_remaining(None)
 
         unsafe_item = position_dto.item
-        position_dto = invoice_parser.position_to_dto(position, display_mode)
+        position_dto = position_to_dto(position, display_mode)
         position_dto.item = unsafe_item
         if add_empty_assignment:
             position_dto.funding_assignments.append(FundingAssignmentDto(amount=Decimal(0)))
@@ -90,10 +90,10 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         # Recalculate and convert to display mode
         try:
-            position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
+            position = to_position(position_dto, currency, parse_safe=True)
             # Convert back to display mode (domain handles conversion)
             unsafe_item = position_dto.item
-            position_dto = invoice_parser.position_to_dto(position, display_mode)
+            position_dto = position_to_dto(position, display_mode)
             position_dto.item = unsafe_item
         except InvalidSplitAmount:
             # If assignments are invalid, set unassigned_costs to 0 to avoid confusion
@@ -129,9 +129,9 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
 
     try:
         # Parser interprets amounts according to display_mode
-        position = invoice_parser.to_position(position_dto, currency)
+        position = to_position(position_dto, currency)
         # Convert back to display mode (domain handles conversion)
-        position_dto = invoice_parser.position_to_dto(position, display_mode)
+        position_dto = position_to_dto(position, display_mode)
     except InvalidSplitAmount:
         position_dto = PositionDtoWithErrors.from_dto(position_dto, "Invalid funding assignment")
 
@@ -169,10 +169,10 @@ def switch_cost_basis_mode(request: HttpRequest) -> HttpResponse:
 
         # Form values are in OLD mode, temporarily override for correct parsing
         position_dto.cost_basis_mode = old_mode
-        position = invoice_parser.to_position(position_dto, currency)
+        position = to_position(position_dto, currency)
 
         # Convert to NEW mode for display
-        position_dto = invoice_parser.position_to_dto(position, new_mode)
+        position_dto = position_to_dto(position, new_mode)
 
         # Ensure cost_basis_mode reflects the selected mode
         position_dto.cost_basis_mode = new_mode

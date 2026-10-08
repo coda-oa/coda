@@ -8,7 +8,7 @@ from coda import formdata
 from coda.apps.invoices import funding_source_repository, repository
 from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto, PositionList
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
-from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.contexts.finance.services.invoice_import import position_to_dto, save
 from coda.domain.author import InstitutionId
 from coda.domain.finance.funding_sources import SplitSource
 from coda.domain.finance.invoice import CreditorId, Invoice
@@ -37,7 +37,7 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
     expected.positions = [position]
 
     _invoice_head = invoice_head(expected)
-    position_dto = PositionList(positions=[invoice_parser.position_to_dto(position)])
+    position_dto = PositionList(positions=[position_to_dto(position)])
 
     _ = client.post(
         reverse("invoices:create"),
@@ -64,7 +64,7 @@ def test__invalid_split_amount__create_invoice__shows_error(client: Client) -> N
     invoice.positions = [position]
 
     _invoice_head = invoice_head(invoice)
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_dto.funding_assignments.append(
         FundingAssignmentDto(funding_source=budget.id, amount=Decimal(position.cost.amount + 100))
     )
@@ -93,7 +93,7 @@ def test__invalid_split_amount__update_invoice__shows_error(client: Client) -> N
     invoice.id = repository.create(invoice)
 
     _invoice_head = invoice_head(invoice)
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_dto.funding_assignments.append(
         FundingAssignmentDto(funding_source=budget.id, amount=Decimal(position.cost.amount + 100))
     )
@@ -125,13 +125,13 @@ def test__existing_invoice__update_with_positions_with_split_costs__saves_to_db(
     expected = domainfactory.invoice(creditor=creditor, positions=[])
     expected.reset_payment()
     expected.positions = [position]
-    expected.id = invoice_service.save(expected)
+    expected.id = save(expected)
 
     position.assign_funding(funding_source_1, Decimal(position.cost.amount) / Decimal(3))
     position.assign_funding(funding_source_2, Decimal(position.cost.amount) / Decimal(3))
 
     _invoice_head = invoice_head(expected)
-    position_dto = PositionList(positions=[invoice_parser.position_to_dto(position)])
+    position_dto = PositionList(positions=[position_to_dto(position)])
 
     _ = client.post(
         reverse("invoices:update", kwargs={"pk": expected.id}),
@@ -156,7 +156,7 @@ def test__create_invoice_with_empty_funding_assignments__assigns_all_to_single_s
     expected.reset_payment()
     expected.positions = [position]
 
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_dto.funding_assignments.append(FundingAssignmentDto())
     position_list = PositionList(positions=[position_dto])
     _invoice_head = invoice_head(expected)

@@ -10,7 +10,7 @@ from coda import formdata
 from coda.apps.contracts import repository as contracct_repository
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import ContractItemDto, PositionDto, PositionList
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
@@ -25,7 +25,7 @@ from tests import domainfactory
 @pytest.mark.usefixtures("logged_in")
 def test__add_initial_assignment__assigns_all_costs_to_new_assignment(client: Client) -> None:
     position = domainfactory.free_position(Currency.EUR)
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     response = add_funding_assignment(client, PositionList(positions=[dto]))
 
@@ -64,7 +64,7 @@ def test__add_second_funding_assignment__has_remaining_costs(client: Client) -> 
         TaxRate(0),
     )
     position.assign_funding(budget, Decimal(60))
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_list = PositionList(positions=[position_dto])
 
     response = add_funding_assignment(client, position_list)
@@ -89,7 +89,7 @@ def test__all_costs_assigned_in_first_assignment__add_second_assignment__default
 
     position = domainfactory.free_position(Currency.EUR)
     position.assign_remaining(budget)
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     response = add_funding_assignment(client, PositionList(positions=[dto]))
 
@@ -107,7 +107,7 @@ def test__two_funding_assignments__remove_first__only_has_second_assignment(clie
     position = domainfactory.free_position(Currency.EUR)
     position.assign_funding(None, Decimal(position.cost.amount) / 2)
     position.assign_remaining(budget)
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     response = remove_funding_assignment(client, PositionList(positions=[dto]), 1)
 
@@ -126,7 +126,7 @@ def test__invalid_position__can_still_add_funding_assignment(client: Client) -> 
     invalid_year = invalid_contract_year()
 
     position = domainfactory.contract_position(invalid_year, Currency.EUR)
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     response = add_funding_assignment(client, PositionList(positions=[dto]))
 
@@ -143,7 +143,7 @@ def test__can_remove_funding_assignment_from_invalid_position(client: Client) ->
     position = domainfactory.contract_position(invalid_year, Currency.EUR)
     position.assign_remaining(None)
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
     response = remove_funding_assignment(client, PositionList(positions=[dto]), 0)
 
     actual: PositionDto = response.context["position"]
