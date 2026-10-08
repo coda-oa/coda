@@ -8,10 +8,16 @@ from django import forms
 from coda.apps import widgets
 from coda.apps.formbase import CodaFormBase
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import LinkType, Publication, Vocabulary
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState, links
-from coda.domain.vocabulary import VocabularyConcept
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    VocabularyConcept,
+    VocabularyId,
+    VocabularyProtocol,
+)
 
 from ._fields import ConceptChoiceField, encode_concept_dto
 
@@ -173,3 +179,107 @@ def concept_json(concept: VocabularyConcept) -> str:
 
 def concept_form_values(concepts: Iterable[VocabularyConcept]) -> list[tuple[str, str]]:
     return [(concept_json(c), c.name) for c in concepts]
+
+
+class ConceptCodesField(forms.Field):
+    """Checkbox group of concept ids posted by the vocabulary editor.
+
+    The widget makes ``value_from_datadict`` read every posted value; membership
+    in the base vocabulary is validated by the form's ``clean()`` because the
+    valid set is only known once the vocabulary has been resolved.
+    """
+
+    widget = forms.CheckboxSelectMultiple
+
+    def to_python(self, value: Any) -> list[str]:
+        if value in self.empty_values:
+            return []
+        values = value if isinstance(value, list) else [value]
+        return [str(v) for v in values if v not in (None, "")]
+
+
+class LimitedVocabularyTargetForm(forms.Form):
+    """Resolves which limited vocabulary a vocabulary-editing POST refers to.
+
+    The vocabulary editor posts an existing ``vocabulary_id`` (edit) or a
+    ``base_vocabulary_id`` (create); the edit page always sends both hidden
+    inputs, so a submitted ``vocabulary_id`` takes precedence and the base
+    reference is ignored. The view layer used to ``int()`` these raw values
+    and let unknown ids escape as 500s; this form turns every bad reference
+    into a validation error and exposes the reconstructed in-memory
+    ``LimitedVocabulary`` via :meth:`vocabulary`.
+    """
+
+    vocabulary_id = forms.ModelChoiceField(
+        queryset=Vocabulary.objects.filter(is_limited=True),
+        required=False,
+        empty_label=None,
+    )
+    base_vocabulary_id = forms.ModelChoiceField(
+        queryset=Vocabulary.objects.all(),
+        required=False,
+        empty_label=None,
+    )
+    allowed_concepts_check = ConceptCodesField(required=False)
+    disallowed_concepts_check = ConceptCodesField(required=False)
+    disallowed_concepts = ConceptCodesField(required=False)
+
+    def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
+        super().__init__(self._normalize_target(data), *args, **kwargs)
+        self._vocabulary: LimitedVocabulary | None = None
+
+    @staticmethod
+    def _normalize_target(data: Any) -> Any:
+        if data is not None and data.get("vocabulary_id"):
+            data = data.copy()
+            data.pop("base_vocabulary_id", None)
+        return data
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        if self.has_error("vocabulary_id") or self.has_error("base_vocabulary_id"):
+            return cleaned
+
+        vocabulary_model = cleaned.get("vocabulary_id")
+        if vocabulary_model is not None:
+            self._vocabulary = vocabulary_repository.get_limited_by_id(
+                VocabularyId(vocabulary_model.pk)
+            )
+        else:
+            base_vocabulary = cleaned.get("base_vocabulary_id")
+            if base_vocabulary is None:
+                raise forms.ValidationError(
+                    "Either vocabulary_id or base_vocabulary_id must be provided"
+                )
+            self._vocabulary = new_limited_vocabulary(
+                vocabulary_repository.get_by_id(VocabularyId(base_vocabulary.pk))
+            )
+        if self._vocabulary is not None:
+            base = self._vocabulary.base_vocabulary
+            for key in (
+                "allowed_concepts_check",
+                "disallowed_concepts_check",
+                "disallowed_concepts",
+            ):
+                unknown = [c for c in cleaned.get(key, []) if not base.has_concept(c)]
+                if unknown:
+                    self.add_error(key, f"Unknown concept ids: {', '.join(unknown)}")
+        return cleaned
+
+    def vocabulary(self) -> LimitedVocabulary:
+        assert self._vocabulary is not None
+        return self._vocabulary
+
+
+class LimitedVocabularySaveForm(LimitedVocabularyTargetForm):
+    vocabulary_name = forms.CharField(required=True, max_length=255, label="Vocabulary name")
+
+
+def new_limited_vocabulary(base_vocabulary: VocabularyProtocol) -> LimitedVocabulary:
+    suffix = " (limited)"
+    return LimitedVocabulary(
+        id=None,
+        base_vocabulary=base_vocabulary,
+        name=f"{base_vocabulary.name[: 255 - len(suffix)]}{suffix}",
+        version=base_vocabulary.version,
+    )
