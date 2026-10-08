@@ -1,9 +1,8 @@
 from collections.abc import Sequence
 
-
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
 from coda.apps.journals.models import Journal
+from coda.apps.search import words_icontains
 from coda.domain.contract import PublisherId
 from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
@@ -20,12 +19,15 @@ def get_by_pk(pk: int) -> Journal:
 
 
 def all() -> Sequence[Journal]:
-    return DomainQuerySet(Journal.objects.all().order_by("title"), _map_self)
+    return DomainQuerySet(Journal.objects.select_related("publisher").order_by("title"), _map_self)
 
 
 def find_by_title(title: str) -> Sequence[Journal]:
     return DomainQuerySet(
-        Journal.objects.filter(words_icontains(title, "title")).order_by("title"), _map_self
+        Journal.objects.filter(words_icontains(title, "title"))
+        .select_related("publisher")
+        .order_by("title"),
+        _map_self,
     )
 
 
