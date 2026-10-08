@@ -223,11 +223,15 @@ def _render_article_type_form(
     """Render the article type-change form partial. Journal search is handled by wizard_find_journal."""
     context: dict[str, Any] = {
         "journals": [],
-        "suggested_journal": request.POST.get("journal_title", ""),
+        "suggested_name": request.POST.get("journal_title", ""),
+        "entity": "journal",
+        "publication_type": "article",
+        "search_url": reverse("fundingrequests:wizard_find_journal"),
+        "search_param": "journal_title",
     }
     if error:
         context["error"] = error
-    return render(request, "fundingrequests/partials/doi_type_change_to_article.html", context)
+    return render(request, "fundingrequests/partials/doi_type_change_search.html", context)
 
 
 def _render_monograph_type_form(
@@ -237,13 +241,17 @@ def _render_monograph_type_form(
     error: str = "",
 ) -> HttpResponse:
     """Render the monograph type-change form partial, pre-filling from original metadata."""
-    suggested_publisher = request.POST.get("publisher_name", original_metadata.get("publisher", ""))
+    suggested_name = request.POST.get("publisher_name", original_metadata.get("publisher", ""))
     context: dict[str, Any] = {
-        "suggested_publisher": suggested_publisher,
+        "suggested_name": suggested_name,
+        "entity": "publisher",
+        "publication_type": "monograph",
+        "search_url": reverse("fundingrequests:wizard_find_publisher"),
+        "search_param": "publisher_name",
     }
     if error:
         context["error"] = error
-    return render(request, "fundingrequests/partials/doi_type_change_to_monograph.html", context)
+    return render(request, "fundingrequests/partials/doi_type_change_search.html", context)
 
 
 @require_session()
@@ -254,7 +262,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
 
     Renders the full swappable tab-content fragment so the active tab marker
     and the form content are always in sync.
-    Uses original_metadata for smart pre-filling (e.g. suggested_publisher).
+    Uses original_metadata for smart pre-filling (e.g. suggested publisher).
     """
     session_data = request.session[session_key]
 
