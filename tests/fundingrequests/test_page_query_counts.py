@@ -21,7 +21,7 @@ from coda.domain.color import Color
 from tests import modelfactory
 
 LIST_BUDGET = 16  # measured 14 (+2 slack) with labels + contract years on every row
-DETAIL_BUDGET = 25  # measured 23 (+2 slack) with contracts, authors and labels
+DETAIL_BUDGET = 25  # measured 22 (+3 slack) with contracts, authors and labels
 
 
 def _get(client: Client, url: str) -> tuple[int, str]:
