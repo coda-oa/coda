@@ -97,6 +97,7 @@ class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx.update(funding_source_options_context())
+        ctx["query"] = self.request.GET.get("search_term", "")
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
         ctx.update(get_contract_list_context())
         filter_form = InvoiceListFilterForm(

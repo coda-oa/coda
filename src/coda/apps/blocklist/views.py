@@ -13,9 +13,9 @@ from coda.apps.blocklist.models import (
     BlockList,
     JournalBlockReason,
 )
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
@@ -115,7 +115,11 @@ def block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.block_publisher(publisher)
 
-    return HttpResponse(headers={"HX-Redirect": reverse("publishing:publishers:list")})
+    return HttpResponse(
+        headers={
+            "HX-Redirect": reverse("publishing:publishers:detail", kwargs={"pk": publisher.pk})
+        }
+    )
 
 
 @login_required

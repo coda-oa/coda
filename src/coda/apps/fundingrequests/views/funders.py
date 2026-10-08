@@ -55,9 +55,8 @@ class FundingOrganizationListView(
     entity_name = "Funding Organizations"
     entity_create_url = "fundingrequests:funders_create"
     entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
-    supports_archiving = True
+    entity_filter_extra_template = "partials/archived_filter_checkbox.html"
 
     def get_entities(self, request: HttpRequest) -> Any:
         search_term = request.GET.get("query", "").strip()

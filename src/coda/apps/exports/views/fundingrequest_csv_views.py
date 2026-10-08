@@ -54,7 +54,6 @@ class FundingRequestCSVExportListView(
     search_placeholder = "Search exports..."
     entity_create_url = FUNDINGREQUESTS_CSV_CREATE_URL
     use_generic_entity_filter = True
-    entity_filter_template = "entity_generic_filter.html"
 
 
 fundingrequest_csv_export_list_view = FundingRequestCSVExportListView.as_view()

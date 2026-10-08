@@ -72,3 +72,18 @@ def test__journal_detail__funding_requests_ordered_by_request_date_desc(client: 
 
     listed_ids = [fr.request_id for fr in response.context["funding_requests"]]
     assert listed_ids == [second.request_id, first.request_id]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__journal_detail__labels_funding_requests_as_article_type(client: Client) -> None:
+    journal = modelfactory.journal(title="Journal of Testing")
+    funding_request = _fundingrequest_for(journal, "Testing Patterns")
+
+    response = client.get(_detail_url(journal))
+    content = response.content.decode()
+
+    start = content.index(funding_request.request_id)
+    row = content[content.rindex("<tr>", 0, start) : content.index("</tr>", start)]
+
+    assert "Article" in row

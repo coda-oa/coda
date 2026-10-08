@@ -411,3 +411,13 @@ def test__inverted_date_range__leaves_no_warning_to_resurface(client: Client) ->
         get_list_region(client, {"date_start": "2025-01-01", "date_end": "2024-01-01"})
 
     assert "must be before end date" not in goto_list_page(client).content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__no_results_note_names_the_search_term(client: Client) -> None:
+    create_invoice("INV-1")
+
+    response = goto_list_page(client, {"search_term": "Nothing"})
+
+    assert 'No results found for "Nothing".' in response.content.decode()

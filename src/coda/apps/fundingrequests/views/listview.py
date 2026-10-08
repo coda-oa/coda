@@ -60,6 +60,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
+        ctx["query"] = self.request.GET.get("search_term", "")
 
         labels = self._used_labels
         filter_form = FundingRequestListFilterForm(

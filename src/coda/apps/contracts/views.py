@@ -28,7 +28,6 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
