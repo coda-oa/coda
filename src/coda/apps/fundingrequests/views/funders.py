@@ -1,5 +1,4 @@
 from collections.abc import Callable
-
 from typing import Any, cast
 
 from django import forms
@@ -14,7 +13,6 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
@@ -22,6 +20,7 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLinkType,
 )
 from coda.apps.fundingrequests.services.funder_services import (
+    RorUpdateResult,
     can_delete_funding_organization,
     can_merge_funding_organization,
     compute_merge_preview,
@@ -31,6 +30,7 @@ from coda.apps.fundingrequests.services.funder_services import (
     search_organizations_for_merge,
     update_funder_from_ror,
 )
+from coda.apps.search import words_icontains
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -476,18 +476,30 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     try:
         ror_client = get_ror_client()
-        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        result = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
         org.refresh_from_db()
-        messages.success(
-            request, f"Funding organization '{org.name}' updated from ROR successfully."
-        )
+        if result is RorUpdateResult.NO_MATCH:
+            messages.warning(
+                request,
+                "No ROR record matched this organization's identifiers. "
+                "Please check that they are correct.",
+            )
+        elif result is RorUpdateResult.UPDATED:
+            messages.success(
+                request, f"Funding organization '{org.name}' updated from ROR successfully."
+            )
+        else:
+            messages.info(
+                request,
+                f"Funding organization '{org.name}' is already up to date with ROR.",
+            )
 
         detail_url = reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk})
         response = _overlap_response(request, org, dismiss_url=detail_url)
         if response:
             return response
     except Exception as e:
-        messages.error(request, f"Error updating from ROR: {str(e)}")
+        messages.error(request, f"Error updating from ROR: {e!s}")
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
@@ -561,6 +573,6 @@ def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpR
             f"Funding organization '{source.name}' merged into '{target.name}' successfully.",
         )
     except Exception as e:
-        messages.error(request, f"Error merging organizations: {str(e)}")
+        messages.error(request, f"Error merging organizations: {e!s}")
 
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))

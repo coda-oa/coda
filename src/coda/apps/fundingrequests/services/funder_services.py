@@ -1,3 +1,5 @@
+import enum
+
 from django.db import transaction
 
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganizationLink
@@ -6,6 +8,14 @@ from coda.contexts.fundingrequest.services.funder_resolution import FunderRecord
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.organization import preview_merge_funders
+
+
+class RorUpdateResult(enum.Enum):
+    """Outcome of updating a funder from the ROR registry."""
+
+    UPDATED = "updated"
+    UNCHANGED = "unchanged"
+    NO_MATCH = "no_match"
 
 
 def compute_merge_preview(
@@ -40,10 +50,11 @@ def delete_funding_organization(org: FundingOrganizationModel) -> None:
 def update_funder_from_ror(
     funder_id: FundingOrganizationId,
     ror_client: RORClient,
-) -> bool:
+) -> RorUpdateResult:
     """Update funding organization from ROR.
 
-    Returns True if links were changed, False otherwise.
+    Returns which outcome occurred: data was updated, data was already
+    current, or no ROR record matched any of the funder's links.
     """
     org = FundingOrganizationModel.objects.get(pk=funder_id)
 
@@ -51,13 +62,16 @@ def update_funder_from_ror(
     funder = FunderRecord(name=org.name, links=tuple(org.get_links()))
     enriched = enrich_from_ror(funder, api_result)
 
-    links_changed = enriched.links != tuple(org.get_links())
-    if enriched.name != org.name or links_changed:
-        org.name = enriched.name
-        org.set_links(enriched.links)
-        org.save()
+    if enriched == funder:
+        if not api_result:
+            return RorUpdateResult.NO_MATCH
+        return RorUpdateResult.UNCHANGED
 
-    return links_changed
+    org.name = enriched.name
+    org.set_links(enriched.links)
+    org.save()
+
+    return RorUpdateResult.UPDATED
 
 
 @transaction.atomic
