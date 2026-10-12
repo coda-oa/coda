@@ -316,7 +316,6 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     _ = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
 
     label = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
-    _ = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
 
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)
