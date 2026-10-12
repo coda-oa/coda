@@ -12,6 +12,7 @@
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let restoreToggleAfterClose = false;
   let isClosing = false;
+  let closeBackstopTimer = 0;
 
   // Suppress the blur change event when input already scheduled this search value.
   const searchInput = layout.querySelector(".filter-search");
@@ -53,6 +54,7 @@
       return;
     }
     isClosing = false;
+    clearTimeout(closeBackstopTimer);
     dialog.removeEventListener("transitionend", finishModalCloseTransition);
     dialog.close();
     dialog.classList.remove("filter-sidebar-closing");
@@ -70,6 +72,7 @@
       return;
     }
     isClosing = false;
+    clearTimeout(closeBackstopTimer);
     dialog.removeEventListener("transitionend", finishModalCloseTransition);
     dialog.classList.remove("filter-sidebar-closing");
   };
@@ -86,6 +89,11 @@
     }
     isClosing = true;
     dialog.addEventListener("transitionend", finishModalCloseTransition);
+    // Chromium can swallow the transform transitionend when the close
+    // starts while the open animation is still playing (cancelled
+    // animation blocks the transition from starting). The timer finishes
+    // the close if the transition never fires.
+    closeBackstopTimer = setTimeout(finishModalClose, 250);
     dialog.classList.add("filter-sidebar-closing");
   };
 
