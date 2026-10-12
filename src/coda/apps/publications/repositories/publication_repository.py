@@ -264,6 +264,14 @@ def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePub
     return [PublicationDomainMapper.map(p) for p in PublicationModel.objects.filter(query)]
 
 
+def count_publications_by_vocabulary(vocabulary_id: VocabularyId) -> int:
+    """Count publications using the vocabulary, without mapping domain objects."""
+    query = models.Q(publication_type__vocabulary_id=vocabulary_id) | models.Q(
+        subject_area__vocabulary_id=vocabulary_id
+    )
+    return PublicationModel.objects.filter(query).count()
+
+
 def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[ContractYear]:
     contracts = AttachedContract.objects.filter(publication_id=publication_id).select_related(
         "contract"

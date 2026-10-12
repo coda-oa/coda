@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.apps.publications.services import vocabularies, concept_tree
+from coda.apps.publications.services import concept_tree, vocabularies
 from coda.apps.publications.services.vocabularies import build_concept_trees
 from coda.apps.views import EntityListView
 from coda.domain.vocabulary import (
@@ -19,7 +19,6 @@ from coda.domain.vocabulary import (
     VocabularyId,
     VocabularyProtocol,
 )
-
 
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
@@ -316,14 +315,11 @@ def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
             {"vocabulary": vocabulary, "usage": usage},
         )
 
-    if usage.is_used():
-        return render(
-            request,
-            "publications/vocabulary_delete_dialog.html",
-            {"vocabulary": vocabulary, "usage": usage},
-        )
-
-    return delete(request, pk)
+    return render(
+        request,
+        "publications/vocabulary_delete_dialog.html",
+        {"vocabulary": vocabulary, "usage": usage},
+    )
 
 
 @login_required

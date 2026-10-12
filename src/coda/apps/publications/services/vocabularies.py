@@ -1,11 +1,12 @@
+from dataclasses import field
 from typing import NamedTuple
 
+from coda.apps.publications.models import PublicationAttachedConcept
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.apps.publications.services import concept_tree
-from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
     LimitedVocabulary,
-    VocabularyConcept,
+    UnknownConcept,
     VocabularyId,
     VocabularyProtocol,
 )
@@ -38,53 +39,19 @@ def allow_concept(vocabulary_id: VocabularyId, concept_id: str) -> None:
 def delete(vocabulary_id: VocabularyId) -> None:
     vocabulary = vocabulary_repository.get_by_id(vocabulary_id)
     if isinstance(vocabulary, LimitedVocabulary):
-        publications = publication_repository.find_publications_by_vocabulary(vocabulary_id)
-        _migrate_publications_to_base_vocabulary(vocabulary, publications)
+        publication_count = publication_repository.count_publications_by_vocabulary(vocabulary_id)
+        _migrate_publications_to_base_vocabulary(vocabulary, publication_count)
 
     vocabulary_repository.delete(vocabulary)
 
 
-def get_usage(vocabulary_id: VocabularyId) -> "VocabularyUsage":
-    return VocabularyUsage(
-        vocabulary=vocabulary_repository.get_by_id(vocabulary_id),
-        publications=publication_repository.find_publications_by_vocabulary(vocabulary_id),
-        derived_vocabularies=vocabulary_repository.find_limited_by_base_vocabulary(vocabulary_id),
-    )
-
-
-def _migrate_publications_to_base_vocabulary(
-    vocabulary: LimitedVocabulary, publications: list[BasePublication]
-) -> None:
-    for publication in publications:
-        publication.publication_type = _migrate_matching_concept_to_base_vocabulary(
-            publication.publication_type,
-            vocabulary,
-        )
-
-        publication.subject_area = _migrate_matching_concept_to_base_vocabulary(
-            publication.subject_area,
-            vocabulary,
-        )
-
-        publication_repository.update(publication)
-
-
-def _migrate_matching_concept_to_base_vocabulary(
-    concept: VocabularyConcept, vocabulary: LimitedVocabulary
-) -> VocabularyConcept:
-    if concept.vocabulary == vocabulary.id:
-        return vocabulary.get_base_concept(concept.concept_id)
-
-    return concept
-
-
 class VocabularyUsage(NamedTuple):
     vocabulary: VocabularyProtocol
-    publications: list[BasePublication] = []
-    derived_vocabularies: list[LimitedVocabulary] = []
+    publication_count: int = 0
+    derived_vocabularies: list[LimitedVocabulary] = field(default_factory=list)
 
     def is_used(self) -> bool:
-        return bool(self.publications or self.derived_vocabularies)
+        return bool(self.publication_count or self.derived_vocabularies)
 
     def can_be_deleted(self) -> bool:
         if self.derived_vocabularies:
@@ -93,4 +60,45 @@ class VocabularyUsage(NamedTuple):
         if isinstance(self.vocabulary, LimitedVocabulary):
             return True
 
-        return not self.publications
+        return not self.publication_count
+
+
+def get_usage(vocabulary_id: VocabularyId) -> "VocabularyUsage":
+    return VocabularyUsage(
+        vocabulary=vocabulary_repository.get_by_id(vocabulary_id),
+        publication_count=publication_repository.count_publications_by_vocabulary(vocabulary_id),
+        derived_vocabularies=vocabulary_repository.find_limited_by_base_vocabulary(vocabulary_id),
+    )
+
+
+def _migrate_publications_to_base_vocabulary(
+    vocabulary: LimitedVocabulary, publication_count: int
+) -> None:
+    """Re-point publications from the limited vocabulary to its base vocabulary.
+
+    Limited vocabularies store no Concept rows of their own — their concepts
+    are projections of the base vocabulary's concepts. Publications reference
+    the limited vocabulary only via the attached-concept row's vocabulary FK,
+    so migrating is a bulk UPDATE of those rows: the base concept with the
+    same entity_id takes over (entity_id already matches); a concept missing
+    from the base becomes the unknown concept.
+    """
+    if not publication_count:
+        return
+
+    base = vocabulary.base_vocabulary
+    assert base.id is not None  # base vocabulary is always persisted
+    limited_id = vocabulary.id
+    assert limited_id is not None  # limited vocabulary is persisted before deletion
+
+    base_entity_ids = [str(c.id) for c in base.concepts]
+    rows = PublicationAttachedConcept.objects.filter(vocabulary_id=limited_id)
+    known = rows.filter(entity_id__in=base_entity_ids)
+    unknown = rows.exclude(entity_id__in=base_entity_ids)
+
+    known.update(vocabulary_id=base.id)
+    unknown.update(
+        vocabulary_id=base.id,
+        entity_id=UnknownConcept.id,
+        name="unknown",
+    )
