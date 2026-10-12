@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Iterable, Mapping
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from django import forms
 from django.contrib.auth.decorators import login_required
@@ -8,6 +8,7 @@ from django.db import models
 from django.forms import ModelChoiceField
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from coda.apps import fields
@@ -72,7 +73,7 @@ class ContractForm(CodaFormBase):
 
         contract_id = int(self.data[f"{prefix}contract"])
         contract = repository.get_by_id(ContractId(contract_id))
-        return not contract.is_active(datetime.date.today())
+        return not contract.is_active(timezone.now().astimezone(datetime.UTC).date())
 
     def include_inactive_contracts(self) -> None:
         self.fields["contract"].widget.choices = (
@@ -174,9 +175,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
-                organization_queryset
-            )
+            cast(
+                ModelChoiceField[FundingOrganization], self.fields["organization"]
+            ).queryset = organization_queryset
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -270,8 +271,11 @@ class LabelForm(forms.ModelForm[Label]):
     class Meta:
         model = Label
         fields = "__all__"
-        widgets = {"hexcolor": forms.TextInput(attrs={"type": "color"})}
-        labels = {"hexcolor": "Color"}
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "name": forms.TextInput(attrs={"autofocus": True}),
+            "hexcolor": forms.TextInput(attrs={"type": "color"}),
+        }
+        labels: ClassVar[dict[str, str]] = {"hexcolor": "Color"}
 
 
 class ChooseLabelForm(forms.Form):
