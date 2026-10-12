@@ -140,8 +140,7 @@ urlpatterns = [
         name="doi_preview_reset_type",
     ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
-    path("review/<int:pk>/", review.review_page, name="review"),
-    path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
+    path("review/<int:pk>/", review.review_view, name="review"),
     path("create/wizard/", ArticleRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),
     path(
