@@ -14,9 +14,9 @@
                     </div>
                 {% endif %}
             </li>
-            {% if usage.publications %}
+            {% if usage.publication_count %}
                 <li>
-                    <p>The vocabulary is in use by publications.</p>
+                    <p>The vocabulary is in use by {{ usage.publication_count }} publication{{ usage.publication_count|pluralize }}.</p>
                 </li>
             {% endif %}
         </ul>

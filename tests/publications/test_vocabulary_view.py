@@ -356,3 +356,40 @@ def build_and_annotate_ui_trees(
         annotated.allowed_levels_with_checkboxes,
         annotated.forbidden_levels_with_checkboxes,
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__request_delete__shows_confirm_dialog_for_unused_vocabulary(client: Client) -> None:
+    vocabulary_model = VocabularyModel.objects.create(name="Unused Vocabulary", version="1.0")
+
+    response = client.post(
+        reverse("publications:vocabulary_request_delete", kwargs={"pk": vocabulary_model.pk})
+    )
+
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert "<dialog" in content
+    assert "Are you sure you want to delete the vocabulary?" in content
+    # the vocabulary still exists — deletion happens only on confirmed hx-delete
+    assert VocabularyModel.objects.filter(pk=vocabulary_model.pk).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__request_delete__shows_usage_count_in_dialog(client: Client) -> None:
+    from coda.apps.publications.repositories import vocabulary_repository
+
+    vocabulary = vocabulary_repository.create(name="Used Vocabulary", version="1.0")
+    vocabulary.add_concept(concept_id="used-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+    assert vocabulary.id is not None
+
+    response = client.post(
+        reverse("publications:vocabulary_request_delete", kwargs={"pk": vocabulary.id})
+    )
+
+    content = response.content.decode()
+    assert "<dialog" in content
+    assert "Are you sure you want to delete the vocabulary?" in content
+    assert VocabularyModel.objects.filter(pk=vocabulary.id).exists()

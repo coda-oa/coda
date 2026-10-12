@@ -12,16 +12,19 @@
             <button class="outline success"
                     hx-get="{% url 'invoices:creditor_request_restore' pk=entity.id %}"
                     hx-target="body"
-                    hx-swap="beforeend">Restore</button>
+                    hx-swap="beforeend"
+                    hx-push-url="false">Restore</button>
         {% else %}
             <button class="secondary"
                     hx-get="{% url 'invoices:creditor_request_archive' pk=entity.id %}"
                     hx-target="body"
-                    hx-swap="beforeend">Archive</button>
+                    hx-swap="beforeend"
+                    hx-push-url="false">Archive</button>
             <button class="danger"
                     hx-get="{% url 'invoices:creditor_request_delete' pk=entity.id %}"
                     hx-target="body"
-                    hx-swap="beforeend">Delete</button>
+                    hx-swap="beforeend"
+                    hx-push-url="false">Delete</button>
         {% endif %}
     </div>
 </article>

@@ -11,6 +11,7 @@
                     class="my-0 outline danger"
                     hx-target="body"
                     hx-swap="beforeend"
+                    hx-push-url="false"
                     hx-get="{% url "blocklist:request_block_publisher" pk=entity.id %}">Block</button>
         {% endif %}
         <a href="{% url 'publishing:publishers:update' pk=entity.id %}"

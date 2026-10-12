@@ -16,11 +16,13 @@
             <button class="secondary"
                     hx-get="{% url 'fundingrequests:funder_request_archive' pk=entity.id %}"
                     hx-target="body"
-                    hx-swap="beforeend">Archive</button>
+                    hx-swap="beforeend"
+                    hx-push-url="false">Archive</button>
             <button class="danger"
                     hx-get="{% url 'fundingrequests:funder_request_delete' pk=entity.id %}"
                     hx-target="body"
-                    hx-swap="beforeend">Delete</button>
+                    hx-swap="beforeend"
+                    hx-push-url="false">Delete</button>
         {% endif %}
     </div>
 </article>
