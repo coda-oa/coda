@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from django import forms
 from django.contrib import messages
@@ -89,7 +89,10 @@ fundingorganizations_list = FundingOrganizationListView.as_view()
 class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
     class Meta:
         model = FundingOrganization
-        fields = ["name"]
+        fields: ClassVar[list[str]] = ["name"]
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "name": forms.TextInput(attrs={"autofocus": True}),
+        }
 
 
 class FundingOrganizationLinkFormMixin:
