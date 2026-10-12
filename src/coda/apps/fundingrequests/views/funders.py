@@ -8,6 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -93,6 +94,24 @@ class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
         widgets: ClassVar[dict[str, forms.Widget]] = {
             "name": forms.TextInput(attrs={"autofocus": True}),
         }
+
+    def clean_name(self) -> str:
+        name: str = self.cleaned_data["name"].strip()
+        if not name:
+            return name
+
+        duplicates = FundingOrganization.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        duplicate = duplicates.first()
+        if duplicate is not None:
+            error = format_html(
+                'A funding organization named <a href="{}">{}</a> already exists.',
+                duplicate.get_absolute_url(),
+                duplicate.name,
+            )
+            raise forms.ValidationError(error)
+        return name
 
 
 class FundingOrganizationLinkFormMixin:
@@ -489,6 +508,7 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
         messages.error(
             request,
             "Cannot update from ROR: this organization has no ROR identifier.",
+            extra_tags="ror-update:no-ror-id",
         )
         return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     try:
@@ -500,15 +520,19 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
                 request,
                 "No ROR record matched this organization's identifiers. "
                 "Please check that they are correct.",
+                extra_tags="ror-update:no-match",
             )
         elif result is RorUpdateResult.UPDATED:
             messages.success(
-                request, f"Funding organization '{org.name}' updated from ROR successfully."
+                request,
+                f"Funding organization '{org.name}' updated from ROR successfully.",
+                extra_tags="ror-update:updated",
             )
         else:
             messages.info(
                 request,
                 f"Funding organization '{org.name}' is already up to date with ROR.",
+                extra_tags="ror-update:up-to-date",
             )
 
         detail_url = reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk})
@@ -516,7 +540,7 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
         if response:
             return response
     except Exception as e:
-        messages.error(request, f"Error updating from ROR: {e!s}")
+        messages.error(request, f"Error updating from ROR: {e!s}", extra_tags="ror-update:failed")
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 

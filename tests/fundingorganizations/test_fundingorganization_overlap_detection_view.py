@@ -149,7 +149,11 @@ class TestAutomaticOverlapDetection:
         assert_overlap_dialog(response, "Org 2")
 
 
-# ── Update form overlap detection ─────────────────────────────────────
+# ── Create/update form overlap detection ──────────────────────────────
+# Duplicate *identifiers* keep the soft "Duplicate Organization Detected"
+# merge dialog on the create/update forms (original behavior). Duplicate
+# *names* are hard-blocked with a form error
+# (see test_fundingorganization_duplicate_validation).
 
 
 @pytest.mark.django_db
