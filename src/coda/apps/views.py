@@ -2,23 +2,23 @@ from collections.abc import Sequence
 from typing import Any, Generic, TypeVar, cast
 
 from django.core.paginator import Paginator
+from django.db.models import Model
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
+from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.search import words_icontains
 from coda.apps.version import (
     check_update as check_version_update,
+)
+from coda.apps.version import (
     get_branch,
     get_commit_sha,
     get_repo,
     get_version_tag,
 )
-
-from django.db.models import Model
-
-from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
 
 EntityType = TypeVar("EntityType")
 
@@ -29,7 +29,7 @@ def check_update(request: HttpRequest) -> HttpResponse:
     commit_sha = get_commit_sha()
     tag = get_version_tag()
     repo = get_repo()
-    update_info = check_version_update(branch, commit_sha)
+    update_available = check_version_update(branch, commit_sha)
     if tag:
         github_url = f"https://github.com/{repo}/releases/tag/{tag}"
     else:
@@ -38,7 +38,7 @@ def check_update(request: HttpRequest) -> HttpResponse:
         request,
         "partials/update_banner.html",
         {
-            "update_available": update_info.get("update_available", False),
+            "update_available": update_available,
             "branch": branch,
             "github_url": github_url,
         },

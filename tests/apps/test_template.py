@@ -2,13 +2,13 @@ import html
 import re
 from typing import Protocol
 
-from django.test import Client
 import pytest
 from django.template.loader import render_to_string
+from django.test import Client
 from django.urls import reverse
-
 from tests import modelfactory
-from tests.apps._doubles import InMemoryVersionInfoProvider
+
+from coda.apps import version as version_module
 
 
 @pytest.mark.django_db
@@ -18,8 +18,8 @@ def test__nav_template__loads_banner_via_htmx(
     client: Client,
 ) -> None:
     """The nav embeds the HTMX include that fetches the update banner."""
-    provider = InMemoryVersionInfoProvider()
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(version_module, "_git", lambda args: None)
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
 
     response = client.get(reverse("home"))
 
@@ -33,9 +33,9 @@ def test__check_update_view__returns_empty_when_no_update(
     client: Client,
 ) -> None:
     """The check-update endpoint renders nothing when no update is available."""
-    provider = InMemoryVersionInfoProvider()
-    provider.update_info = {"update_available": False}
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(version_module, "_git", lambda args: None)
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
+    monkeypatch.setattr(version_module, "check_update", lambda branch, sha: False)
 
     response = client.get(reverse("check_update"))
 
@@ -48,10 +48,13 @@ def test__check_update_view__returns_banner_when_update_available(
     client: Client,
 ) -> None:
     """The check-update endpoint renders a banner when a newer commit exists."""
-    provider = InMemoryVersionInfoProvider()
-    provider.branch = "develop"
-    provider.update_info = {"update_available": True, "latest_commit": "abc123"}
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(
+        version_module,
+        "_git",
+        lambda args: "develop" if args == ("rev-parse", "--abbrev-ref", "HEAD") else None,
+    )
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
+    monkeypatch.setattr(version_module, "check_update", lambda branch, sha: True)
 
     response = client.get(reverse("check_update"))
 
@@ -65,10 +68,11 @@ def test__nav_template__displays_version(
     monkeypatch: pytest.MonkeyPatch,
     client: Client,
 ) -> None:
-    """The nav shows the release version reported by the version provider."""
-    provider = InMemoryVersionInfoProvider()
-    provider.version = "2026.01"
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    """The nav shows the release version reported by the version module."""
+    monkeypatch.setattr(
+        version_module, "_git", lambda args: "2026.01" if args[0] == "describe" else None
+    )
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
     response = client.get(reverse("home"))
 
     assert "Version: 2026.01" in response.content.decode()
@@ -140,6 +144,8 @@ def test__nav__inside_group_mount__exactly_one_group_active(client: Client) -> N
     nav = _nav_html(client.get(reverse("fundingrequests:detail", args=[funding_request.pk])))
 
     assert nav.count("nav__group nav__group--active") == 1
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__nav__journal_detail__highlights_journals(client: Client) -> None:
