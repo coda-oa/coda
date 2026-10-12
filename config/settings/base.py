@@ -25,6 +25,9 @@ if READ_DOT_ENV_FILE:
 # Demo mode displays a warning message on the home page.
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
 CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
+# The update check performs an outbound GitHub request. Turning it off keeps
+# coda.apps.version from touching the cache or the network at all.
+CODA_UPDATE_CHECK = env.bool("CODA_UPDATE_CHECK", True)
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -65,6 +68,18 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 DATABASES = {"default": env.db("DATABASE_URL", default="")}
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
+
+# CACHES
+# ------------------------------------------------------------------------------
+# Explicit, rather than relying on the implicit default. LocMemCache is
+# process-local, so cached values are per gunicorn worker
+# https://docs.djangoproject.com/en/dev/ref/settings/#caches
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "coda",
+    }
+}
 
 # URLS
 # ------------------------------------------------------------------------------
