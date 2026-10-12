@@ -135,8 +135,10 @@ class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrgani
         funding_records = ExternalFunding.objects.filter(organization=self.object).select_related(
             "funding_request"
         )
+        has_ror_link = _has_ror_link(self.object)
         return super().get_context_data(**kwargs) | {
             "funding_records": funding_records,
+            "has_ror_link": has_ror_link,
         }
 
 
@@ -424,6 +426,8 @@ def add_funder_linkrow(request: HttpRequest) -> HttpResponse:
 @require_GET
 def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    if not _has_ror_link(org):
+        return HttpResponse(status=409)
     return render(
         request,
         "fundingrequests/funders/update_from_ror_modal.html",
@@ -432,6 +436,10 @@ def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpRespons
             "update_url": reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk}),
         },
     )
+
+
+def _has_ror_link(org: FundingOrganization) -> bool:
+    return any(link.type() == "ROR" for link in org.get_links())
 
 
 def _overlap_response(
@@ -474,6 +482,12 @@ def _overlap_response(
 @require_POST
 def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    if not _has_ror_link(org):
+        messages.error(
+            request,
+            "Cannot update from ROR: this organization has no ROR identifier.",
+        )
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     try:
         ror_client = get_ror_client()
         result = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)

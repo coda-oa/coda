@@ -6,10 +6,15 @@
             {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
         </h1>
         <div class="flex">
-            <button class="secondary"
-                    hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
-                    hx-target="body"
-                    hx-swap="beforeend">Update from ROR</button>
+            {% if has_ror_link %}
+                <button class="secondary"
+                        hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
+                        hx-target="body"
+                        hx-swap="beforeend">Update from ROR</button>
+            {% else %}
+                <button class="secondary" disabled
+                        title="Add a ROR identifier first">Update from ROR</button>
+            {% endif %}
             <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
                class="button secondary">Edit</a>
         </div>
