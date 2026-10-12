@@ -2,10 +2,15 @@
 Pager + list region that htmx swaps in place: the boosted page links and the jump form
 (partials/pagination_jump_form.html) all target this element, and
 hx-select picks the same region out of the full-page response. The id must stay in sync.
+hx-select is disinherited: elements inside the region that swap their own responses
+(e.g. the per-row confirm-modals) would otherwise have the region filtered out of
+their fragment and swap nothing. They set hx-push-url="false" themselves; the
+pager keeps inheriting hx-push-url="true" so page changes update the address bar.
 {% endcomment %}
 <div id="entity-list-region"
      hx-target="#entity-list-region"
      hx-select="#entity-list-region"
+     hx-disinherit="hx-select"
      hx-swap="outerHTML"
      hx-push-url="true">
     {% include "partials/pagination_nav.html" %}
