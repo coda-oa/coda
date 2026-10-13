@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
@@ -97,6 +98,10 @@ class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx.update(funding_source_options_context())
+        ctx["query"] = self.request.GET.get("search_term", "")
+        if self.request.GET:
+            ctx["no_results_message"] = "No invoices match the selected filters."
+            ctx["no_results_clear_url"] = reverse("invoices:list")
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
         ctx.update(get_contract_list_context())
         filter_form = InvoiceListFilterForm(

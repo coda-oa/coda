@@ -55,9 +55,10 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_create_url: str = ""
     entity_list_item_template: str
     entity_list_layout_classes: str = ""
-    entity_filter_template: str = ""
     use_generic_entity_filter: bool = False
-    supports_archiving: bool = False
+    entity_filter_extra_template: str = ""
+    no_results_message: str = ""
+    no_results_clear_url: str = ""
 
     def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         raise NotImplementedError
@@ -70,10 +71,12 @@ class EntityListView(Generic[EntityType], TemplateView):
             "entity_name": self.entity_name,
             "entity_create_url": self.entity_create_url,
             "entity_list_item_template": self.entity_list_item_template,
-            "entity_filter_template": self.entity_filter_template,
             "entity_list_layout_classes": self.entity_list_layout_classes,
             "use_generic_entity_filter": self.use_generic_entity_filter,
-            "supports_archiving": self.supports_archiving,
+            "entity_filter_extra_template": self.entity_filter_extra_template,
+            "no_results_message": self.no_results_message,
+            "no_results_clear_url": self.no_results_clear_url,
+            "query": self.request.GET.get("query", ""),
             "entities": page.object_list,
             "page_obj": page,
             "search_placeholder": self.search_placeholder,

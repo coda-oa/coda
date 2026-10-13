@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -8,16 +9,17 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
-from django.views.generic import CreateView, DetailView, UpdateView
 from django.views.decorators.http import require_GET, require_POST
+from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
+from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
+from coda.apps.search import words_icontains
 from coda.apps.views import SimpleSearchEntityListView
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @breadcrumb("Journal Detail", parent_url_name="publishing:journals:list", preserve_filters=True)
@@ -49,8 +51,25 @@ class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
     entity_list_item_template = "journals/journal_list_item.html"
     search_fields = ["title", "eissn"]
     use_generic_entity_filter = True
-    entity_filter_template = "entity_generic_filter.html"
+    entity_filter_extra_template = "journals/journal_blocked_checkbox.html"
     search_placeholder = "Search by title or eissn..."
+    blocked_journal_ids: set[int]
+
+    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
+        super().setup(request, *args, **kwargs)
+        self.blocked_journal_ids = set(
+            BlockList.objects.get().blocked_journals().values_list("journal_id", flat=True)
+        )
+
+    def get_entities(self, request: HttpRequest) -> Sequence[Journal]:
+        search_term = request.GET.get("query", "").strip()
+        queryset = Journal.objects.select_related("publisher")
+        if search_term:
+            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+        if request.GET.get("blocked_only") == "on":
+            queryset = queryset.filter(pk__in=self.blocked_journal_ids)
+        order_by = self.ordering or self.search_fields
+        return DomainQuerySet(queryset.order_by(*order_by), lambda x: x)
 
 
 journal_list_view = JournalListView.as_view()

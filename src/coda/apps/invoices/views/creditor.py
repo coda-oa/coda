@@ -27,9 +27,8 @@ class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor])
     entity_name = "Creditors"
     entity_create_url = "invoices:creditor_create"
     entity_list_item_template = "invoices/creditors/list.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
-    supports_archiving = True
+    entity_filter_extra_template = "partials/archived_filter_checkbox.html"
 
     def get_entities(self, request: HttpRequest) -> Any:
         search_term = request.GET.get("query", "").strip()

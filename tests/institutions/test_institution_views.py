@@ -208,6 +208,19 @@ def test__list_view__includes_archived_when_requested(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__list_view__archived_checkbox_rendered_and_checked(client: Client) -> None:
+    create_institution_scenario()
+
+    response = client.get(reverse("institutions:list"), {"include_archived": "on"})
+
+    content = response.content.decode()
+    assert "Include archived" in content
+    assert 'class="filter-switch"' in content
+    assert 'aria-checked="true"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__list_view__search_with_archived_filter(client: Client) -> None:
     active, archived = create_institution_scenario()
 

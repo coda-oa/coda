@@ -299,3 +299,16 @@ def test__unparsable_contract_id_filter__narrows_nothing(client: Client) -> None
     response = goto_list_page(client, {"contract_name": "abc"})
 
     assert {item.publication_title for item in response.context["entities"]} == {"Alpha", "Beta"}
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__no_results_note_names_the_search_term(client: Client) -> None:
+    modelfactory.fundingrequest(title="Alpha")
+
+    response = goto_list_page(client, {"search_term": "Nothing"})
+
+    content = response.content.decode()
+    assert "No funding requests match the selected filters." in content
+    assert "Clear all filters" in content
+    assert 'No results found for "Nothing".' not in content

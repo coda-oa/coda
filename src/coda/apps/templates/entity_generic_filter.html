@@ -1,4 +1,10 @@
-<form method="get">
+<form method="get"
+      hx-get="{{ request.path }}"
+      hx-target="#entity-list-region"
+      hx-select="#entity-list-region"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-trigger="submit, change from:.filter-switch">
     <div class="search-wrapper mb-1">
         <input type="search"
                name="query"
@@ -7,18 +13,7 @@
                value="{{ request.GET.query }}">
         <button type="submit" class="form-row-item-sm">Search</button>
     </div>
-    {% if supports_archiving %}
-        <label class="form-row-item">
-            <input type="checkbox"
-                   role="switch"
-                   name="include_archived"
-                   id="id-include-archived"
-                   aria-checked="{% if include_archived %}true{% else %}false{% endif %}"
-                   {% if include_archived %}checked{% endif %}>
-            Include archived
-        </label>
+    {% if entity_filter_extra_template %}
+        {% include entity_filter_extra_template %}
     {% endif %}
 </form>
-{% if request.GET.query and entities|length == 0 %}
-    <p class="my-2">No results found for "{{ request.GET.query }}".</p>
-{% endif %}

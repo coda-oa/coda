@@ -1,9 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     {% include "entity_list_title_bar.html" %}
-    {% if entity_filter_template %}
-        <div class="my-2">{% include entity_filter_template %}</div>
-    {% elif use_generic_entity_filter %}
+    {% if use_generic_entity_filter %}
         <div class="my-2">{% include "entity_generic_filter.html" %}</div>
     {% endif %}
     {% include "partials/entity_list_region.html" %}

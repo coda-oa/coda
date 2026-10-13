@@ -36,23 +36,27 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     entity_name = "Publishers"
     entity_create_url = "publishing:publishers:create"
     use_generic_entity_filter = True
+    entity_filter_extra_template = "publishers/publisher_blocked_checkbox.html"
+    blocked_publisher_ids: set[int]
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
         super().setup(request, *args, **kwargs)
-        self.blocklist = BlockList.objects.get()
+        self.blocked_publisher_ids = set(
+            BlockList.objects.get().blocked_publishers().values_list("publisher_id", flat=True)
+        )
 
     def get_entities(self, request: Any) -> Sequence[PublisherViewModel]:
         search_term = request.GET.get("query", "").strip()
-        return DomainQuerySet(
-            Publisher.objects.filter(words_icontains(search_term, "name")).order_by("name"),
-            self.publisher_viewmodel,
-        )
+        queryset = Publisher.objects.filter(words_icontains(search_term, "name"))
+        if request.GET.get("blocked_only") == "on":
+            queryset = queryset.filter(pk__in=self.blocked_publisher_ids)
+        return DomainQuerySet(queryset.order_by("name"), self.publisher_viewmodel)
 
     def publisher_viewmodel(self, publisher: Publisher) -> PublisherViewModel:
         return PublisherViewModel(
             id=publisher.id,
             name=publisher.name,
-            is_blocked=self.blocklist.is_publisher_blocked(publisher),
+            is_blocked=publisher.id in self.blocked_publisher_ids,
             detail_url=publisher.get_absolute_url(),
         )
 
