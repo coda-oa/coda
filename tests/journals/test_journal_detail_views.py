@@ -1,10 +1,11 @@
 import pytest
 from django.test import Client
 from django.urls import reverse
+from tests import modelfactory
 
+from coda.apps.blocklist.models import BlockList
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.models import Journal
-from tests import modelfactory
 
 
 def _detail_url(journal: Journal) -> str:
@@ -87,3 +88,27 @@ def test__journal_detail__labels_funding_requests_as_article_type(client: Client
     row = content[content.rindex("<tr>", 0, start) : content.index("</tr>", start)]
 
     assert "Article" in row
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__journal_detail__blocked_journal__shows_block_reason(client: Client) -> None:
+    journal = modelfactory.journal(title="Blocked Journal")
+    BlockList.objects.get().block_journal(journal, reason="PREDATORY")
+
+    response = client.get(_detail_url(journal))
+
+    content = response.content.decode()
+    assert "Block reason:" in content
+    assert '<span class="label danger">Predatory</span>' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__journal_detail__unblocked_journal__shows_no_block_reason(client: Client) -> None:
+    journal = modelfactory.journal(title="Free Journal")
+
+    response = client.get(_detail_url(journal))
+
+    content = response.content.decode()
+    assert "Block reason:" not in content

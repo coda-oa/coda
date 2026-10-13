@@ -29,7 +29,12 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx["is_blocked"] = BlockList.objects.get().is_journal_blocked(self.object)
+        blocklist = BlockList.objects.get()
+        ctx["is_blocked"] = blocklist.is_journal_blocked(self.object)
+        blocked_journal = blocklist.get_blocked_journal(self.object)
+        ctx["block_reason_display"] = (
+            blocked_journal.get_reason_display() if blocked_journal else ""
+        )
         ctx["funding_requests"] = (
             FundingRequest.objects.filter(publication__article_journal=self.object)
             .select_related("publication")

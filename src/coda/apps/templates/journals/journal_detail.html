@@ -24,13 +24,19 @@
     </div>
     <article>
         <header>
-            <h2 class="mb-0">Journal metadata</h2>
+            <h2 class="mb-0">Journal Metadata</h2>
         </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
-        <p class="mb-0">
+        <p>
             Publisher:
             <a href="{{ journal.publisher.get_absolute_url }}">{{ journal.publisher.name }}</a>
         </p>
+        {% if is_blocked %}
+            <p class="mb-0">
+                Block reason:
+                <span class="label danger">{{ block_reason_display }}</span>
+            </p>
+        {% endif %}
     </article>
     {% include "partials/related_funding_requests.html" %}
 {% endblock content %}
