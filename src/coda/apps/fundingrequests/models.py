@@ -179,7 +179,7 @@ class ExternalFunding(models.Model):
 
 
 class Label(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     color_validator = RegexValidator(
         regex=r"^#[a-fA-F0-9]{6}$", message="Color must be in the format #RRGGBB"
     )
