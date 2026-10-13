@@ -58,7 +58,7 @@ class _SingletonManager(models.Manager["BlockList"]):
 
         return super().create(**kwargs)
 
-    def get(self) -> "BlockList":
+    def get(self, *args: Any, **kwargs: Any) -> "BlockList":
         return self.get_or_create()[0]
 
 
