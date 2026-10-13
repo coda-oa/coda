@@ -10,7 +10,8 @@ accessible name comes from aria-label, so the two instances cannot collide.
 <form class="pagination__jump"
       method="get"
       action="{{ request.path }}"
-      hx-get="{{ request.path }}">
+      hx-get="{{ request.path }}"
+      hx-select="#entity-list-region">
     {% for key, value in request.GET.items %}
         {% if key != "page" %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
     {% endfor %}

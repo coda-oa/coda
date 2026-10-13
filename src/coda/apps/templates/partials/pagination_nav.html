@@ -8,6 +8,7 @@
                     <li>
                         <a href="?{% param_replace page=page_obj.previous_page_number %}"
                            hx-get="?{% param_replace page=page_obj.previous_page_number %}"
+                           hx-select="#entity-list-region"
                            aria-label="Previous page" title="Previous page">‹</a>
                     </li>
                 {% else %}
@@ -20,6 +21,7 @@
                     <li>
                         <a href="?{% param_replace page=1 %}"
                            hx-get="?{% param_replace page=1 %}"
+                           hx-select="#entity-list-region"
                            aria-label="Page 1">1</a>
                     </li>
                 {% else %}
@@ -35,7 +37,8 @@
                 {% if page_obj.previous_page_number > 1 %}
                     <li>
                         <a href="?{% param_replace page=page_obj.previous_page_number %}"
-                           hx-get="?{% param_replace page=page_obj.previous_page_number %}">
+                           hx-get="?{% param_replace page=page_obj.previous_page_number %}"
+                           hx-select="#entity-list-region">
                             {{ page_obj.previous_page_number }}
                         </a>
                     </li>
@@ -48,7 +51,8 @@
                 {% if page_obj.next_page_number < page_obj.paginator.num_pages %}
                     <li>
                         <a href="?{% param_replace page=page_obj.next_page_number %}"
-                           hx-get="?{% param_replace page=page_obj.next_page_number %}">
+                           hx-get="?{% param_replace page=page_obj.next_page_number %}"
+                           hx-select="#entity-list-region">
                             {{ page_obj.next_page_number }}
                         </a>
                     </li>
@@ -64,6 +68,7 @@
                     <li>
                         <a href="?{% param_replace page=page_obj.paginator.num_pages %}"
                            hx-get="?{% param_replace page=page_obj.paginator.num_pages %}"
+                           hx-select="#entity-list-region"
                            aria-label="Page {{ page_obj.paginator.num_pages }} (last page)">{{ page_obj.paginator.num_pages }}</a>
                     </li>
                 {% else %}
@@ -74,6 +79,7 @@
                     <li>
                         <a href="?{% param_replace page=page_obj.next_page_number %}"
                            hx-get="?{% param_replace page=page_obj.next_page_number %}"
+                           hx-select="#entity-list-region"
                            aria-label="Next page" title="Next page">›</a>
                     </li>
                 {% else %}
