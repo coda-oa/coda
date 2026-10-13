@@ -23,11 +23,10 @@
   display: block;
   box-sizing: content-box;
   flex-shrink: 0;
-  position: sticky;
-  top: 1rem;
-  height: calc(100dvh - 1rem);
-  overflow-y: auto;
-  scrollbar-width: thin;
+  /* The sidebar is a <dialog> (open non-modal on wide screens); override the
+     UA positioning so it participates in the flex row and scrolls with the
+     page. The drawer media query below re-fixes it on narrow screens. */
+  position: static;
 
   /* Three-step vertical rhythm: label binds to its control, fields bind to
      their group, groups get room to breathe. */
@@ -157,9 +156,6 @@
 }
 
 .filter-group-title {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   margin: 0 0 0.5rem;
   padding-block: 0.3rem 0.25rem;
   font-size: 0.8rem;
@@ -335,6 +331,8 @@
     height: 100dvh;
     padding: 1rem;
     box-sizing: border-box;
+    overflow-y: auto;
+    scrollbar-width: thin;
     background: var(--coda-background-color);
     border-left: 1px solid var(--coda-border-color);
     box-shadow: -2px 0 8px rgb(0 0 0 / 0.15);
