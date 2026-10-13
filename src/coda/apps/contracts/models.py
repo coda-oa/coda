@@ -23,7 +23,6 @@ class Contract(models.Model):
     journals = models.ManyToManyField(Journal, related_name="contracts")
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
-    active_status = models.BooleanField(default=True)
     publication_billing = models.CharField(max_length=255)
 
     def __str__(self) -> str:
