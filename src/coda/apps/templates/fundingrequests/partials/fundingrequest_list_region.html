@@ -1,7 +1,1 @@
 {% include "partials/entity_list_region.html" with entity_list_item_template="fundingrequests/fundingrequest_list_item.html" %}
-{% if request.GET and entities|length == 0 %}
-    <p class="my-2">
-        No funding requests match the selected filters.
-        <a href="{% url 'fundingrequests:list' %}">Clear all filters</a>
-    </p>
-{% endif %}

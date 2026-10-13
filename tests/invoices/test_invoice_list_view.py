@@ -420,4 +420,7 @@ def test__no_results_note_names_the_search_term(client: Client) -> None:
 
     response = goto_list_page(client, {"search_term": "Nothing"})
 
-    assert 'No results found for "Nothing".' in response.content.decode()
+    content = response.content.decode()
+    assert "No invoices match the selected filters." in content
+    assert "Clear all filters" in content
+    assert 'No results found for "Nothing".' not in content

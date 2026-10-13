@@ -5,7 +5,10 @@
 </ul>
 {% if entities|length == 0 %}
     <p class="my-2">
-        {% if query %}
+        {% if no_results_message %}
+            {{ no_results_message }}
+            {% if no_results_clear_url %}<a href="{{ no_results_clear_url }}">Clear all filters</a>{% endif %}
+        {% elif query %}
             No results found for "{{ query }}".
         {% else %}
             No items to display.

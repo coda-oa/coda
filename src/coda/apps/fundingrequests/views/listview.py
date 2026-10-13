@@ -44,9 +44,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     @cached_property
     def _used_labels(self) -> list[Label]:
         """Labels attached to at least one request — the only filterable set."""
-        return list(
-            Label.objects.filter(requests__isnull=False).distinct().order_by("name")
-        )
+        return list(Label.objects.filter(requests__isnull=False).distinct().order_by("name"))
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
         filter_form = FundingRequestListFilterForm(request.GET, labels=self._used_labels)
@@ -61,6 +59,9 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
         ctx["query"] = self.request.GET.get("search_term", "")
+        if self.request.GET:
+            ctx["no_results_message"] = "No funding requests match the selected filters."
+            ctx["no_results_clear_url"] = reverse("fundingrequests:list")
 
         labels = self._used_labels
         filter_form = FundingRequestListFilterForm(
