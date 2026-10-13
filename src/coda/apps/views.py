@@ -55,7 +55,6 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_create_url: str = ""
     entity_list_item_template: str
     entity_list_layout_classes: str = ""
-    entity_filter_template: str = ""
     use_generic_entity_filter: bool = False
     entity_filter_extra_template: str = ""
     no_results_message: str = ""
@@ -72,7 +71,6 @@ class EntityListView(Generic[EntityType], TemplateView):
             "entity_name": self.entity_name,
             "entity_create_url": self.entity_create_url,
             "entity_list_item_template": self.entity_list_item_template,
-            "entity_filter_template": self.entity_filter_template,
             "entity_list_layout_classes": self.entity_list_layout_classes,
             "use_generic_entity_filter": self.use_generic_entity_filter,
             "entity_filter_extra_template": self.entity_filter_extra_template,
