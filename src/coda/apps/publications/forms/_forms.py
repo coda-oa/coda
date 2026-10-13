@@ -223,6 +223,10 @@ class LimitedVocabularyTargetForm(forms.Form):
     allowed_concepts_check = ConceptCodesField(required=False)
     disallowed_concepts_check = ConceptCodesField(required=False)
     disallowed_concepts = ConceptCodesField(required=False)
+    # Optional and deliberately unbounded here: the target form only needs to
+    # carry the posted name through to re-renders of the editor; length and
+    # presence are enforced by LimitedVocabularySaveForm, which overrides it.
+    vocabulary_name = forms.CharField(required=False, label="Vocabulary name")
 
     def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(self._normalize_target(data), *args, **kwargs)
@@ -269,6 +273,11 @@ class LimitedVocabularyTargetForm(forms.Form):
     def vocabulary(self) -> LimitedVocabulary:
         assert self._vocabulary is not None
         return self._vocabulary
+
+    def applied_name(self, vocabulary: LimitedVocabulary) -> str:
+        """The name to use for *vocabulary*: the posted value if non-empty,
+        else the vocabulary's current name."""
+        return self.cleaned_data.get("vocabulary_name") or vocabulary.name
 
 
 class LimitedVocabularySaveForm(LimitedVocabularyTargetForm):

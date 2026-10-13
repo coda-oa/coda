@@ -102,8 +102,12 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
         return HttpResponseBadRequest("Could not resolve vocabulary from submitted data")
 
     vocabulary = target.vocabulary()
-    vocabulary.name = request.POST.get("vocabulary_name") or vocabulary.name
+    vocabulary.name = target.applied_name(vocabulary)
     _apply_disallowed(target.cleaned_data["disallowed_concepts"], vocabulary)
+    # Re-render the editor with the *save* form's errors (e.g. an invalid
+    # name) and the concept checkboxes in their posted state; nothing is
+    # persisted. Only reachable when the save form failed on its own
+    # required_name field — target-level failures are handled above.
     return render(
         request,
         "publications/vocabulary.html",
