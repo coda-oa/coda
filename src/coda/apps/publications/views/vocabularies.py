@@ -3,7 +3,7 @@ from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
@@ -65,7 +65,7 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
     if request.method == "POST":
         form = LimitedVocabularyTargetForm(request.POST)
         if not form.is_valid():
-            return HttpResponseBadRequest("Invalid vocabulary data")
+            return _invalid_vocabulary_response(request, form)
         _apply_disallowed(form.cleaned_data["disallowed_concepts"], limited)
 
     return render(
@@ -99,7 +99,7 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
 
     target = LimitedVocabularyTargetForm(request.POST)
     if not target.is_valid():
-        return HttpResponseBadRequest("Could not resolve vocabulary from submitted data")
+        return _invalid_vocabulary_response(request, target)
 
     vocabulary = target.vocabulary()
     vocabulary.name = target.applied_name(vocabulary)
@@ -112,6 +112,22 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
         request,
         "publications/vocabulary.html",
         _tree_context(vocabulary) | {"form": form},
+    )
+
+
+def _invalid_vocabulary_response(
+    request: HttpRequest, form: LimitedVocabularyTargetForm
+) -> HttpResponse:
+    """400 with a rendered error fragment; these endpoints are HTMX-swapped,
+    so a bare text response would leave the user with an unusable panel."""
+    errors = list(form.non_field_errors())
+    for field_errors in form.errors.values():
+        errors.extend(field_errors)
+    return render(
+        request,
+        "publications/vocabulary_error.html",
+        {"form_errors": errors},
+        status=400,
     )
 
 
@@ -132,7 +148,7 @@ def _move_concepts_between_lists(
 ) -> HttpResponse:
     form = LimitedVocabularyTargetForm(request.POST)
     if not form.is_valid():
-        return HttpResponseBadRequest("Could not resolve vocabulary from submitted data")
+        return _invalid_vocabulary_response(request, form)
 
     vocabulary = form.vocabulary()
     _apply_disallowed(form.cleaned_data["disallowed_concepts"], vocabulary)

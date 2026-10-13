@@ -1,0 +1,12 @@
+{% comment %}
+Error fragment for HTMX-swapped vocabulary endpoints. Rendered with a 400
+status so callers can still detect failure; the markup lands in the swap
+target and tells the user what went wrong.
+{% endcomment %}
+<div class="voc-error" role="alert">
+    <p><strong>The vocabulary could not be updated.</strong></p>
+    <ul>
+        {% for error in form_errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+    <p>Reload the page and try again.</p>
+</div>
