@@ -8,8 +8,7 @@
         <div class="flex align-center">
             {% if is_blocked %}
                 <button class="outline success"
-                        hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}"
-                        hx-vals='{"redirect_url": "{% url "publishing:journals:detail" eissn=journal.eissn %}" }'>
+                        hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}">
                     Unblock
                 </button>
             {% else %}

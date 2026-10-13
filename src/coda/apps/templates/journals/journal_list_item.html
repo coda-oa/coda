@@ -1,15 +1,27 @@
 <article class="flex justify-between align-center">
     <div>
         <p>
-            <a href="{{ entity.get_absolute_url }}">{{ entity.title }}</a>
+            <a href="{{ entity.detail_url }}">{{ entity.title }}</a>
         </p>
         <p>EISSN: {{ entity.eissn }}</p>
         <p>
             Publisher:
-            <a href="{{ entity.publisher.get_absolute_url }}">{{ entity.publisher.name }}</a>
+            <a href="{{ entity.publisher_url }}">{{ entity.publisher_name }}</a>
         </p>
     </div>
     <div>
+        {% if entity.is_blocked %}
+            <button type="button"
+                    class="my-0 outline success"
+                    hx-post="{% url "blocklist:unblock_journal" pk=entity.id %}">Unblock</button>
+        {% else %}
+            <button type="button"
+                    class="my-0 outline danger"
+                    hx-target="body"
+                    hx-swap="beforeend"
+                    hx-push-url="false"
+                    hx-get="{% url "blocklist:request_block_journal" pk=entity.id %}">Block</button>
+        {% endif %}
         <a href="{% url "publishing:journals:update" eissn=entity.eissn %}"
            role="button"
            class="secondary">Edit</a>
