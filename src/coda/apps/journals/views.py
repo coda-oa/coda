@@ -14,6 +14,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
 from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
@@ -62,13 +63,13 @@ class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
 
     def get_entities(self, request: HttpRequest) -> Sequence[Journal]:
         search_term = request.GET.get("query", "").strip()
-        queryset = Journal.objects.all()
+        queryset = Journal.objects.select_related("publisher")
         if search_term:
             queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
         if request.GET.get("blocked_only") == "on":
             queryset = queryset.filter(pk__in=self.blocked_journal_ids)
         order_by = self.ordering or self.search_fields
-        return list(queryset.order_by(*order_by))
+        return DomainQuerySet(queryset.order_by(*order_by), lambda x: x)
 
 
 journal_list_view = JournalListView.as_view()
