@@ -1,10 +1,23 @@
 from django.db import models
+from django.utils import timezone
 
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 
 
+class ContractQuerySet(models.QuerySet["Contract"]):
+    def active(self) -> "ContractQuerySet":
+        """Contracts whose period contains today. Null bounds are unbounded."""
+        today = timezone.localdate()
+        return self.filter(
+            models.Q(start_date__isnull=True) | models.Q(start_date__lte=today),
+            models.Q(end_date__isnull=True) | models.Q(end_date__gte=today),
+        )
+
+
 class Contract(models.Model):
+    objects = ContractQuerySet.as_manager()
+
     name = models.CharField(max_length=255)
     publishers = models.ManyToManyField(Publisher, related_name="contracts")
     journals = models.ManyToManyField(Journal, related_name="contracts")
