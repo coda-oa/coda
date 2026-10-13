@@ -27,7 +27,7 @@ class PublisherViewModel(DomainModelProtocol[int]):
     id: int
     name: str
     is_blocked: bool
-    get_absolute_url: str
+    detail_url: str
 
 
 @breadcrumb("Publishers", parent_url_name="publishing:home")
@@ -57,7 +57,7 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
             id=publisher.id,
             name=publisher.name,
             is_blocked=publisher.id in self.blocked_publisher_ids,
-            get_absolute_url=publisher.get_absolute_url(),
+            detail_url=publisher.get_absolute_url(),
         )
 
 
