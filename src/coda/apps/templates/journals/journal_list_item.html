@@ -8,6 +8,11 @@
             Publisher:
             <a href="{{ entity.publisher_url }}">{{ entity.publisher_name }}</a>
         </p>
+        {% if entity.is_blocked %}
+            <p class="mb-0_5">
+                <span class="label danger">{{ entity.block_reason_display }}</span>
+            </p>
+        {% endif %}
     </div>
     <div>
         {% if entity.is_blocked %}

@@ -30,6 +30,26 @@ def test__journal_list__blocked_only_shows_only_blocked_journals(client: Client)
     assert "Free Journal" not in content
     assert "Show blocked only" in content
     assert 'aria-checked="true"' in content
+    assert "Predatory" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__journal_list__shows_block_reason_label(client: Client) -> None:
+    mirrored = modelfactory.journal(title="Mirrored Journal")
+    predatory = modelfactory.journal(title="Predatory Journal")
+    modelfactory.journal(title="Free Journal")
+    blocklist = BlockList.objects.get()
+    blocklist.block_journal(mirrored, reason="MIRROR")
+    blocklist.block_journal(predatory, reason="PREDATORY")
+
+    response = client.get(reverse("publishing:journals:list"))
+
+    content = response.content.decode()
+    assert '<span class="label danger">Mirror</span>' in content
+    assert '<span class="label danger">Predatory</span>' in content
+    # unblocked journals show no reason label
+    assert content.count('<span class="label danger">') == 2
 
 
 @pytest.mark.django_db

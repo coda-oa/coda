@@ -50,6 +50,7 @@ class JournalViewModel(DomainModelProtocol[int]):
     publisher_url: str
     detail_url: str
     is_blocked: bool
+    block_reason_display: str
 
 
 @breadcrumb("Journals", parent_url_name="publishing:home")
@@ -65,12 +66,15 @@ class JournalListView(LoginRequiredMixin, EntityListView[JournalViewModel]):
     entity_filter_extra_template = "journals/journal_blocked_checkbox.html"
     search_placeholder = "Search by title or eissn..."
     blocked_journal_ids: set[int]
+    block_reasons: dict[int, str]
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
         super().setup(request, *args, **kwargs)
-        self.blocked_journal_ids = set(
-            BlockList.objects.get().blocked_journals().values_list("journal_id", flat=True)
-        )
+        blocked_journals = BlockList.objects.get().blocked_journals()
+        self.blocked_journal_ids = set(blocked_journals.values_list("journal_id", flat=True))
+        self.block_reasons = {
+            entry.journal_id: entry.get_reason_display() for entry in blocked_journals
+        }
 
     def get_entities(self, request: HttpRequest) -> Sequence[JournalViewModel]:
         search_term = request.GET.get("query", "").strip()
@@ -91,6 +95,7 @@ class JournalListView(LoginRequiredMixin, EntityListView[JournalViewModel]):
             publisher_url=journal.publisher.get_absolute_url(),
             detail_url=journal.get_absolute_url(),
             is_blocked=journal.id in self.blocked_journal_ids,
+            block_reason_display=self.block_reasons.get(journal.id, ""),
         )
 
 
