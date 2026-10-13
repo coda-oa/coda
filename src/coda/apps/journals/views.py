@@ -2,7 +2,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
@@ -10,8 +9,7 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
-from django.views.decorators.http import require_GET, require_POST
-from django.views.generic import CreateView, DetailView, UpdateView
+from django.views.generic import CreateView, DetailView, FormView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -134,49 +132,36 @@ class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
 journal_update_view = JournalUpdateView.as_view()
 
 
-@login_required
-@require_GET
-def journal_create_modal(request: HttpRequest) -> HttpResponse:
-    form = JournalForm()
+class JournalCreateModalView(LoginRequiredMixin, FormView[JournalForm]):
+    """Create a journal from the funding-request modal.
 
-    extra_content = render_to_string(
-        "journals/partials/journal_modal_publisher_button.html", request=request
-    )
+    GET renders the creation modal; POST validates and either re-renders the
+    modal with errors or returns the success fragment that swaps the created
+    journal into the funding request's journal search results.
+    """
 
-    return render(
-        request,
-        "partials/entity_creation_modal.html",
-        {
-            "entity_name": "Journal",
-            "form": form,
-            "entity_create_url": "publishing:journals:create_modal_submit",
-            "extra_content": mark_safe(extra_content),
-        },
-    )
+    form_class = JournalForm
+    template_name = "partials/entity_creation_modal.html"
+    success_template_name = "journals/partials/journal_create_success.html"
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["entity_name"] = "Journal"
+        ctx["entity_create_url"] = "publishing:journals:create_modal"
+        if self.request.method == "GET":
+            extra_content = render_to_string(
+                "journals/partials/journal_modal_publisher_button.html", request=self.request
+            )
+            ctx["extra_content"] = mark_safe(extra_content)
+        return ctx
 
-@login_required
-@require_POST
-def journal_create_modal_submit(request: HttpRequest) -> HttpResponse:
-    form = JournalForm(request.POST)
-
-    if form.is_valid():
+    def form_valid(self, form: JournalForm) -> HttpResponse:
         journal = form.save()
+        return render(
+            self.request,
+            self.success_template_name,
+            {"journal": journal},
+        )
 
-        return render(
-            request,
-            "journals/partials/journal_create_success.html",
-            {
-                "journal": journal,
-            },
-        )
-    else:
-        return render(
-            request,
-            "partials/entity_creation_modal.html",
-            {
-                "entity_name": "Journal",
-                "form": form,
-                "entity_create_url": "publishing:journals:create_modal_submit",
-            },
-        )
+    def form_invalid(self, form: JournalForm) -> HttpResponse:
+        return self.render_to_response(self.get_context_data(form=form))
