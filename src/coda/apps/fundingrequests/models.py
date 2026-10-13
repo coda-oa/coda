@@ -44,13 +44,14 @@ class FundingOrganization(models.Model):
     name = models.CharField()
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
-    objects: FundingOrganizationManager = (
-        FundingOrganizationManager()
-    )  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationManager = FundingOrganizationManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     all_objects = models.Manager()
 
     def __str__(self) -> str:
         return self.name
+
+    def get_absolute_url(self) -> str:
+        return reverse("fundingrequests:funder_detail", kwargs={"pk": self.pk})
 
     def archive(self, *, when: datetime | None = None) -> None:
         if self.archived_at:
@@ -107,9 +108,7 @@ class FundingOrganizationLinkTypeManager(models.Manager["FundingOrganizationLink
 class FundingOrganizationLinkType(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
-    objects: FundingOrganizationLinkTypeManager = (
-        FundingOrganizationLinkTypeManager()
-    )  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationLinkTypeManager = FundingOrganizationLinkTypeManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __str__(self) -> str:
         return self.name
@@ -131,9 +130,7 @@ class FundingOrganizationLink(models.Model):
         FundingOrganization, on_delete=models.CASCADE, related_name="links"
     )
 
-    objects: FundingOrganizationLinkManager = (
-        FundingOrganizationLinkManager()
-    )  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationLinkManager = FundingOrganizationLinkManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class ExternalFundingManager(models.Manager["ExternalFunding"]):
@@ -178,9 +175,7 @@ class ExternalFunding(models.Model):
     project_id = models.CharField()
     project_name = models.CharField()
 
-    objects: ExternalFundingManager = (
-        ExternalFundingManager()
-    )  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: ExternalFundingManager = ExternalFundingManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class Label(models.Model):
@@ -202,9 +197,7 @@ class FundingRequestReview(models.Model):
 
 
 class FundingRequest(models.Model):
-    objects: FundingRequestManager = (
-        FundingRequestManager()
-    )  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingRequestManager = FundingRequestManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     PROCESSING_CHOICES = [
         (ReviewResult.Approved.value, "Approved"),
