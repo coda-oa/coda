@@ -6,8 +6,7 @@
         {% if entity.is_blocked %}
             <button type="button"
                     class="my-0 outline success"
-                    hx-post="{% url "blocklist:unblock_publisher" pk=entity.id %}"
-                    hx-vals='{"redirect_url": "{% url "publishing:publishers:list" %}"}'>Unblock</button>
+                    hx-post="{% url "blocklist:unblock_publisher" pk=entity.id %}">Unblock</button>
         {% else %}
             <button type="button"
                     class="my-0 outline danger"
