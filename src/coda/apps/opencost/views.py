@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
@@ -304,9 +305,7 @@ def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
     else:
         _flash_report_outcome(request, report)
 
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = detail_url
-    return response
+    return HttpResponseClientRedirect(detail_url)
 
 
 @login_required
@@ -317,6 +316,4 @@ def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     report.delete()
     messages.success(request, f"Report '{report_title}' deleted successfully.")
 
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("opencost:list")
-    return response
+    return HttpResponseClientRedirect(reverse("opencost:list"))

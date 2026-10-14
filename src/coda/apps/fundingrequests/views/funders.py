@@ -11,6 +11,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
@@ -244,12 +245,6 @@ class FundingOrganizationUpdateView(
 fundingorganizations_update = FundingOrganizationUpdateView.as_view()
 
 
-def _htmx_redirect(url: str) -> HttpResponse:
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = url
-    return response
-
-
 def _guard_can_merge(
     request: HttpRequest,
     pk: int,
@@ -259,7 +254,7 @@ def _guard_can_merge(
     can_merge, reasons = can_merge_funding_organization(source, target)
     if not can_merge:
         messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     return None
 
 
@@ -298,7 +293,7 @@ def _archival_action(
             _modal_context(org, url_key, url_name, error=str(e)),
         )
     messages.success(request, success_msg.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -329,10 +324,10 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
         delete_funding_organization(org)
     except ValueError as e:
         messages.error(request, str(e))
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
     messages.success(request, FUNDER_DELETE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDERS_LIST_URL))
+    return HttpResponseClientRedirect(reverse(FUNDERS_LIST_URL))
 
 
 @login_required
@@ -509,7 +504,7 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
             "Cannot update from ROR: this organization has no ROR identifier.",
             extra_tags="ror-update:no-ror-id",
         )
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     try:
         ror_client = get_ror_client()
         result = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
@@ -540,7 +535,7 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
             return response
     except Exception as e:
         messages.error(request, f"Error updating from ROR: {e!s}", extra_tags="ror-update:failed")
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -615,4 +610,4 @@ def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpR
     except Exception as e:
         messages.error(request, f"Error merging organizations: {e!s}")
 
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))

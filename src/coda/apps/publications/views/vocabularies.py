@@ -7,6 +7,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.forms import (
@@ -209,4 +210,4 @@ def delete(request: HttpRequest, pk: int) -> HttpResponse:
         vocabularies.delete(VocabularyId(pk))
     except vocabulary_repository.VocabularyInUseError:
         return HttpResponse(status=409)
-    return HttpResponse(status=200, headers={"HX-Redirect": reverse("publications:vocabularies")})
+    return HttpResponseClientRedirect(reverse("publications:vocabularies"))
