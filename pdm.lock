@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = []
 lock_version = "4.5.1"
-content_hash = "sha256:109ce4d399cc62c506d633686f29b0dd842a8914b36b7e0fd41812e3699a3773"
+content_hash = "sha256:4b38d99c0e476f635920b0370328bf31e67ca1e117bbf51f5bffe67ba7f964bc"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -791,6 +791,20 @@ dependencies = [
 files = [
     {file = "django_environ-0.14.0-py3-none-any.whl", hash = "sha256:8dbe8a57f0a540ab8abd6f54f230de5e99e3a2c9d797cb9caecb037bca3d47d8"},
     {file = "django_environ-0.14.0.tar.gz", hash = "sha256:b6c48d93b9d2ff8a3ea14099e90c35aa4f101c1b4d5f262dfee0d27b06742ed7"},
+]
+
+[[package]]
+name = "django-htmx"
+version = "1.29.0"
+requires_python = ">=3.10"
+summary = "Extensions for using Django with htmx."
+dependencies = [
+    "asgiref>=3.6",
+    "django>=5.2",
+]
+files = [
+    {file = "django_htmx-1.29.0-py3-none-any.whl", hash = "sha256:0ec5be1645ed71e6787bd75e0250624f00274ac3bb1730f07b6629a95688929b"},
+    {file = "django_htmx-1.29.0.tar.gz", hash = "sha256:337dfa35b8da13fd68bf968f2b9cc9a4144a4e71f06c204d7ff10f7343988102"},
 ]
 
 [[package]]
