@@ -487,9 +487,9 @@ def _overlap_response(
     return render(
         request,
         (
-            "fundingrequests/funders/overlap_detection_page.html"
-            if request.headers.get("HX-Request") != "true"
-            else "fundingrequests/funders/overlap_detection_dialog.html"
+            "fundingrequests/funders/overlap_detection_dialog.html"
+            if request.htmx  # type: ignore[attr-defined]
+            else "fundingrequests/funders/overlap_detection_page.html"
         ),
         {
             "source": org,
