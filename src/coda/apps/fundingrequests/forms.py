@@ -277,7 +277,7 @@ class LabelForm(forms.ModelForm[Label]):
         fields = "__all__"
         widgets: ClassVar[dict[str, forms.Widget]] = {
             "name": forms.TextInput(attrs={"autofocus": True}),
-            "hexcolor": forms.TextInput(attrs={"type": "color"}),
+            "hexcolor": forms.ColorInput(),
         }
         labels: ClassVar[dict[str, str]] = {"hexcolor": "Color"}
 
