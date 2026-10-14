@@ -81,7 +81,7 @@ def test__block_publisher__redirects_to_current_htmx_url(client: Client) -> None
 
     assert response.status_code == 200
     assert blocklist.is_publisher_blocked(publisher)
-    assert response.headers["HX-Redirect"] == "http://testserver/publishing/publishers/"
+    assert response.headers["HX-Redirect"] == "/publishing/publishers/"
 
 
 @pytest.mark.django_db
@@ -118,7 +118,7 @@ def test__unblock_publisher__redirects_to_current_htmx_url(client: Client) -> No
 
     assert response.status_code == 200
     assert not blocklist.is_publisher_blocked(publisher)
-    assert response.headers["HX-Redirect"] == "http://testserver/publishing/publishers/"
+    assert response.headers["HX-Redirect"] == "/publishing/publishers/"
 
 
 @pytest.mark.django_db
@@ -135,7 +135,7 @@ def test__block_journal__redirects_to_current_htmx_url(client: Client) -> None:
 
     assert response.status_code == 200
     assert blocklist.is_journal_blocked(journal)
-    assert response.headers["HX-Redirect"] == "http://testserver/publishing/journals/"
+    assert response.headers["HX-Redirect"] == "/publishing/journals/"
 
 
 @pytest.mark.django_db
@@ -168,4 +168,4 @@ def test__unblock_journal__redirects_to_current_htmx_url(client: Client) -> None
 
     assert response.status_code == 200
     assert not blocklist.is_journal_blocked(journal)
-    assert response.headers["HX-Redirect"] == "http://testserver/publishing/journals/"
+    assert response.headers["HX-Redirect"] == "/publishing/journals/"
