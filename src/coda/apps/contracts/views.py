@@ -11,13 +11,14 @@ from django.views.decorators.http import require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
-from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.forms import ContractForm, ContractLinkForm, EntityFormset
-from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
+from coda.apps.contracts.mappers import ContractDomainMapper
+from coda.apps.contracts.models import Contract as ContractModel
+from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
-from coda.apps.search import words_icontains
 from coda.apps.publishers.models import Publisher
+from coda.apps.search import words_icontains
 from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
@@ -29,12 +30,15 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
     use_generic_entity_filter = True
+    entity_filter_extra_template = "contracts/contract_inactive_checkbox.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
         search_term = request.GET.get("query", "").strip()
         contracts = ContractModel.objects.all()
         if search_term:
             contracts = contracts.filter(words_icontains(search_term, "name"))
+        if request.GET.get("include_inactive") != "on":
+            contracts = contracts.active()
 
         return DomainQuerySet(ContractDomainMapper.prefetch(contracts), ContractDomainMapper.map)
 
