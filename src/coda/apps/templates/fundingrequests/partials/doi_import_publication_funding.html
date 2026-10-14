@@ -5,8 +5,7 @@
                 class="secondary small my-0"
                 hx-post="{% url 'fundingrequests:doi_preview_reset_funding' session_key=session_key %}"
                 hx-target="#doi-funding-section"
-                hx-swap="outerHTML"
-                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Reset</button>
+                hx-swap="outerHTML">Reset</button>
     </header>
     <table>
         <thead>
