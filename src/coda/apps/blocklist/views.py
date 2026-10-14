@@ -131,11 +131,14 @@ def maybe_redirect(request: HttpRequest, default_url: str = "") -> HttpResponse:
     """Redirect the HTMX caller back to where the request came from.
 
     Resolution order: an explicitly posted ``redirect_url`` (rarely needed),
-    the page the request was triggered from (htmx's ``HX-Current-URL``), then
-    the caller-supplied default.
+    the page the request was triggered from (htmx's ``HX-Current-URL``,
+    validated against this request's scheme and host), then the
+    caller-supplied default.
     """
     redirect_url = (
-        request.POST.get("redirect_url") or request.headers.get("HX-Current-URL") or default_url
+        request.POST.get("redirect_url")
+        or request.htmx.current_url_abs_path  # type: ignore[attr-defined]
+        or default_url
     )
     if redirect_url:
         return HttpResponse(headers={"HX-Redirect": redirect_url})
