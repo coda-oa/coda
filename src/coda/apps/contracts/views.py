@@ -40,7 +40,7 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
         if request.GET.get("include_inactive") != "on":
             contracts = contracts.active()
 
-        return DomainQuerySet(ContractDomainMapper.prefetch(contracts), ContractDomainMapper.map)
+        return DomainQuerySet(contracts, ContractDomainMapper.map)
 
 
 @login_required
