@@ -9,7 +9,6 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
-from django.utils.http import urlencode
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -139,9 +138,10 @@ def publisher_create_modal_submit(request: HttpRequest) -> HttpResponse:
 def _render_publisher_modal(
     request: HttpRequest, form: PublisherForm, context_param: str
 ) -> HttpResponse:
-    submit_url = reverse("publishing:publishers:create_modal_submit")
-    if context_param:
-        submit_url += f"?{urlencode({'context': context_param})}"
+    submit_url = reverse(
+        "publishing:publishers:create_modal_submit",
+        query={"context": context_param} if context_param else None,
+    )
 
     target_wrapper = (
         "nested-entity-creation-modal-wrapper"

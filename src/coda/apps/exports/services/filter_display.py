@@ -5,21 +5,20 @@ validates and decodes it (including the legacy comma-joined formats), so the
 projection below only deals with typed values.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, get_args, get_origin
-from collections.abc import Callable
-from urllib.parse import urlencode
 
 from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
-from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
 )
 from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
+from coda.apps.fundingrequests.models import Label
 from coda.apps.invoices.models import FundingSource
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -100,7 +99,7 @@ def build_filter_form_context() -> dict[str, object]:
 def create_redo_url(filters: dict[str, Any], url_name: str) -> str:
     """Rebuild the filter form URL for 'reuse filters', keys normalized via the DTO."""
     params = ExportFiltersDto.model_validate(filters).to_storage()
-    return reverse(url_name) + "?" + urlencode(params, doseq=True)
+    return reverse(url_name, query=params)
 
 
 @dataclass

@@ -56,10 +56,7 @@ class ListRegionMixin(TemplateView):
         return response
 
     def _push_url(self) -> str:
-        path = reverse(self.list_url_name)
-        if self.request.GET:
-            return f"{path}?{self.request.GET.urlencode()}"
-        return path
+        return reverse(self.list_url_name, query=self.request.GET or None)
 
 
 def valid_fields(form: forms.Form) -> dict[str, Any]:
@@ -234,9 +231,7 @@ class ChipBuilder:
 
 
 def build_url(url_name: str, params: QueryDict) -> str:
-    encoded = params.urlencode()
-    path = reverse(url_name)
-    return f"{path}?{encoded}" if encoded else path
+    return reverse(url_name, query=params or None)
 
 
 def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: str | None) -> str:

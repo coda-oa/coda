@@ -127,9 +127,7 @@ def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
     params.pop("page", None)
     if labels:
         params.setlist("labels", [str(x) for x in sorted(labels)])
-    encoded = params.urlencode()
-    path = reverse(url_name)
-    return f"{path}?{encoded}" if encoded else path
+    return reverse(url_name, query=params or None)
 
 
 def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
