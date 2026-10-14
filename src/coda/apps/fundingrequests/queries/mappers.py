@@ -22,7 +22,6 @@ Usage:
 
 import datetime
 from collections.abc import Iterable
-from urllib.parse import urlencode
 
 from django.urls import reverse
 
@@ -60,7 +59,7 @@ class PaymentDetailMapper:
                 url=reverse("contracts:detail", kwargs={"pk": status.contract_id}),
             )
 
-        invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'search_term': request_id})}"
+        invoice_list_url = reverse("invoices:list", query={"search_term": request_id})
 
         if not status.payments():
             return UnpaidDetail()
