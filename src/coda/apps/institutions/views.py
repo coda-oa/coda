@@ -11,12 +11,12 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.institutions import services, repository
+from coda.apps.institutions import repository, services
 from coda.apps.institutions.forms import InstitutionForm, InstitutionLinkForm
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.preferences.models import GlobalPreferences
@@ -74,7 +74,6 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
     entity_name = "Organization Structure"
     entity_list_item_template = "institutions/institution_list_item.html"
     entity_create_url = "institutions:create"
-    entity_secondary_create_url = INSTITUTION_IMPORT_VIEW_URL
     use_generic_entity_filter = True
     entity_filter_extra_template = "partials/archived_filter_checkbox.html"
     search_placeholder = "Search institutions..."
@@ -90,7 +89,6 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
-            "entity_secondary_create_url": self.entity_secondary_create_url,
             "include_archived": self.request.GET.get("include_archived") == "on",
         }
 
@@ -553,7 +551,7 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         messages.error(
             request,
-            f"Failed to import file: {str(e)}. Please check that the file is a valid CSV with the correct format.",
+            f"Failed to import file: {e!s}. Please check that the file is a valid CSV with the correct format.",
         )
         return redirect(INSTITUTION_IMPORT_VIEW_URL)
 

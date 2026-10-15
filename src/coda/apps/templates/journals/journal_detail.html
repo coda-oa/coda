@@ -1,30 +1,26 @@
 {% extends "base.html" %}
+{% block page_supertitle %}Journal{% endblock page_supertitle %}
+{% block page_title %}{{ journal.title }}{% endblock page_title %}
+{% block page_actions %}
+    {% if is_blocked %}
+        <button class="outline success"
+                hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}">
+            Unblock
+        </button>
+    {% else %}
+        <button class="outline danger"
+                hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
+                hx-target="body"
+                hx-swap="beforeend">Block</button>
+    {% endif %}
+    <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
+       role="button"
+       class="secondary">Edit</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center my-2">
-        <hgroup class="mb-0">
-            <h1>Journal</h1>
-            <p>{{ journal.title }}</p>
-        </hgroup>
-        <div class="flex align-center">
-            {% if is_blocked %}
-                <button class="outline success"
-                        hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}">
-                    Unblock
-                </button>
-            {% else %}
-                <button class="outline danger"
-                        hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
-                        hx-target="body"
-                        hx-swap="beforeend">Block</button>
-            {% endif %}
-            <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
-               role="button"
-               class="secondary">Edit</a>
-        </div>
-    </div>
     <article>
         <header>
-            <h2 class="mb-0">Journal Metadata</h2>
+            <h2 class="mb-0">Journal Info</h2>
         </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
         <p>

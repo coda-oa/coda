@@ -2,40 +2,48 @@
 {% block wizard_step %}
     <h1>Publication Details</h1>
     <article>
-        <h2 class="my-0">Authors</h2>
+        <header>
+            <h2 class="my-0">Authors</h2>
+        </header>
         <h3 class="mt-2">Relevant authors</h3>
         {{ author_formset.as_inline }}
         <h3 class="my-2">Other Authors</h3>
         <p>
-            Paste a list of names into the textarea and press <i>Preview parsed authors</i>. CODA will attempt to parse individual names from the given list.
+            Paste a list of names into the textarea and press <i>Preview parsed authors</i>. CODA will attempt to parse
+            individual names from the given list.
         </p>
         {% include "fundingrequests/partials/preview_authors.html" %}
     </article>
     <article>
-        <h2>Publication Meta Data</h2>
+        <header>
+            <h2 class="my-0">Publication Metadata</h2>
+        </header>
         <table>
             <tbody>
-                {{ publication_form.as_table }}
+            {{ publication_form.as_table }}
             </tbody>
         </table>
     </article>
     <article>
-        <h2>Links</h2>
+        <header>
+            <h2 class="my-0">Links</h2>
+        </header>
         <table>
             <thead>
-                <td>Link Type</td>
-                <td>Link</td>
-                <td>
-                    <button type="button"
-                            hx-post="{% url 'fundingrequests:partial_add_linkrow' %}"
-                            hx-target="#linktable"
-                            hx-swap="beforeend">Add</button>
-                </td>
+            <td>Link Type</td>
+            <td>Link</td>
+            <td>
+                <button type="button"
+                        hx-post="{% url 'fundingrequests:partial_add_linkrow' %}"
+                        hx-target="#linktable"
+                        hx-swap="beforeend">Add
+                </button>
+            </td>
             </thead>
             <tbody id="linktable">
-                {% for link_data in links %}
-                    {% include "partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
-                {% endfor %}
+            {% for link_data in links %}
+                {% include "partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
+            {% endfor %}
             </tbody>
         </table>
     </article>

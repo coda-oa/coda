@@ -1,11 +1,11 @@
 {% extends "base.html" %}
+{% block page_title %}Create Author{% endblock page_title %}
 {% block content %}
     {% if messages %}
         <ul>
             {% for message in messages %}<li>{{ message }}</li>{% endfor %}
         </ul>
     {% endif %}
-    <h1>Create Author</h1>
     <form action="{% url "authors:create" %}" method="post">
         {% csrf_token %}
         {{ author_form.as_p }}
