@@ -1,22 +1,37 @@
 {# Context: journals, search_term #}
-<div id="journal-search-results" class="scroll-container max-h-30">
+<div id="journal-search-results">
     {% if journals %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Publisher</th>
-                    <th>Select</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="my-2 scroll-container max-h-30">
+            <table>
+                <thead>
+                  <tr>
+                      <th>Title</th>
+                      <th>Publisher</th>
+                      <th>Select</th>
+                  </tr>
+                </thead>
+                <tbody>
                 {% for journal in journals %}
                     {% include "fundingrequests/partials/journal_row.html" %}
                 {% endfor %}
-            </tbody>
-        </table>
-    {% elif search_term %}
-        <p>No journals found for "{{ search_term }}".</p>
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+    {% if search_term or journals %}
+        <div class="flex justify-between align-center">
+            {% if journals %}
+                <p>Couldn't find the right journal?</p>
+            {% else %}
+                <p>No results for "{{ search_term }}".</p>
+            {% endif %}
+            <button type="button"
+                    class="secondary"
+                    hx-get="{% url 'publishing:journals:create_modal' %}"
+                    hx-target="#entity-creation-modal-wrapper"
+                    hx-swap="innerHTML">New Journal
+            </button>
+        </div>
     {% endif %}
     <div class="flex justify-between align-center mt-2">
         <button type="button"
