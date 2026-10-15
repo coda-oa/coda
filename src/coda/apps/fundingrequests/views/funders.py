@@ -179,7 +179,6 @@ class FundingOrganizationCreateView(
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["title"] = "Create Funding Organization"
         context["link_types"] = FundingOrganizationLinkType.objects.all()
         context["links"] = self.assemble_link_data() if self.has_links() else []
         return context
@@ -216,7 +215,6 @@ class FundingOrganizationUpdateView(
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["title"] = "Update Funding Organization"
         context["link_types"] = FundingOrganizationLinkType.objects.all()
         context["links"] = self._get_links_for_context()
         return context
