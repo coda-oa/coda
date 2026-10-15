@@ -1,32 +1,33 @@
-<div id="publisher-search-results" class="scroll-container max-h-30">
+<div id="publisher-search-results">
     {% if publishers %}
-        <table class="my-2">
-            <thead>
+        <div class="my-2 scroll-container max-h-30">
+            <table>
+                <thead>
                 <tr>
                     <th>Name</th>
                     <th>Select</th>
                 </tr>
-            </thead>
-            <tbody>
+                </thead>
+                <tbody>
                 {% for publisher in publishers %}
                     {% include row_template|default:"fundingrequests/partials/publisher_row.html" %}
                 {% endfor %}
-            </tbody>
-        </table>
-        <div class="flex justify-between align-center my-2">
-            <p>Couldn't find the right publisher?</p>
-            <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
+                </tbody>
+            </table>
         </div>
-    {% elif search_term %}
+    {% endif %}
+    {% if search_term or  publishers %}
         <div class="flex justify-between align-center my-2">
-            <p>No results for "{{ search_term }}".</p>
+            {% if publishers %}
+                <p>Couldn't find the right publisher?</p>
+            {% else %}
+                <p>No results for "{{ search_term }}".</p>
+            {% endif %}
             <button type="button"
                     hx-get="{% url 'publishing:publishers:create_modal' %}"
                     hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
+                    class="secondary">New Publisher
+            </button>
         </div>
     {% endif %}
     <div id="entity-creation-modal-wrapper"></div>

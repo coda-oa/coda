@@ -1,7 +1,10 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
-        <article>
-        <h2 class="mb-2">Find Publisher</h2>
+    <h1 class="my-2">Publisher & Contract</h1>
+    <article>
+        <header>
+            <h2 class="my-0">Find Publisher</h2>
+        </header>
         <fieldset role="group"
                   hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
                   hx-target="#publisher-search-results"
@@ -14,7 +17,8 @@
                    value="{{ selected_publisher }}">
             <button type="button"
                     id="publisher_search_button"
-                    class="inline-search-pill pill-right">Search</button>
+                    class="inline-search-pill pill-right">Search
+            </button>
         </fieldset>
         {% if publisher_error and request.method == "POST" and not selected_publisher %}
             <ul class="errorlist" id="publisher-error">
@@ -25,7 +29,9 @@
     </article>
     <div id="entity-creation-modal-wrapper"></div>
     <article>
-        <h2>Contracts</h2>
+        <header>
+            <h2 class="my-0">Contracts</h2>
+        </header>
         {{ contract_formset.as_inline }}
     </article>
 {% endblock wizard_step %}
