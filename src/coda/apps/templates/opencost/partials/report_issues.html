@@ -1,7 +1,7 @@
 {% if errors or warnings_only %}
     <article class="my-2">
         <header>
-            <h2>Data Completeness Issues</h2>
+            <h3>Data Completeness Issues</h3>
         </header>
         <p>
             <small>Listed as found at generation ({{ report.generated_at }}).
@@ -9,7 +9,7 @@
         </p>
         {% if errors %}
             <article class="error">
-                <h3>Errors ({{ errors|length }})</h3>
+                <h4>Errors ({{ errors|length }})</h4>
                 <p>
                     <em>These records are missing from the XML:</em>
                 </p>
@@ -42,7 +42,7 @@
     {% endif %}
     {% if warnings_only %}
         <article class="warning">
-            <h3>Warnings ({{ warnings_only|length }})</h3>
+            <h4>Warnings ({{ warnings_only|length }})</h4>
             <p>
                 <em>Data quality notes — these records are in the XML as they are:</em>
             </p>

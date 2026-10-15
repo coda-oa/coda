@@ -21,6 +21,7 @@ from django.views import View
 from django.views.decorators.http import require_GET, require_POST
 
 from coda import formdata
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.queries.preview_context_builder import (
@@ -60,6 +61,7 @@ def _dump_override(session_data: dict[str, Any], override: OverrideImport) -> No
     session_data["override"] = OverrideImportTypeAdapter.dump_python(override, mode="json")
 
 
+@breadcrumb("DOI Import", parent_url_name="fundingrequests:list")
 class DOIImportInputView(LoginRequiredMixin, View):
     """Handle DOI input form submission and create preview session.
 
