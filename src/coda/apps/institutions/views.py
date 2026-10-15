@@ -75,7 +75,6 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
     entity_name = "Organization Structure"
     entity_list_item_template = "institutions/institution_list_item.html"
     entity_create_url = "institutions:create"
-    entity_secondary_create_url = INSTITUTION_IMPORT_VIEW_URL
     use_generic_entity_filter = True
     entity_filter_extra_template = "partials/archived_filter_checkbox.html"
     search_placeholder = "Search institutions..."
@@ -91,7 +90,6 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
-            "entity_secondary_create_url": self.entity_secondary_create_url,
             "include_archived": self.request.GET.get("include_archived") == "on",
         }
 

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
+{% block page_title %}Invoices{% endblock page_title %}
+{% block page_actions %}
+    <a href="{% url "invoices:create" %}" class="secondary" role="button">New</a>
+    <a href="{% url "invoices:import" %}" class="secondary" role="button">Import</a>
+{% endblock page_actions %}
 {% block content %}
-    {% include "invoices/invoice_list_title_bar.html" with entity_name="Invoices" entity_create_url="invoices:create" %}
     {% url 'invoices:list_region' as region_url %}
     {% include "partials/filter_layout.html" with filter_toolbar_search_placeholder="Search by invoice number, creditor, external invoice ID or funding request ID" filter_toolbar_search_aria_label="Search by invoice number, creditor, external invoice ID or funding request ID" filter_toolbar_extra_template="" filter_sidebar_template="invoices/invoice_filter_sidebar.html" filter_list_region_template="invoices/partials/invoice_list_region.html" filter_region_url=region_url filter_list_id="invoice-list" %}
 {% endblock content %}

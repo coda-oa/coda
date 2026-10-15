@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% block page_title %}Import Funding Requests{% endblock page_title %}
 {% block content %}
-    <h1 class="my-2">Import Funding Requests</h1>
     <article>
         <form action="{% url "fundingrequests:import" %}"
               method="post"

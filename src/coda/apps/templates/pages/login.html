@@ -1,7 +1,7 @@
 {% extends "base.html" %}
+{% block page_title %}Login{% endblock page_title %}
 {% block content %}
     <div class="my-2 vh-100">
-        <h1>Login</h1>
         <article>
             <form action="{% url "login" %}" method="post">
                 {% csrf_token %}

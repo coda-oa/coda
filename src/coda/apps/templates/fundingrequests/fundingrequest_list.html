@@ -1,6 +1,26 @@
 {% extends "base.html" %}
+{% block page_title %}Funding Requests{% endblock page_title %}
+{% block page_actions %}
+    <a href="{% url "fundingrequests:create_wizard" %}" class="secondary" role="button">New Article</a>
+    <a href="{% url "fundingrequests:create_monograph" %}"
+       class="secondary"
+       role="button">New Monograph</a>
+    <details class="dropdown m-0">
+        <summary role="button" class="secondary">Import</summary>
+        <ul>
+            <li>
+                <a href="{% url 'fundingrequests:doi_import_input' %}">From DOI</a>
+            </li>
+            <li>
+                <a href="{% url 'fundingrequests:mass_doi_import_input' %}">From DOI (Batch)</a>
+            </li>
+            <li>
+                <a href="{% url 'fundingrequests:import' %}">From JSON</a>
+            </li>
+        </ul>
+    </details>
+{% endblock page_actions %}
 {% block content %}
-    {% include "fundingrequests/fundingrequest_list_title_bar.html" with entity_name="Funding Requests" entity_create_url="fundingrequests:create_wizard" entity_secondary_create_url="fundingrequests:create_monograph" %}
     {% url 'fundingrequests:list_region' as region_url %}
     {% include "partials/filter_layout.html" with filter_toolbar_search_placeholder="Search requests by title, author, journal, publisher or ID" filter_toolbar_search_aria_label="Search requests by title, author, journal, publisher or ID" filter_toolbar_extra_template="fundingrequests/forms/label_pills.html" filter_sidebar_template="fundingrequests/fundingrequest_filter_sidebar.html" filter_list_region_template="fundingrequests/partials/fundingrequest_list_region.html" filter_region_url=region_url filter_list_id="fundingrequest-list" %}
 {% endblock content %}

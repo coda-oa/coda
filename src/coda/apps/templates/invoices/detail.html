@@ -1,112 +1,115 @@
 {% extends "base.html" %}
 {% load static %}
+{% block page_supertitle %}Invoice{% endblock page_supertitle %}
+{% block page_title %}
+    Invoice {{ invoice.number }}
+    {% if invoice.status == "Paid" %}
+        <small class="pill status-label approved">{{ invoice.status }}</small>
+    {% elif invoice.status == "Unpaid" %}
+        <small class="pill status-label open">{{ invoice.status }}</small>
+    {% else %}
+        <small class="pill status-label rejected">{{ invoice.status }}</small>
+    {% endif %}
+{% endblock page_title %}
+{% block page_actions %}
+    <form action="{% url 'invoices:pay_invoice' pk=invoice.id %}" method="post">
+        {% csrf_token %}
+        {% if invoice.status == "Unpaid" %}
+            <button name="action" value="pay" class="secondary">Pay Invoice</button>
+        {% else %}
+            <button name="action" value="reset_payment" class="secondary">Reset Payment</button>
+        {% endif %}
+    </form>
+    <a href="{% url "invoices:update" pk=invoice.id %}"
+       role="button"
+       class="secondary">Edit</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1 class="my-2">
-            <span class="mr-1">Invoice</span>
-            {% if invoice.status == "Paid" %}
-                <small class="pill status-label approved">{{ invoice.status }}</small>
-            {% elif invoice.status == "Unpaid" %}
-                <small class="pill status-label open">{{ invoice.status }}</small>
-            {% else %}
-                <small class="pill status-label rejected">{{ invoice.status }}</small>
-            {% endif %}
-        </h1>
-        <div class="flex">
-            <form action="{% url 'invoices:pay_invoice' pk=invoice.id %}" method="post">
-                {% csrf_token %}
-                {% if invoice.status == "Unpaid" %}
-                    <button name="action" value="pay" class="secondary">Pay Invoice</button>
-                {% else %}
-                    <button name="action" value="reset_payment" class="secondary">Reset Payment</button>
-                {% endif %}
-            </form>
-            <a href="{% url "invoices:update" pk=invoice.id %}"
-               role="button"
-               class="secondary">Edit</a>
-        </div>
-    </div>
     <article>
-        <h2>Head</h2>
+        <header>
+            <h2 class="my-0">Head</h2>
+        </header>
         <table>
             <tbody>
-                <tr>
-                    <th>
-                        <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-invoice-number"
-                               name="id-head-invoice-number"
-                               value="{{ invoice.number }}">
-                    </td>
-                </tr>
-                <tr>
-                    <th>
-                        <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-invoice-date"
-                               name="id-head-invoice-date"
-                               value="{{ invoice.date }}" />
-                    </td>
-                </tr>
-                <tr>
-                    <th>
-                        <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-creditor_name"
-                               name="id-head-creditor_name"
-                               value="{{ invoice.creditor_name }}">
-                    </td>
-                </tr>
-                <tr>
-                    <th>
-                        <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-currency"
-                               name="id-head-currency"
-                               value="{{ invoice.currency.code }}">
-                    </td>
-                </tr>
-                <tr>
-                    <th>
-                        <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-external-id"
-                               name="id-head-external-id"
-                               value="{{ invoice.external_invoice_id }}">
-                    </td>
-                </tr>
-                <tr>
-                    <th>
-                        <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
-                    </th>
-                    <td>
+            <tr>
+                <th>
+                    <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
+                </th>
+                <td>
+                    <input readonly
+                           type="text"
+                           id="id-head-invoice-number"
+                           name="id-head-invoice-number"
+                           value="{{ invoice.number }}">
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
+                </th>
+                <td>
+                    <input readonly
+                           type="text"
+                           id="id-head-invoice-date"
+                           name="id-head-invoice-date"
+                           value="{{ invoice.date }}"/>
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
+                </th>
+                <td>
+                    <input readonly
+                           type="text"
+                           id="id-head-creditor_name"
+                           name="id-head-creditor_name"
+                           value="{{ invoice.creditor_name }}">
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
+                </th>
+                <td>
+                    <input readonly
+                           type="text"
+                           id="id-head-currency"
+                           name="id-head-currency"
+                           value="{{ invoice.currency.code }}">
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
+                </th>
+                <td>
+                    <input readonly
+                           type="text"
+                           id="id-head-external-id"
+                           name="id-head-external-id"
+                           value="{{ invoice.external_invoice_id }}">
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
+                </th>
+                <td>
                         <textarea readonly
                                   name="id-head-comment"
                                   cols="40"
                                   rows="10"
                                   id="id-head-comment"> {{ invoice.comment }}</textarea>
-                    </td>
-                </tr>
+                </td>
+            </tr>
             </tbody>
         </table>
     </article>
     <article>
-        <h2>Invoice Positions</h2>
+        <header>
+            <h2 class="my-0">Invoice Positions</h2>
+        </header>
         <fieldset class="form-row">
             <label for="display_currency">Display as currency</label>
             <select name="display_currency"
@@ -125,82 +128,86 @@
         </fieldset>
         {% if display_invoice.unassigned_costs > 0 %}
             <p class="messages warning">
-                This invoice has unassigned costs of {{ display_invoice.unassigned_costs }} {{ display_invoice.currency.code }}
+                This invoice has unassigned costs
+                of {{ display_invoice.unassigned_costs }} {{ display_invoice.currency.code }}
             </p>
         {% endif %}
         <table>
             <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Position</th>
-                    <th>Funding Assignments</th>
-                    <th>Cost Type</th>
-                    <th>Tax (%)</th>
-                    <th>Tax ({{ display_currency.code }})</th>
-                    <th>Net Cost ({{ display_currency.code }})</th>
-                </tr>
+            <tr>
+                <th>Type</th>
+                <th>Position</th>
+                <th>Funding Assignments</th>
+                <th>Cost Type</th>
+                <th>Tax (%)</th>
+                <th>Tax ({{ display_currency.code }})</th>
+                <th>Net Cost ({{ display_currency.code }})</th>
+            </tr>
             </thead>
             <tbody>
-                {% for position in display_invoice.positions %}
-                    <tr>
-                        <td>
-                            {% if position.type == "publication" %}
-                                Publication
-                            {% elif position.type == "contract" %}
-                                Contract
-                            {% else %}
-                                Free Position
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if position.url %}
-                                <a href="{{ position.url }}">{{ position.title }}</a>
-                                {% if position.error %}
-                                    <span data-tooltip="{{ position.error }}">
-                                        <img src="{% static "assets/exclamation.svg" %}" alt="{{ position.error }}" height="auto" width="auto" class="mb-0_5">
+            {% for position in display_invoice.positions %}
+                <tr>
+                    <td>
+                        {% if position.type == "publication" %}
+                            Publication
+                        {% elif position.type == "contract" %}
+                            Contract
+                        {% else %}
+                            Free Position
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if position.url %}
+                            <a href="{{ position.url }}">{{ position.title }}</a>
+                            {% if position.error %}
+                                <span data-tooltip="{{ position.error }}">
+                                        <img src="{% static "assets/exclamation.svg" %}" alt="{{ position.error }}"
+                                             height="auto" width="auto" class="mb-0_5">
                                     </span>
-                                {% endif %}
-                            {% else %}
-                                {{ position.title }}
                             {% endif %}
-                        </td>
-                        <td>
-                            {% if position.funding_assignments %}
-                                <ul class="funding-assignments-list">
-                                    {% for assignment in position.funding_assignments %}
-                                        <li>
-                                            <strong>{{ assignment.funding_source_name }}</strong>: {{ assignment.amount|floatformat:2 }}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <span class="funding-assignment-empty">—</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ position.cost_type }}</td>
-                        <td>{{ position.tax_rate|floatformat:1 }}</td>
-                        <td>{{ position.tax_amount }}</td>
-                        <td>{{ position.net_costs }}</td>
-                    </tr>
-                {% endfor %}
+                        {% else %}
+                            {{ position.title }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if position.funding_assignments %}
+                            <ul class="funding-assignments-list">
+                                {% for assignment in position.funding_assignments %}
+                                    <li>
+                                        <strong>{{ assignment.funding_source_name }}</strong>: {{ assignment.amount|floatformat:2 }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <span class="funding-assignment-empty">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.cost_type }}</td>
+                    <td>{{ position.tax_rate|floatformat:1 }}</td>
+                    <td>{{ position.tax_amount }}</td>
+                    <td>{{ position.net_costs }}</td>
+                </tr>
+            {% endfor %}
             </tbody>
         </table>
-        <h2>Costs</h2>
-        <table>
-            <tr>
-                <th>Total net</th>
-                <td>{{ display_invoice.net }}</td>
-            </tr>
-            <tr>
-                <th>Total tax</th>
-                <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
-            </tr>
-            <tr>
-                <th>Gross costs</th>
-                <td>
-                    <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
-                </td>
-            </tr>
-        </table>
+        <footer>
+            <h2>Costs</h2>
+            <table>
+                <tr>
+                    <th>Total net</th>
+                    <td>{{ display_invoice.net }}</td>
+                </tr>
+                <tr>
+                    <th>Total tax</th>
+                    <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
+                </tr>
+                <tr>
+                    <th>Gross costs</th>
+                    <td>
+                        <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
+                    </td>
+                </tr>
+            </table>
+        </footer>
     </article>
 {% endblock content %}

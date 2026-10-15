@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% block page_title %}Organization Structure{% endblock page_title %}
+{% block page_actions %}
+    <a href="{% url "institutions:create" %}" class="button secondary">New</a>
+    <a href="{% url "institutions:import_view" %}" class="button secondary">Import</a>
+    <a href="{% url 'institutions:export' %}" class="button secondary">Export</a>
+{% endblock page_actions %}
 {% block content %}
-    {% include "institutions/institution_list_header_bar.html" %}
     <div class="my-2">{% include "entity_generic_filter.html" %}</div>
     {% include "partials/entity_list_region.html" %}
 {% endblock content %}

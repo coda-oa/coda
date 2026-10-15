@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 {% load static %}
+{% block page_supertitle %}CSV Export{% endblock page_supertitle %}
+{% block page_title %}{{ export.name }}{% endblock page_title %}
+{% block page_subtitle %}Generated: {{ export.created_at }}{% endblock page_subtitle %}
+{% block page_actions %}
+    {% if not file_missing %}
+        <a href="{% url 'exports:fundingrequests_csv_download' export.id %}"
+           class="button secondary">Download CSV</a>
+    {% endif %}
+    <button hx-post="{% url "exports:fundingrequests_csv_delete" pk=export.id %}"
+            hx-confirm="Are you sure you want to delete this export?"
+            class="danger">Delete Export
+    </button>
+{% endblock page_actions %}
 {% block content %}
     <div class="container">
-        <div class="flex justify-between align-center">
-            <h1 class="my-2">Export Details</h1>
-            <div class="flex">
-                {% if not file_missing %}
-                    <a href="{% url 'exports:fundingrequests_csv_download' export.id %}"
-                       class="button secondary">Download CSV</a>
-                {% endif %}
-                <button hx-post="{% url "exports:fundingrequests_csv_delete" pk=export.id %}"
-                        hx-confirm="Are you sure you want to delete this export?"
-                        class="danger">Delete Export</button>
-            </div>
-        </div>
         <article>
             <section>
                 <h2>{{ export.name }}</h2>

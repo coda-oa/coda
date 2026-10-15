@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block page_title %}DOI Batch Import Preview{% endblock page_title %}
 {% block content %}
     <style>
         .badge-status {
@@ -61,7 +62,6 @@
             gap: 0.35rem;
         }
     </style>
-    <h1 class="my-2">DOI Batch Import Preview</h1>
     <p class="text-muted">
         {{ success_count }} DOI(s) found successfully, {{ error_count }} error(s)
         {% if warning_count %}, {{ warning_count }} with warnings{% endif %}

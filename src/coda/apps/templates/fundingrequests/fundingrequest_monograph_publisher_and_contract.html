@@ -1,7 +1,6 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
-    <h1 class="my-2">Publisher</h1>
-    <article>
+        <article>
         <h2 class="mb-2">Find Publisher</h2>
         <fieldset role="group"
                   hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"

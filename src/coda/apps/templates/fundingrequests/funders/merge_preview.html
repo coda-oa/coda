@@ -1,12 +1,10 @@
 {% extends "base.html" %}
+{% block page_title %}Merge Funding Organizations{% endblock page_title %}
+{% block page_actions %}
+    <a href="{% url 'fundingrequests:funder_detail' pk=source.pk %}"
+       class="button secondary">Back</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1 class="my-2">Merge Funding Organizations</h1>
-        <div class="flex">
-            <a href="{% url 'fundingrequests:funder_detail' pk=source.pk %}"
-               class="button secondary">Back</a>
-        </div>
-    </div>
     <article>
         <header>
             <h2 class="my-0">Merge Preview</h2>
