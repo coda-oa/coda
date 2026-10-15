@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% block page_supertitle %}Funding Source{% endblock page_supertitle %}
+{% block page_title %}{{ fundingsource.name }}{% endblock page_title %}
+{% block page_actions %}
+    <a href="{% url "invoices:fundingsource_edit" pk=fundingsource.id %}"
+       class="secondary"
+       role="button">Edit</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1>Funding Source</h1>
-        <a href="{% url "invoices:fundingsource_edit" pk=fundingsource.id %}"
-           class="secondary"
-           role="button">Edit</a>
-    </div>
     <article>
         <p>Name: {{ fundingsource.name }}</p>
     </article>
