@@ -12,7 +12,7 @@ from coda import formdata
 from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
 from coda.apps.invoices.views.position_parsers import added_positions
 from coda.contexts.finance.dto.edit_position_dtos import PositionDto, PositionList
-from coda.contexts.finance.services.invoice_parser._parser import InvoiceTotal
+from coda.contexts.finance.services.invoice_import import InvoiceTotal
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.money import Currency
 
@@ -88,10 +88,10 @@ def safe_invoice_total(positions: list[PositionDto], currency: Currency) -> Invo
     Returns InvoiceTotal with calculated amounts, or zero amounts if
     InvalidSplitAmount is raised.
     """
-    from coda.contexts.finance.services import invoice_parser
+    from coda.contexts.finance.services.invoice_import import invoice_total
 
     try:
-        return invoice_parser.invoice_total(positions, currency)
+        return invoice_total(positions, currency)
     except InvalidSplitAmount:
         return InvoiceTotal(Decimal(0), Decimal(0), Decimal(0))
 

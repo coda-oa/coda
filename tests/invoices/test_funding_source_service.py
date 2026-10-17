@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository, repository
-from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.contexts.finance.services.invoice_import import position_to_dto, save
 from coda.contexts.finance.services.funding_source_service import (
     get_institutions_allowed_as_funding_source,
     resolve_funding_source,
@@ -96,13 +96,13 @@ def test__existing_position_with_archived_institution__editing_invoice__archived
     split_source = SplitSource.new(institution_id, institution.name)
     position.assign_remaining(split_source)
     invoice.positions = [position]
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     institution.archived_at = timezone.now()
     institution.save()
 
     loaded_invoice = repository.get_by_id(invoice.id)
-    position_dtos = [invoice_parser.position_to_dto(p) for p in loaded_invoice.positions]
+    position_dtos = [position_to_dto(p) for p in loaded_invoice.positions]
 
     institutions_list = list(
         get_institutions_allowed_as_funding_source(for_positions=position_dtos)
@@ -133,7 +133,7 @@ def test__multiple_positions_with_different_archived_institutions__editing_invoi
     position_2.assign_remaining(split_source_2)
 
     invoice.positions = [position_1, position_2]
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     institution_1.archived_at = timezone.now()
     institution_1.save()
@@ -141,7 +141,7 @@ def test__multiple_positions_with_different_archived_institutions__editing_invoi
     institution_2.save()
 
     loaded_invoice = repository.get_by_id(invoice.id)
-    position_dtos = [invoice_parser.position_to_dto(p) for p in loaded_invoice.positions]
+    position_dtos = [position_to_dto(p) for p in loaded_invoice.positions]
 
     institutions_list = list(
         get_institutions_allowed_as_funding_source(for_positions=position_dtos)
