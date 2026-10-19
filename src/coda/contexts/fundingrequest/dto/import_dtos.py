@@ -144,14 +144,12 @@ class CostEstimateImportDto(pydantic.BaseModel):
         return cls(amount=Decimal("0.00"), currency="EUR", payment_method=PaymentMethod.Unknown)
 
 
-class SeperateContactImportDto(pydantic.BaseModel):
-    """Note: 'Seperate' typo kept for backward compatibility."""
-
+class SeparateContactImportDto(pydantic.BaseModel):
     name: str
     email: str
 
     @classmethod
-    def default(cls) -> "SeperateContactImportDto":
+    def default(cls) -> "SeparateContactImportDto":
         return cls(name="", email="")
 
 
@@ -165,8 +163,10 @@ class FundingRequestImportDto(pydantic.BaseModel):
         default_factory=CostEstimateImportDto.default
     )
     request_remarks: str = ""
-    seperate_contact: SeperateContactImportDto = pydantic.Field(
-        default_factory=SeperateContactImportDto.default
+    separate_contact: SeparateContactImportDto = pydantic.Field(
+        default_factory=SeparateContactImportDto.default,
+        validation_alias=pydantic.AliasChoices("separate_contact", "seperate_contact"),
+        serialization_alias="separate_contact",
     )
     labels: list[str] = pydantic.Field(default_factory=list)
     request_id: str | None = None
