@@ -18,12 +18,6 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_reset_funding,
     doi_preview_reset_type,
 )
-from coda.apps.fundingrequests.views.mass_doi_import import (
-    MassDOIImportInputView,
-    MassDOIImportResultView,
-    MassDOIPreviewSaveView,
-    MassDOIPreviewView,
-)
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
     archive_funder,
@@ -45,6 +39,10 @@ from coda.apps.fundingrequests.views.funders import (
     update_from_ror_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
+from coda.apps.fundingrequests.views.importschema import (
+    import_schema_download,
+    import_schema_fragment,
+)
 from coda.apps.fundingrequests.views.labels import (
     attach_label,
     detach_label,
@@ -56,6 +54,12 @@ from coda.apps.fundingrequests.views.labels import (
 from coda.apps.fundingrequests.views.listview import (
     fundingrequest_list,
     fundingrequest_list_region,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
 )
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
@@ -86,6 +90,8 @@ urlpatterns = [
     path("list/", fundingrequest_list, name="list"),
     path("list/region/", fundingrequest_list_region, name="list_region"),
     path("import/", import_fundingrequests, name="import"),
+    path("import/schema/", import_schema_fragment, name="import_schema"),
+    path("import/schema/download/", import_schema_download, name="import_schema_download"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
     path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
     path(
