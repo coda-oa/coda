@@ -7,7 +7,12 @@
               enctype="multipart/form-data">
             {% csrf_token %}
             {{ form }}
-            <button type="submit" class="max-fit-content">Save</button>
+            <div class="grid align-center">
+                <a href="{% url "invoices:list" %}"
+                   class="secondary"
+                   role="button">Cancel</a>
+                <button class="m-0" type="submit">Import</button>
+            </div>
         </form>
     </article>
     {% if import_errors %}
@@ -18,4 +23,15 @@
             </textarea>
         </section>
     {% endif %}
+    <details>
+        <summary role="button">JSON Schema</summary>
+        <p>
+            <a class="outline"
+               href="{% url "invoices:import_schema_download" %}">Download schema (JSON)</a>
+        </p>
+        <pre><code hx-get="{% url "invoices:import_schema" %}"
+                   hx-trigger="load"
+                   hx-swap="innerHTML">Loading schema…</code></pre>
+    </details>
+
 {% endblock content %}
