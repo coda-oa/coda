@@ -34,9 +34,7 @@ def test_import_accepts_corrected_spelling() -> None:
 
 def test_import_accepts_legacy_misspelled_alias() -> None:
     data = _dto().model_dump(mode="json", by_alias=False)
-    legacy = json.dumps({"requests": [data]}).replace(
-        '"separate_contact"', '"seperate_contact"'
-    )
+    legacy = json.dumps({"requests": [data]}).replace('"separate_contact"', '"seperate_contact"')
 
     parsed = FundingRequestImportListDto.model_validate_json(legacy)
 
