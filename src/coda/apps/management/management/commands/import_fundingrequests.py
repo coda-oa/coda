@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+
 from django.core.management import BaseCommand, CommandParser
 
 from coda.contexts.fundingrequest.services import import_service
@@ -38,5 +39,5 @@ class Command(BaseCommand):
                     f"{report.invalid_requests} funding requests could not be imported due to errors"
                 )
             )
-            errors = "/n".join(f"{request}: {errors}" for request, errors in report.errors.items())
+            errors = "\n".join(f"{request}: {errors}" for request, errors in report.errors.items())
             self.stdout.write(self.style.ERROR(errors))
