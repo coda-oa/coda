@@ -38,7 +38,7 @@ _FACETS: Mapping[str, tuple[str, bool]] = {
     "institution": ("institution", True),
     "subject_area": ("subject_area", True),
     "publication_type": ("publication_type_concept", True),
-    "publication_form": ("publication_form", False),
+    "publication_form": ("publication_type", False),
     "license": ("license", True),
     "open_access_type": ("open_access_type", True),
     "journal": ("journal", True),
