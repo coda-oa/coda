@@ -1,4 +1,4 @@
-"""Timeline request counts at multiple temporal resolutions (DASHBOARD.md §timeline).
+"""Timeline request counts at multiple temporal resolutions.
 
 Pure: takes RequestFact values and returns one point per bucket (week, month
 or quarter) between the earliest and latest request date, zero-filled — a gap

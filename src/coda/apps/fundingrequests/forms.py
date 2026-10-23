@@ -395,7 +395,6 @@ publication_type_choices = [
     (entity.value, entity.value.title()) for entity in fq.PublicationEntityType
 ]
 license_choices = [(l.value, l.value) for l in License]
-publication_form_choices = [(form.value, form.value.title()) for form in fq.PublicationForm]
 cost_type_choices = [(ct.value, ct.value) for ct in PublicationCostType]
 
 
@@ -729,16 +728,6 @@ class FundingRequestListFilterForm(forms.Form):
         label="License",
         widget=forms.SelectMultiple(attrs={"id": "id_license", "class": "w-100"}),
     )
-    publication_form = forms.TypedChoiceField(
-        coerce=fq.PublicationForm,
-        # A non-multiple <select> always displays its first option — without a
-        # blank choice every htmx submit would silently add publication_form=
-        # article and narrow the whole list (pinned in tests/fundingrequests).
-        choices=[("", "-------"), *publication_form_choices],
-        required=False,
-        label="Publication form",
-        widget=forms.Select(attrs={"id": "id_publication_form", "class": "w-100"}),
-    )
     cost_type = forms.TypedMultipleChoiceField(
         coerce=PublicationCostType,
         choices=cost_type_choices,
@@ -803,7 +792,6 @@ class FundingRequestListFilterForm(forms.Form):
             subject_areas=cleaned.get("subject_area", []),
             publication_type_concepts=cleaned.get("publication_type_concept", []),
             licenses=cleaned.get("license", []),
-            publication_form=cleaned.get("publication_form"),
             cost_types=cleaned.get("cost_type", []),
             funding_sources=cleaned.get("funding_source", []),
             show_invalid_contract_years=bool(cleaned.get("invalid_contract_years")),

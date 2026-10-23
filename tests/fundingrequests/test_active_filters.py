@@ -306,7 +306,6 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
         payment_methods="direct",
         open_access_type="Gold",
         publication_type="article",
-        publication_form="monograph",
         publication_states="Accepted",
         start_date="2025-01-01",
         end_date="2026-12-31",
@@ -334,7 +333,6 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
         ("direct", "neutral"),
         ("Gold", "neutral"),
         ("Article", "neutral"),
-        ("Monograph", "neutral"),
         ("Accepted", "neutral"),
         ("From 2025-01-01", "date"),
         ("To 2026-12-31", "date"),
@@ -390,7 +388,6 @@ def test__summary__reports_the_statistics_facets_by_name(client: Client) -> None
 
     response = get_list_region(
         client,
-        publication_form="article",
         subject_area=str(subject.entity_id),
         publication_type_concept=str(publication_type.entity_id),
         license=License.CC_BY.value,
@@ -403,7 +400,6 @@ def test__summary__reports_the_statistics_facets_by_name(client: Client) -> None
     )
 
     assert chip_texts(response) == [
-        "Article",
         subject.name,
         publication_type.name,
         License.CC_BY.value,
@@ -414,7 +410,7 @@ def test__summary__reports_the_statistics_facets_by_name(client: Client) -> None
         source.name,
         PublicationCostType.Vat.value,
     ]
-    assert response.context["filter_count"] == 10
+    assert response.context["filter_count"] == 9
 
 
 @pytest.mark.usefixtures("logged_in")

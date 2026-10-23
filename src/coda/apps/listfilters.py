@@ -344,7 +344,6 @@ def build_filter_summary(
         cost_type_choices,
         license_choices,
         payment_status_choices,
-        publication_form_choices,
         publication_state_choices,
     )
 
@@ -361,7 +360,6 @@ def build_filter_summary(
     publication_type = request.GET.get("publication_type")
     if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
         chips.add("publication_type", publication_type, publication_type.title())
-    chips.single("publication_form", labels=dict(publication_form_choices))
 
     chips.multi("publication_states", labels=dict(publication_state_choices))
     chips.date_range(

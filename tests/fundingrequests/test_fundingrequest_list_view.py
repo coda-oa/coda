@@ -198,7 +198,6 @@ def test__sidebar__renders_all_statistics_facet_fields(client: Client) -> None:
         "subject_area",
         "license",
         "open_access_type",
-        "publication_form",
         "cost_type",
         "funding_source",
     }

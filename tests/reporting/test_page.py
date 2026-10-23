@@ -404,7 +404,7 @@ def test__reporting_page__chart_rows__link_to_the_reporting_region(
         "publication_form": (
             sections["publication_form"],
             "article",
-            "publication_form",
+            "publication_type",
             "article",
         ),
         "cost_type": (sections["cost_type"], "gold-oa", "cost_type", "gold-oa"),
@@ -505,13 +505,13 @@ def test__reporting_page__publication_without_journal_or_publisher__forms_unknow
     assert row_by_label(section, "Unknown").link is None
 
     articles = client.get(
-        reverse("fundingrequests:list"), {**PERIOD, "publication_form": "article"}
+        reverse("fundingrequests:list"), {**PERIOD, "publication_type": "article"}
     )
     titles = {str(item.publication_title) for item in articles.context["entities"]}
     assert titles == {"Funded paper", "Paper without invoice", "Paper without rate"}
 
     monographs = client.get(
-        reverse("fundingrequests:list"), {**PERIOD, "publication_form": "monograph"}
+        reverse("fundingrequests:list"), {**PERIOD, "publication_type": "monograph"}
     )
     assert list(monographs.context["entities"]) == []
 
@@ -702,7 +702,7 @@ def test__reporting_page__facet_chips__name_values_and_point_back_at_the_page(
     removable chips on the statistics page, pointing back at this page."""
     fixture = seed()
 
-    response = goto(client, journal=str(fixture.journal.pk), publication_form="monograph")
+    response = goto(client, journal=str(fixture.journal.pk), publication_type="monograph")
 
     chips = response.context["active_filters"]
     assert [chip.text for chip in chips] == [

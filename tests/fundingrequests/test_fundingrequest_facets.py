@@ -331,7 +331,6 @@ def test__search_params_with_facet_selections__build_criteria__produces_one_crit
         subject_areas=[subject],
         publication_type_concepts=[publication_type],
         licenses=[License.CC_BY],
-        publication_form=fq.PublicationForm.monograph,
         cost_types=[PublicationCostType.Vat],
         funding_sources=[FundingSourceId(5)],
     )
@@ -345,7 +344,6 @@ def test__search_params_with_facet_selections__build_criteria__produces_one_crit
     assert SubjectAreaCriteria(subject_areas=[subject]) in criteria
     assert PublicationTypeConceptCriteria(publication_type_concepts=[publication_type]) in criteria
     assert LicenseCriteria(licenses=[License.CC_BY]) in criteria
-    assert fq.PublicationFormCriteria(publication_form=fq.PublicationForm.monograph) in criteria
     assert CostTypeCriteria(cost_types=[PublicationCostType.Vat]) in criteria
     assert FundingSourcesCriteria(funding_sources=[FundingSourceId(5)]) in criteria
 
@@ -400,7 +398,6 @@ def test__facet_get_params__search_criteria__produces_the_matching_criteria() ->
                 "publication_type_concept": [str(publication_type_concept.entity_id)],
                 "license": [License.CC_BY.value],
                 "open_access_type": [OpenAccessType.Gold.value],
-                "publication_form": [fq.PublicationForm.monograph.value],
                 "cost_type": [PublicationCostType.Vat.value],
                 "funding_source": [str(budget.pk)],
             }
@@ -424,7 +421,6 @@ def test__facet_get_params__search_criteria__produces_the_matching_criteria() ->
     )
     assert LicenseCriteria(licenses=[License.CC_BY]) in criteria
     assert OpenAccessTypeCriteria(open_access_types=[OpenAccessType.Gold]) in criteria
-    assert fq.PublicationFormCriteria(publication_form=fq.PublicationForm.monograph) in criteria
     assert CostTypeCriteria(cost_types=[PublicationCostType.Vat]) in criteria
     assert FundingSourcesCriteria(funding_sources=[FundingSourceId(budget.pk)]) in criteria
 
@@ -440,7 +436,6 @@ def test__facet_get_params__search_criteria__produces_the_matching_criteria() ->
         ("subject_area", "not-a-uuid"),
         ("publication_type_concept", "not-a-uuid"),
         ("license", "bogus-license"),
-        ("publication_form", "bogus-form"),
         ("cost_type", "bogus-cost"),
         ("funding_source", "zzz"),
     ],
@@ -494,16 +489,6 @@ def test__publication_type_facet__offers_the_wizard_vocabularies_not_the_whole_r
     assert "" not in choices.values()
     assert str(subject_concept.entity_id) not in choices
     assert str(registry_only.entity_id) not in choices
-
-
-def test__publication_form_facet__renders_a_blank_first_option() -> None:
-    """A non-multiple ``<select>`` always displays its first option, so without
-    a blank choice every htmx filter submit would silently send
-    ``publication_form=article`` and narrow the whole list."""
-    rendered = str(FundingRequestListFilterForm()["publication_form"])
-
-    assert '<option value=""' in rendered
-    assert re.findall(r'<option value="(?!")[^"]*"[^>]*selected', rendered) == []
 
 
 @pytest.mark.django_db
