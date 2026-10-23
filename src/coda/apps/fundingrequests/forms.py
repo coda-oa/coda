@@ -1,5 +1,4 @@
 import datetime
-import functools
 import uuid
 from collections.abc import Iterable, Mapping
 from typing import Any, ClassVar, cast
@@ -19,6 +18,7 @@ from coda.apps.contracts import repository
 from coda.apps.contracts.models import Contract
 from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests import fundingrequest_query as fq
+from coda.apps.fundingrequests.facets import FACET_FIELDS, bind_remote_search
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
     FundingRequest,
@@ -433,44 +433,7 @@ def parse_label_ids(values: Iterable[str]) -> set[int]:
     return ids
 
 
-_FACET_CHOICE_LIMIT = 100
 
-
-def _selected_pks(selected: Iterable[str]) -> list[int]:
-    """The numeric selection; runs during form construction, before field
-    validation — garbage in the URL (a crafted ``?journal=²`` or ``['abc']``)
-    must narrow nothing, not crash the view; the field reports the error."""
-    pks = []
-    for value in selected:
-        try:
-            pks.append(int(value))
-        except (TypeError, ValueError):
-            continue
-    return pks
-
-
-def facet_choices(
-    model: type[Journal] | type[Publisher], label_field: str, selected: Iterable[str], query: str
-) -> list[tuple[Any, str]]:
-    """The rendered choices for a registry-scale facet: the first
-    ``_FACET_CHOICE_LIMIT`` matches of ``query`` in alphabetical order, plus
-    every already-selected row (which may fall outside that cap). Enumerating
-    the whole registry instead blows up the rail on real data volumes.
-    """
-    matches = (
-        model.objects.filter(**{f"{label_field}__icontains": query})
-        if query
-        else model.objects.all()
-    )
-    choices = [
-        (obj.pk, str(getattr(obj, label_field)))
-        for obj in matches.order_by(label_field)[:_FACET_CHOICE_LIMIT]
-    ]
-    shown = {pk for pk, _ in choices}
-    selected_pks = _selected_pks(selected)
-    missing = model.objects.filter(pk__in=selected_pks).exclude(pk__in=shown)
-    choices += [(obj.pk, str(getattr(obj, label_field))) for obj in missing]
-    return choices
 
 
 class FundingRequestListFilterForm(forms.Form):
@@ -538,20 +501,8 @@ class FundingRequestListFilterForm(forms.Form):
             if isinstance(self.data, MultiValueDict)
             else MultiValueDict({k: [v] for k, v in self.data.items()})
         )
-        for field_name, (model, label_field) in (
-            ("journal", (Journal, "title")),
-            ("publisher", (Publisher, "name")),
-        ):
-            query = data.get(f"{field_name}_q", "").strip()
-            widget = cast(SearchSelectMultiWidget, self.fields[field_name].widget)
-            widget.remote_search = True
-            widget.remote_query = query
-            field = cast(forms.TypedMultipleChoiceField, self.fields[field_name])
-            # Lazy like the class-level choice lambdas it replaces: form
-            # instantiation must not hit the database.
-            field.choices = functools.partial(
-                facet_choices, model, label_field, data.getlist(field_name), query
-            )
+        for field_name in FACET_FIELDS:
+            bind_remote_search(self.fields[field_name], field_name, data)
 
     search_term = forms.CharField(required=False)
     processing_status = forms.TypedMultipleChoiceField(

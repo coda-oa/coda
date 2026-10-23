@@ -13,10 +13,8 @@ from django.test.html import parse_html
 from django.urls import reverse
 from django.utils import timezone
 
-from coda.apps.fundingrequests.forms import (
-    _FACET_CHOICE_LIMIT,
-    FundingRequestListFilterForm,
-)
+from coda.apps.fundingrequests.facets import _FACET_CHOICE_LIMIT
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice
 from coda.apps.preferences.models import GlobalPreferences

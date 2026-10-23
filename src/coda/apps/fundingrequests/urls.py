@@ -24,6 +24,7 @@ from coda.apps.fundingrequests.views.mass_doi_import import (
     MassDOIPreviewSaveView,
     MassDOIPreviewView,
 )
+from coda.apps.fundingrequests.views.facets import facet_options
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
     archive_funder,
@@ -85,6 +86,7 @@ urlpatterns = [
     path("", fundingrequest_home, name="home"),
     path("list/", fundingrequest_list, name="list"),
     path("list/region/", fundingrequest_list_region, name="list_region"),
+    path("list/facet-options/", facet_options, name="facet_options"),
     path("import/", import_fundingrequests, name="import"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
     path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
