@@ -11,7 +11,7 @@ from django.urls import reverse
 from playwright.sync_api import Page, expect
 from pytest_django.live_server_helper import LiveServer
 
-from coda.apps.fundingrequests.forms import _FACET_CHOICE_LIMIT
+from coda.apps.fundingrequests.facets import _FACET_CHOICE_LIMIT
 from coda.apps.publications.models import LinkType
 from tests import modelfactory
 from tests.page_objects import filter_ui_selectors
