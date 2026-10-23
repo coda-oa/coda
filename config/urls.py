@@ -35,6 +35,7 @@ urlpatterns = [
     path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
     path("opencost/", include("coda.apps.opencost.urls", namespace="opencost")),
     path("exports/", include("coda.apps.exports.urls", namespace="exports")),
+    path("reporting/", include("coda.apps.reporting.urls", namespace="reporting")),
     path("check-update/", check_update, name="check_update"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

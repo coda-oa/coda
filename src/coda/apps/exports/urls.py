@@ -8,12 +8,10 @@ from coda.apps.exports.views.fundingrequest_csv_views import (
     fundingrequest_download_csv,
     fundingrequests_csv_delete,
 )
-from coda.apps.exports.views.export_home import export_home
 
 app_name = "exports"
 
 urlpatterns = [
-    path("", view=export_home, name="export_home"),
     path(
         "fundingrequests-csv/",
         view=fundingrequest_csv_export_list_view,

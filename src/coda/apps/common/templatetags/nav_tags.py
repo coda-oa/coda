@@ -64,12 +64,15 @@ NAV_GROUPS: dict[str, NavGroup] = {
         ),
     ),
     "exports": NavGroup(
-        link="exports:export_home",
+        link="reporting:home",
         image="assets/export.svg",
-        text="Export",
+        text="Reporting",
         items=(
             NavItem(link="exports:fundingrequests_csv_list", text="Funding Requests CSV"),
             NavItem(link="opencost:list", text="openCost Reports"),
+            NavItem(
+                link="reporting:stats_fundingrequests", text="Funding Request Statistics"
+            ),
         ),
     ),
 }
