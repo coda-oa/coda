@@ -6,6 +6,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
-@breadcrumb("Export")
-def export_home(request: HttpRequest) -> HttpResponse:
-    return render(request, "export/export_home.html")
+@breadcrumb("Reporting")
+def reporting_home(request: HttpRequest) -> HttpResponse:
+    return render(request, "reporting/home.html")
