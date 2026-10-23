@@ -478,7 +478,6 @@ class FundingRequestSearchParams:
     subject_areas: list[uuid.UUID] | None = None
     publication_type_concepts: list[uuid.UUID] | None = None
     licenses: list[License] | None = None
-    publication_form: PublicationForm | None = None
     cost_types: list[PublicationCostType] | None = None
     funding_sources: list[FundingSourceId] | None = None
     decimal_separator: str = "."
@@ -513,7 +512,6 @@ def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSea
         _subject_area_criterion(params),
         _publication_type_concept_criterion(params),
         _license_criterion(params),
-        _publication_form_criterion(params),
         _cost_type_criterion(params),
         _funding_sources_criterion(params),
     )
@@ -575,15 +573,6 @@ def _license_criterion(
 ) -> FundingRequestSearchCriteria | None:
     return LicenseCriteria(licenses=params.licenses) if params.licenses else None
 
-
-def _publication_form_criterion(
-    params: FundingRequestSearchParams,
-) -> FundingRequestSearchCriteria | None:
-    return (
-        PublicationFormCriteria(publication_form=params.publication_form)
-        if params.publication_form
-        else None
-    )
 
 
 def _cost_type_criterion(

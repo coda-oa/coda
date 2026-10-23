@@ -30,10 +30,6 @@
             <label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
         {% endfor %}
     </div>
-    <div class="form-row">
-        {{ filter_form.publication_form.label_tag }}
-        {{ filter_form.publication_form }}
-    </div>
     {% if not filter_period_in_toolbar %}
         <div class="form-row">
             <label for="id_start_date">Start Date</label>
