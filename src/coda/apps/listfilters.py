@@ -8,19 +8,34 @@ A list page opts in by:
   :class:`FilterError` — one message plus the control ids it invalidates.
 """
 
-from collections.abc import Iterable, Mapping
+import uuid
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, ClassVar, Literal, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Model
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
 from django.views.generic import TemplateView
 
+from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests.models import FundingOrganization, Label
+from coda.apps.institutions.models import Institution
+from coda.apps.invoices.models import FundingSource
+from coda.apps.journals.models import Journal
+from coda.apps.publications.models import PublicationAttachedConcept
+from coda.apps.publishers.models import Publisher
 from coda.apps.widgets import DateRangeWidget
 from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
+
+_DEFAULT_PUBLICATION_TYPE = "all"
+
+
+_DATE_START_KEY = "start_date"
+_DATE_END_KEY = "end_date"
 
 
 class ListSortOrder(StrEnum):
@@ -102,7 +117,7 @@ class ActiveFilter:
     text: str
     remove_url: str
     remove_fragment_url: str
-    kind: Literal["neutral", "label"]
+    kind: Literal["neutral", "label", "date"]
     label_color: str | None
 
 
@@ -153,7 +168,7 @@ class ChipBuilder:
         value: str | None,
         text: str,
         *,
-        kind: Literal["neutral", "label"] = "neutral",
+        kind: Literal["neutral", "label", "date"] = "neutral",
         label_color: str | None = None,
     ) -> None:
         """Append one chip. ``value=None`` drops the whole key (checkbox filters)."""
@@ -224,7 +239,7 @@ class ChipBuilder:
         for key, prefix in ((start_key, "From "), (end_key, "To ")):
             value = self._request.GET.get(key)
             if value:
-                self.add(key, value, f"{prefix}{value}")
+                self.add(key, value, f"{prefix}{value}", kind="date")
 
     def summary(self) -> FilterSummary:
         return FilterSummary(chips=self._chips, count=len(self._chips), errors=self._errors)
@@ -234,6 +249,16 @@ def build_url(url_name: str, params: QueryDict) -> str:
     return reverse(url_name, query=params or None)
 
 
+def params_without(params: QueryDict, *keys: str) -> QueryDict:
+    """A copy of ``params`` without the given keys. The pagination ``page``
+    param is never a filter — every filter URL derived from the request
+    starts here."""
+    copy = params.copy()
+    for key in keys:
+        copy.pop(key, None)
+    return copy
+
+
 def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: str | None) -> str:
     """List URL without one value of ``key``; other params preserved, ``page`` dropped.
 
@@ -241,8 +266,7 @@ def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: st
     keys one occurrence is dropped and the remaining order preserved; an emptied
     key is omitted entirely.
     """
-    params = request.GET.copy()
-    params.pop("page", None)
+    params = params_without(request.GET, "page")
     if value is None:
         params.pop(key, None)
         return build_url(url_name, params)
@@ -257,3 +281,136 @@ def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: st
         params.pop(key, None)
 
     return build_url(url_name, params)
+
+
+def _names_by_pk(
+    model: type[Model], values: Sequence[str], *, name_field: str = "name"
+) -> dict[str, str]:
+    """pk -> display name for the selected values; unparseable ones (stale
+    URLs) stay unresolved and the chip falls back to the raw value."""
+    pks = [value for value in values if value.isdigit()]
+    if not pks:
+        return {}
+    return {
+        str(pk): name for pk, name in model.objects.filter(pk__in=pks).values_list("pk", name_field)
+    }
+
+
+def _concept_names(values: Sequence[str]) -> dict[str, str]:
+    """entity_id -> name for the selected concepts — both concept-typed facets
+    filter ``PublicationAttachedConcept`` rows by ``entity_id``."""
+    ids: list[uuid.UUID] = []
+    for value in values:
+        try:
+            ids.append(uuid.UUID(value))
+        except ValueError:
+            continue
+    if not ids:
+        return {}
+    return {
+        str(entity_id): name
+        for entity_id, name in PublicationAttachedConcept.objects.filter(
+            entity_id__in=ids
+        ).values_list("entity_id", "name")
+    }
+
+
+def build_filter_summary(
+    request: HttpRequest,
+    labels: Sequence[Label],
+    contracts: Sequence[Contract],
+    *,
+    list_url_name: str,
+    region_url_name: str,
+    included: set[int],
+    excluded: set[int],
+    date_range: DateRange | None,
+    date_range_error: str | None,
+) -> FilterSummary:
+    """One removable chip per active filter value, in the rail's group order.
+
+    Shared by every page reusing the funding-request filter rail; the remove
+    links point at ``list_url_name``/``region_url_name``, so a page (e.g. the
+    statistics page) builds chips that point at itself.
+
+    Text is the bare value except where that would be ambiguous (dates, contract
+    year, excluded labels, switch). A deleted Contract falls back to its raw id;
+    label chips come from the resolved include/exclude sets, so ids the form
+    dropped never appear.
+    """
+    # Deferred: fundingrequests.forms imports this module, so its choice lists
+    # can only be pulled in at call time.
+    from coda.apps.fundingrequests.forms import (
+        cost_type_choices,
+        license_choices,
+        payment_status_choices,
+        publication_form_choices,
+        publication_state_choices,
+    )
+
+    chips = ChipBuilder(
+        request,
+        list_url_name=list_url_name,
+        region_url_name=region_url_name,
+    )
+    chips.multi("processing_status")
+    chips.multi("payment_status", labels=dict(payment_status_choices))
+    chips.multi("payment_methods")
+    chips.multi("open_access_type")
+
+    publication_type = request.GET.get("publication_type")
+    if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
+        chips.add("publication_type", publication_type, publication_type.title())
+    chips.single("publication_form", labels=dict(publication_form_choices))
+
+    chips.multi("publication_states", labels=dict(publication_state_choices))
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id="id_start_date",
+        end_source_id="id_end_date",
+        date_range=date_range,
+        error=date_range_error,
+    )
+
+    subject_values = request.GET.getlist("subject_area")
+    concept_values = request.GET.getlist("publication_type_concept")
+    concept_names = _concept_names(subject_values + concept_values)
+    chips.multi("subject_area", labels=concept_names)
+    chips.multi("publication_type_concept", labels=concept_names)
+    chips.multi("license", labels=dict(license_choices))
+    chips.multi(
+        "institution",
+        labels=_names_by_pk(Institution, request.GET.getlist("institution")),
+    )
+    chips.multi(
+        "journal",
+        labels=_names_by_pk(Journal, request.GET.getlist("journal"), name_field="title"),
+    )
+    chips.multi("publisher", labels=_names_by_pk(Publisher, request.GET.getlist("publisher")))
+    chips.multi("funder", labels=_names_by_pk(FundingOrganization, request.GET.getlist("funder")))
+    chips.multi(
+        "funding_source",
+        labels=_names_by_pk(FundingSource, request.GET.getlist("funding_source")),
+    )
+    chips.multi("cost_type", labels=dict(cost_type_choices))
+
+    chips.single(
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", prefix="Year ")
+    chips.switch("invalid_contract_years", "Invalid years only")
+
+    names = {label.pk: label.name for label in labels}
+    colors = {label.pk: label.hexcolor for label in labels}
+
+    def label_chips(param: str, ids: set[int], prefix: str = "") -> None:
+        for value in sorted(ids):
+            chips.add(
+                param, str(value), prefix + names[value], kind="label", label_color=colors[value]
+            )
+
+    label_chips("labels", included)
+    label_chips("exclude_labels", excluded, "Not: ")
+    return chips.summary()

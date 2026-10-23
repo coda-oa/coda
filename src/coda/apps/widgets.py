@@ -72,6 +72,20 @@ class SearchSelectMultiWidget(forms.SelectMultiple):
 
     option_attrs: Mapping[str, Mapping[str, str]]
 
+    #: Registry-scale facets cannot enumerate every choice server-side: the
+    #: form narrows ``choices`` to the matches of ``remote_query`` (plus the
+    #: selected values) and the component round-trips the search term through
+    #: a hidden ``<name>_q`` input, which re-renders the rail via htmx.
+    remote_search = False
+    remote_query = ""
+
+    def get_context(self, name: str, value: Any, attrs: Any) -> dict[str, Any]:
+        context = super().get_context(name, value, attrs)
+        if self.remote_search:
+            context["widget"]["remote_search"] = True
+            context["widget"]["remote_query"] = self.remote_query
+        return context
+
     def create_option(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         option = super().create_option(*args, **kwargs)
         value = args[1] if len(args) > 1 else kwargs["value"]
