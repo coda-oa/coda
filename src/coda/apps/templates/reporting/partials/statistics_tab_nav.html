@@ -1,0 +1,23 @@
+{% comment %}
+The tab buttons: server-owned selection via aria-current. Shared by the
+   page (inside the nav) and the region response (out of band, so a filter
+   change keeps the band's nav in sync with the swapped content).
+   Each button submits the band form (form="filter-toolbar-form") and its
+   name/value pair is appended LAST to the serialized fields — the view reads
+   the last `tab` value, so a button click overrides the form's hidden
+   fallback input. No JS.
+{% endcomment %}
+<div role="group">
+    <button type="submit"
+            form="filter-toolbar-form"
+            name="tab"
+            value="overview"
+            {% if tab == 'overview' %}aria-current="true"{% endif %}>Overview</button>
+    {% for entry in groups %}
+        <button type="submit"
+                form="filter-toolbar-form"
+                name="tab"
+                value="{{ entry.group.id }}"
+                {% if tab == entry.group.id %}aria-current="true"{% endif %}>{{ entry.group.label }}</button>
+    {% endfor %}
+</div>

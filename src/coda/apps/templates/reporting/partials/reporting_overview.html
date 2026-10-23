@@ -1,0 +1,63 @@
+{% load mathfilters %}
+<div class="statistics-headline">
+    <article class="statistics-headline-card">
+        <h4>Publications funded</h4>
+        <p class="statistics-headline-value">
+            {{ headline.publications }}
+            {% if headline.delta_publications is not None %}
+                <span class="{% if headline.delta_publications >= 0 %}delta-up{% else %}delta-down{% endif %} headline-delta">
+                    {% if headline.delta_publications >= 0 %}+{% else %}−{% endif %}{{ headline.delta_publications|abs|floatformat:0 }}%
+                </span>
+            {% endif %}
+        </p>
+    </article>
+    <article class="statistics-headline-card">
+        <h4>Spend incl. tax</h4>
+        <p class="statistics-headline-value">
+            {{ headline.spend|floatformat:2 }} €
+            {% if headline.delta_spend is not None %}
+                <span class="{% if headline.delta_spend >= 0 %}delta-up{% else %}delta-down{% endif %} headline-delta">
+                    {% if headline.delta_spend >= 0 %}+{% else %}−{% endif %}{{ headline.delta_spend|abs|floatformat:0 }}%
+                </span>
+            {% endif %}
+        </p>
+    </article>
+    <article class="statistics-headline-card">
+        <h4>Ø per request</h4>
+        <p class="statistics-headline-value">
+            {% if headline.avg_per_request is not None %}{{ headline.avg_per_request|floatformat:0 }} €{% else %}—{% endif %}
+        </p>
+    </article>
+    <article class="statistics-headline-card">
+        <h4>Top-5 share</h4>
+        <p class="statistics-headline-value">
+            {% if headline.top5_share is not None %}{{ headline.top5_share|floatformat:0 }}%{% else %}—{% endif %}
+        </p>
+        <small>five largest requests' share of spend</small>
+    </article>
+    <article class="statistics-headline-card">
+        <h4>Requests without invoice</h4>
+        <p class="statistics-headline-value">{{ headline.requests_without_invoice }}</p>
+        <small>not in spend yet</small>
+    </article>
+    <article class="statistics-headline-card">
+        <h4>Requests with excluded amounts</h4>
+        <p class="statistics-headline-value">{{ headline.requests_unconvertible }}</p>
+        <small>no rate in the report currency</small>
+    </article>
+</div>
+{% if timeline.data %}
+    <article class="statistics-section" id="statistics-timeline">
+        <header>
+            <h3 class="my-0">Requests {{ resolution.value }}
+                <small class="statistics-section-meta">by request date</small>
+            </h3>
+        </header>
+        {{ timeline|json_script:"chart-timeline" }}
+        <div class="statistics-chart statistics-timeline"
+             data-chart="chart-timeline"
+             role="img"
+             aria-label="Timeline: number of funding requests {{ resolution.value }} over the selected period"></div>
+        {% include "reporting/partials/statistics_resolution.html" %}
+    </article>
+{% endif %}
