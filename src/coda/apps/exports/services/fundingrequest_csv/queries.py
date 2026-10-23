@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from django.db.models import Prefetch, QuerySet
 
@@ -14,7 +14,17 @@ type LabelId = int
 def get_funding_requests_for_export(
     params: fundingrequest_query.FundingRequestSearchParams,
 ) -> QuerySet[FundingRequest]:
-    criteria = fundingrequest_query.build_criteria(params)
+    return fetch_funding_requests(fundingrequest_query.build_criteria(params))
+
+
+def fetch_funding_requests(
+    criteria: Sequence[fundingrequest_query.FundingRequestSearchCriteria],
+) -> QuerySet[FundingRequest]:
+    """The single fetch shape shared by the CSV export and the statistics page.
+
+    Both pages must see exactly the same rows and the same prefetched graph;
+    keeping the assembly in one place is what stops them from drifting apart.
+    """
     qs = fundingrequest_query.search(*criteria)
 
     return (
@@ -58,7 +68,7 @@ def get_funding_requests_for_export(
             ),
             Prefetch(
                 "publication__position_set__funding_assignments",
-                queryset=FundingAssignment.objects.select_related("funding_source"),
+                queryset=FundingAssignment.objects.select_related("funding_source__institution"),
             ),
         )
         .distinct()
