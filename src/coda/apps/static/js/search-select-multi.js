@@ -125,6 +125,7 @@ class SearchSelectMulti extends HTMLElement {
     constructor() {
         super();
         this.options = [];
+        this._queuedQuery = null;
         this.selectedOptions = new Map();
         this.slotOptions = [];
         this.attachShadow({ mode: 'open' });
@@ -135,17 +136,84 @@ class SearchSelectMulti extends HTMLElement {
     connectedCallback() {
         this.setupListeners();
         this.loadOptionsFromSlot();
+        this.restoreRemoteSearchState();
+    }
+
+    restoreRemoteSearchState() {
+        if (!this.hasAttribute('remote-search')) {
+            return;
+        }
+        const input = this.shadowRoot.querySelector('.search-input');
+        const rendered = this.getAttribute('data-q') || '';
+        input.value = rendered;
+        // The term is seeded from the markup on every (re)connect — the only
+        // state that outlives a swap is what the server rendered.
+        this._queuedQuery = rendered || null;
+        // The OOB rail swap recreated this element while the search box had
+        // the caret; the fetching element marked its name so focus returns.
+        if (window.__facetSearchFocused === this.getAttribute('name')) {
+            window.__facetSearchFocused = null;
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
     }
 
     setupListeners() {
         const input = this.shadowRoot.querySelector('.search-input');
         const dropdown = this.shadowRoot.querySelector('.dropdown');
 
-        input.addEventListener('input', () => this.handleSearch(input.value));
+        input.addEventListener('input', () => {
+            // Real typing is what the search tracks; selection clears the
+            // visible box, but the term must survive that (see syncRemoteQuery).
+            this._queuedQuery = input.value;
+            this.handleSearch(input.value);
+            this.queueRemoteSearch(input.value);
+        });
         input.addEventListener('focus', () => this.showDropdown());
         input.addEventListener('click', () => this.showDropdown());
         input.addEventListener('blur', (e) => this.handleBlur(e, dropdown));
         dropdown.addEventListener('mousedown', (e) => this.handleDropdownMouseDown(e));
+    }
+
+    queueRemoteSearch(query) {
+        if (!this.hasAttribute('remote-search')) {
+            return;
+        }
+        clearTimeout(this._remoteTimer);
+        this._remoteTimer = setTimeout(() => {
+            const hidden = this._remoteInput();
+            if (!hidden || hidden.value === query) {
+                return;
+            }
+            hidden.value = query;
+            window.__facetSearchFocused = this.getAttribute('name');
+            this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        }, 300);
+    }
+
+    disconnectedCallback() {
+        clearTimeout(this._remoteTimer);
+    }
+
+    _remoteInput() {
+        return this.querySelector(`input[type="hidden"][name="${this.getAttribute('name')}_q"]`);
+    }
+
+    syncRemoteQuery() {
+        // The hidden input can never lag what the user searched. The tracked
+        // value is the queued *typing*, not the visible field: selectOption
+        // empties the box before dispatching its change, and a selection must
+        // not drop the term — the rail stays narrowed so another value under
+        // the same term can be picked without retyping. The element dies with
+        // each swap and the fresh one restores the term from data-q.
+        if (!this.hasAttribute('remote-search')) {
+            return;
+        }
+        clearTimeout(this._remoteTimer);
+        const hidden = this._remoteInput();
+        if (hidden) {
+            hidden.value = this._queuedQuery ?? '';
+        }
     }
 
     handleSearch(query) {
@@ -306,6 +374,7 @@ class SearchSelectMulti extends HTMLElement {
     }
 
     dispatchChangeEvent() {
+        this.syncRemoteQuery();
         this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     }
 
@@ -341,3 +410,11 @@ class SearchSelectMulti extends HTMLElement {
 }
 
 customElements.define('search-select-multi', SearchSelectMulti);
+
+// A failed region fetch means no swap and no reconnect would consume the
+// focus marker; drop it so the next unrelated swap cannot steal focus.
+const clearFacetSearchFocus = () => {
+    window.__facetSearchFocused = null;
+};
+document.addEventListener('htmx:responseError', clearFacetSearchFocus);
+document.addEventListener('htmx:sendError', clearFacetSearchFocus);

@@ -1,6 +1,8 @@
-{% url 'fundingrequests:list' as filter_clear_url %}
+{% if not filter_clear_url %}
+    {% url 'fundingrequests:list' as filter_clear_url %}
+{% endif %}
 {% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
-{% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
+{% include "partials/filter_active_filters.html" with filter_list_id=filter_list_id|default:"fundingrequest-list" %}
 <div class="filter-group">
     <h3 class="filter-group-title">Status</h3>
     <div class="form-row">
@@ -29,17 +31,65 @@
         {% endfor %}
     </div>
     <div class="form-row">
-        <label for="id_start_date">Start Date</label>
-        {{ filter_form.date_range.subwidgets.0 }}
+        {{ filter_form.publication_form.label_tag }}
+        {{ filter_form.publication_form }}
     </div>
-    <div class="form-row">
-        <label for="id_end_date">End Date</label>
-        {{ filter_form.date_range.subwidgets.1 }}
-        {% include "partials/filter_date_error.html" %}
-    </div>
+    {% if not filter_period_in_toolbar %}
+        <div class="form-row">
+            <label for="id_start_date">Start Date</label>
+            {{ filter_form.date_range.subwidgets.0 }}
+        </div>
+        <div class="form-row">
+            <label for="id_end_date">End Date</label>
+            {{ filter_form.date_range.subwidgets.1 }}
+            {% include "partials/filter_date_error.html" %}
+        </div>
+    {% endif %}
     <div class="form-row">
         {{ filter_form.publication_states.label_tag }}
         {{ filter_form.publication_states }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.subject_area.label_tag }}
+        {{ filter_form.subject_area }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.publication_type_concept.label_tag }}
+        {{ filter_form.publication_type_concept }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.license.label_tag }}
+        {{ filter_form.license }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Publishing</h3>
+    <div class="form-row">
+        {{ filter_form.institution.label_tag }}
+        {{ filter_form.institution }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.journal.label_tag }}
+        {{ filter_form.journal }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.publisher.label_tag }}
+        {{ filter_form.publisher }}
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Funding</h3>
+    <div class="form-row">
+        {{ filter_form.funder.label_tag }}
+        {{ filter_form.funder }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.funding_source.label_tag }}
+        {{ filter_form.funding_source }}
+    </div>
+    <div class="form-row">
+        {{ filter_form.cost_type.label_tag }}
+        {{ filter_form.cost_type }}
     </div>
 </div>
 <div class="filter-group">

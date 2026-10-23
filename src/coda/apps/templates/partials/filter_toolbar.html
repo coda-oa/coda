@@ -3,12 +3,14 @@
            name="search_term"
            value="{{ request.GET.search_term }}"
            placeholder="{{ filter_toolbar_search_placeholder }}"
-           {% if filter_toolbar_search_aria_label %}aria-label="{{ filter_toolbar_search_aria_label }}"{% endif %}
+           aria-label="{{ filter_toolbar_search_placeholder }}"
            class="filter-search">
-    <label class="filter-sort-label" for="sort_by">
-        Sort
-        {{ filter_form.sort_by }}
-    </label>
+    {% if not filter_toolbar_hide_sort %}
+        <label class="filter-sort-label" for="sort_by">
+            Sort
+            {{ filter_form.sort_by }}
+        </label>
+    {% endif %}
     <button type="button"
             id="filter-drawer-toggle"
             class="filter-drawer-toggle"
