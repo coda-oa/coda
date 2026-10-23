@@ -1,0 +1,7 @@
+{% comment %}
+    Label filters ride along in the toolbar form so htmx region fetches keep
+    them; the pills themselves belong to the funding request list.
+{% endcomment %}
+{% for label_id in label_state %}
+    <input type="hidden" name="labels" value="{{ label_id }}">
+{% endfor %}

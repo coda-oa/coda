@@ -1,0 +1,15 @@
+{% comment %}
+    The timeline's temporal resolution: submit buttons of the band form
+    (form="filter-toolbar-form") — the clicked button's name/value pair is
+    appended LAST to the serialized fields, so the view's last-value read
+    makes the click win over the hidden fallback input. No JS.
+{% endcomment %}
+<div class="statistics-resolution" id="statistics-resolution" role="group" aria-label="Timeline resolution">
+    {% for candidate in resolutions %}
+        <button type="submit"
+                form="filter-toolbar-form"
+                name="resolution"
+                value="{{ candidate.value }}"
+                {% if candidate == resolution %}aria-current="true"{% endif %}>{{ candidate.value }}</button>
+    {% endfor %}
+</div>

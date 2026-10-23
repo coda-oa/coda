@@ -1,0 +1,23 @@
+{% load mathfilters %}
+{% if incomplete_invoices %}
+    <div class="statistics-notice" role="note">
+        {{ headline.requests_unconvertible }}
+        {{ headline.requests_unconvertible|pluralize:"request,requests" }}
+        with excluded amounts — no conversion rate in the report currency
+        , the amounts are not in spend:
+        {% for invoice in incomplete_invoices %}
+            <a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.number }}</a>{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    </div>
+{% endif %}
+    <p class="statistics-intro">
+        <a href="{{ list_view_url }}"
+           title="Show these funding requests in the list, with the active filters">Show the
+        {{ headline.publications }} funding request{{ headline.publications|pluralize }} behind these
+        numbers</a>
+    </p>
+{% if tab == 'overview' %}
+    {% include 'reporting/partials/reporting_overview.html' %}
+{% else %}
+    {% include 'reporting/partials/reporting_groups.html' %}
+{% endif %}

@@ -1,0 +1,251 @@
+.statistics-headline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 0 0 1.5rem;
+}
+
+.statistics-headline-card {
+    flex: 1 1 14rem;
+    margin: 0;
+}
+
+.statistics-headline-value {
+    font-size: 1.6rem;
+    margin: 0.25rem 0;
+}
+
+.statistics-intro {
+    margin: 0 0 1rem;
+    text-align: right;
+}
+
+/* Pico paints <article> as a card — facets use that idiom, like the
+headline cards above them; this class only keeps the anchor id addressable. */
+.statistics-section {
+    margin-bottom: var(--pico-spacing, 1rem);
+}
+
+/* The timeline card's resolution switch: a quiet centered row under the
+   chart. */
+#statistics-timeline .statistics-resolution {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.25rem;
+}
+
+.statistics-chart {
+    max-width: 100%;
+}
+
+/* Plotly honors an explicit height; the treemap has no bar-count to size by. */
+.statistics-treemap {
+    height: 720px;
+}
+
+.statistics-caption {
+    text-align: left;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.statistics-values {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.statistics-values th,
+.statistics-values td {
+    text-align: left;
+    padding: 0.2rem 0.5rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.statistics-values .statistics-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.statistics-values thead th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.statistics-values thead th[aria-sort="ascending"]::after {
+    content: " ▴";
+}
+
+.statistics-values thead th[aria-sort="descending"]::after {
+    content: " ▾";
+}
+
+.statistics-note {
+    opacity: 0.8;
+}
+
+/* The statistics header band (2.7 + 2.1): search bar, filter chips, list
+   link, tab group. The band owns the toolbar (filter_layout renders its
+   copy only when not disabled) and sits outside the swapped region, so it
+   survives every filter change. */
+.statistics-header-band {
+    padding: 0.5rem 0;
+    background: var(--coda-background-color, var(--pico-background-color, #fff));
+}
+
+.statistics-active-filters {
+    /* The synced chips land directly in this wrapper (copied from the
+       rail); lay them out like the rail's own .active-filters flex. */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.statistics-active-filters:empty {
+    display: none;
+}
+
+/* The period lives in the toolbar band (2.8): search + period + Filters
+   button on one row. */
+.filter-period {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.filter-period label {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    line-height: 1.2rem;
+    margin-bottom: 0;
+}
+
+.filter-period input {
+    margin-bottom: 0;
+}
+
+/* Comparison switch (2.8): a Pico role=switch checkbox in the toolbar band;
+   its change event re-issues the region request with compare=1 (the region
+   includes this form). */
+.compare-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* Period deltas in the tables. */
+.delta-up {
+    color: var(--coda-success-color, #1a7f37);
+}
+
+.delta-down {
+    color: var(--coda-danger-color, #b42318);
+}
+
+/* Group bands and the jump-nav button group (2.1, Pico [role=group] with
+   <a role=button> children, like the label-create links elsewhere).
+   Pico stretches the group full-width and pads its buttons wide — undo both,
+   like pagination__jump does. */
+.statistics-groups [role="group"] {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.statistics-groups [role="group"] a[role="button"] {
+    margin: 0;
+    --pico-form-element-spacing-horizontal: 0.75rem;
+}
+
+.statistics-groups [role="group"] a[role="button"][aria-current="true"] {
+    /* Pico's aria-current styling on group buttons is subtle; make the
+       active group unmistakable. */
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Timeline resolution switch: inline buttons beside the period fields, same
+   selected-state idiom as the tab group. */
+.statistics-resolution {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.statistics-resolution button {
+    margin: 0;
+    padding: 0.125rem 0.6rem;
+    font-size: 0.85rem;
+    border-radius: var(--coda-border-radius);
+}
+
+.statistics-resolution button[aria-current="true"] {
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.statistics-group {
+    margin-bottom: 2rem;
+}
+
+/* Group sections stack in one column; the grid container only carries the
+   vertical rhythm. */
+.statistics-group-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.statistics-group-title {
+    font-size: 1.15rem;
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--coda-border-color, #ddd);
+}
+
+.statistics-section-meta {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--coda-muted-color, #667);
+}
+
+.statistics-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.statistics-values th:first-child,
+.statistics-values td:first-child {
+    text-align: left;
+}
+
+.statistics-share {
+    display: block;
+    height: 3px;
+    margin-top: 2px;
+    /* Anchored right: the number column is right-aligned, so the bar grows
+       leftward from the value it visualizes. */
+    background: linear-gradient(
+        to left,
+        var(--coda-primary, #0072b2) calc(var(--share, 0) * 0.1%),
+        transparent calc(var(--share, 0) * 0.1%)
+    );
+}
+
+.statistics-values .headline-delta {
+    /* Own line, right-aligned: the main numbers keep a clean right edge;
+       the deltas form their own sub-column underneath. */
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.headline-delta {
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-left: 0.35rem;
+}
