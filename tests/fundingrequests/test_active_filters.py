@@ -16,6 +16,7 @@ Rules asserted here:
 
 from datetime import date
 from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from django.template.response import TemplateResponse
@@ -25,9 +26,13 @@ from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
 from coda.apps.listfilters import ActiveFilter
+from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.models import PublicationAttachedConcept, Vocabulary
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.publication.publication import License
 from tests import modelfactory
 from tests.filterdom import date_error_text, selected_values, swap_targets, walk
 
@@ -57,6 +62,16 @@ def chip_for(response: TemplateResponse, text: str) -> ActiveFilter:
     """The summary entry for a value — its remove link is the × the user clicks."""
     return cast(
         ActiveFilter, next(chip for chip in response.context["active_filters"] if chip.text == text)
+    )
+
+
+def _concept_choice(vocabulary: Vocabulary) -> PublicationAttachedConcept:
+    """One concept, visible to both sides: a vocabulary row (what the facet
+    offers as a choice) and a registry row carrying the same entity id (what
+    the filter matches publications against and what the chip names)."""
+    concept = modelfactory.concept(vocabulary)
+    return PublicationAttachedConcept.objects.create(
+        name=concept.name, vocabulary=vocabulary, entity_id=concept.entity_id
     )
 
 
@@ -272,6 +287,17 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
     beta = label_create("Beta", Color.from_rgb(0, 255, 0))
     label_attach(modelfactory.fundingrequest(title="Alpha rail paper"), alpha)
     label_attach(modelfactory.fundingrequest(title="Beta rail paper"), beta)
+    institution = modelfactory.institution()
+    journal = modelfactory.journal(title="Order Journal")
+    publisher = modelfactory.publisher(name="Order Press")
+    funder = modelfactory.funding_organization(name="Order Funder")
+    source = modelfactory.budget(name="Order Fund")
+    subject_vocabulary = modelfactory.vocabulary()
+    subject = _concept_choice(subject_vocabulary)
+    GlobalPreferences.set_subject_classification_vocabulary(subject_vocabulary)
+    type_vocabulary = modelfactory.vocabulary()
+    publication_type = _concept_choice(type_vocabulary)
+    GlobalPreferences.set_article_publication_type_vocabulary(type_vocabulary)
 
     response = get_list_region(
         client,
@@ -280,9 +306,19 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
         payment_methods="direct",
         open_access_type="Gold",
         publication_type="article",
+        publication_form="monograph",
         publication_states="Accepted",
         start_date="2025-01-01",
         end_date="2026-12-31",
+        subject_area=str(subject.entity_id),
+        publication_type_concept=str(publication_type.entity_id),
+        license=License.CC_BY.value,
+        institution=str(institution.pk),
+        journal=str(journal.pk),
+        publisher=str(publisher.pk),
+        funder=str(funder.pk),
+        funding_source=str(source.pk),
+        cost_type=PublicationCostType.Vat.value,
         contract_name=str(contract.pk),
         contract_year="2025",
         invalid_contract_years="on",
@@ -298,9 +334,19 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
         ("direct", "neutral"),
         ("Gold", "neutral"),
         ("Article", "neutral"),
+        ("Monograph", "neutral"),
         ("Accepted", "neutral"),
-        ("From 2025-01-01", "neutral"),
-        ("To 2026-12-31", "neutral"),
+        ("From 2025-01-01", "date"),
+        ("To 2026-12-31", "date"),
+        (subject.name, "neutral"),
+        (publication_type.name, "neutral"),
+        (License.CC_BY.value, "neutral"),
+        (institution.name, "neutral"),
+        ("Order Journal", "neutral"),
+        ("Order Press", "neutral"),
+        ("Order Funder", "neutral"),
+        ("Order Fund", "neutral"),
+        (PublicationCostType.Vat.value, "neutral"),
         (contract.name, "neutral"),
         ("Year 2025", "neutral"),
         ("Invalid years only", "neutral"),
@@ -324,3 +370,76 @@ def test__summary__treats_an_empty_value_as_no_filter(client: Client) -> None:
     defaulted = get_list_region(client, publication_type="")
     assert chip_texts(defaulted) == []
     assert defaulted.context["filter_count"] == 0
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__summary__reports_the_statistics_facets_by_name(client: Client) -> None:
+    """The statistics-era facets narrow the list too: every selected value gets
+    a chip naming it the way the rail shows it, counted in the badge."""
+    institution = modelfactory.institution()
+    publisher = modelfactory.publisher(name="Idea Publishing")
+    journal = modelfactory.journal(title="KEK Journal")
+    funder = modelfactory.funding_organization(name="DFG")
+    source = modelfactory.budget(name="Central Fund")
+    subject_vocabulary = modelfactory.vocabulary()
+    subject = _concept_choice(subject_vocabulary)
+    GlobalPreferences.set_subject_classification_vocabulary(subject_vocabulary)
+    type_vocabulary = modelfactory.vocabulary()
+    publication_type = _concept_choice(type_vocabulary)
+    GlobalPreferences.set_article_publication_type_vocabulary(type_vocabulary)
+
+    response = get_list_region(
+        client,
+        publication_form="article",
+        subject_area=str(subject.entity_id),
+        publication_type_concept=str(publication_type.entity_id),
+        license=License.CC_BY.value,
+        institution=str(institution.pk),
+        journal=str(journal.pk),
+        publisher=str(publisher.pk),
+        funder=str(funder.pk),
+        funding_source=str(source.pk),
+        cost_type=PublicationCostType.Vat.value,
+    )
+
+    assert chip_texts(response) == [
+        "Article",
+        subject.name,
+        publication_type.name,
+        License.CC_BY.value,
+        institution.name,
+        journal.title,
+        publisher.name,
+        funder.name,
+        source.name,
+        PublicationCostType.Vat.value,
+    ]
+    assert response.context["filter_count"] == 10
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__summary__tolerates_stale_facet_references(client: Client) -> None:
+    """A deleted or unparseable statistics-facet value in a saved URL shows its
+    raw value instead of crashing — and stays removable."""
+    response = get_list_region(client, institution="99999", subject_area="not-a-uuid")
+
+    assert chip_texts(response) == ["not-a-uuid", "99999"]
+    assert response.context["filter_count"] == 2
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__removing_a_facet_chip__keeps_the_other_facet_values_applied(client: Client) -> None:
+    """Removing one journal of a two-journal filter drops exactly that value;
+    the other journal and every other param survive."""
+    alpha = modelfactory.journal(title="Alpha Journal")
+    beta = modelfactory.journal(title="Beta Journal")
+    publisher = modelfactory.publisher(name="Gamma Press")
+
+    response = get_list_region(
+        client, journal=[str(alpha.pk), str(beta.pk)], publisher=str(publisher.pk)
+    )
+    chip = chip_for(response, "Alpha Journal")
+
+    params = parse_qs(urlparse(chip.remove_fragment_url).query)
+    assert params["journal"] == [str(beta.pk)]
+    assert params["publisher"] == [str(publisher.pk)]
