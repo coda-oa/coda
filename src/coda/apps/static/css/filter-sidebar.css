@@ -377,3 +377,145 @@
     }
   }
 }
+
+/* Always-drawer variant (opt-in via body.filter-always-drawer, statistics
+   page): the rail is a slide-in drawer at every viewport width — no inline
+   mode. Everything below mirrors the narrow-screen drawer rules above,
+   without the media query. */
+body.filter-always-drawer .filter-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: var(--coda-form-element-spacing-vertical)
+    var(--coda-form-element-spacing-horizontal);
+  border: var(--coda-border-width) solid var(--coda-border-color);
+  border-radius: var(--coda-border-radius);
+  background: var(--coda-form-element-background-color);
+  color: var(--coda-color);
+  cursor: pointer;
+  height: 100%;
+}
+
+body.filter-always-drawer .filter-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: var(--coda-border-radius);
+  background: transparent;
+  color: var(--coda-muted-color);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+body.filter-always-drawer .filter-drawer-close:hover {
+  background: var(--coda-primary-background-hover);
+  color: var(--coda-validation-text-color);
+}
+
+body.filter-always-drawer .filter-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: calc(280px + var(--_padding));
+  max-width: 100%;
+  height: 100dvh;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  background: var(--coda-background-color);
+  border-left: 1px solid var(--coda-border-color);
+  box-shadow: -2px 0 8px rgb(0 0 0 / 0.15);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.2s ease,
+    visibility 0s 0.2s;
+  /* Overflow must go DOWNWARD: the dialog's UA flex centers its single
+     child, putting a taller-than-viewport facet list's header above the top
+     edge where it is unreachable. */
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+body.filter-always-drawer .filter-sidebar:modal {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.2s ease;
+  animation: filter-sidebar-slide-in 0.2s ease;
+}
+
+body.filter-always-drawer .filter-sidebar:modal.filter-sidebar-closing {
+  transform: translateX(100%);
+  visibility: visible;
+  transition: transform 0.2s ease;
+  animation: none;
+}
+
+body.filter-always-drawer .filter-sidebar::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+body.filter-always-drawer.filter-drawer-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.filter-always-drawer .filter-sidebar,
+  body.filter-always-drawer .filter-sidebar:modal,
+  body.filter-always-drawer .filter-sidebar:modal.filter-sidebar-closing,
+  body.filter-always-drawer .filter-sidebar::backdrop {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Region loading indicator (htmx): the overlay covers the region while a
+   request is in flight. htmx adds .htmx-request to the #hx-indicator element
+   for the duration; the spinner is pure CSS so no image asset is needed. */
+.filter-list {
+    position: relative;
+}
+
+.filter-loading {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: color-mix(in srgb, var(--coda-background-color, #fff) 70%, transparent);
+    backdrop-filter: blur(1px);
+}
+
+.filter-loading.htmx-request {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.filter-loading-spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid var(--coda-border-color, #ccc);
+    border-top-color: var(--coda-primary, var(--pico-primary, #0172ad));
+    border-radius: 50%;
+    animation: filter-loading-spin 0.8s linear infinite;
+}
+
+@keyframes filter-loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-loading-spinner {
+        animation-duration: 2s;
+    }
+}

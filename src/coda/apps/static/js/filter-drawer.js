@@ -9,6 +9,8 @@
   }
 
   const narrowViewport = window.matchMedia("(width < 1400px)");
+  // Opt-in (statistics page): the rail is a drawer at every width.
+  const alwaysDrawer = document.body.classList.contains("filter-always-drawer");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let restoreToggleAfterClose = false;
   let isClosing = false;
@@ -114,14 +116,17 @@
     }
   });
 
-  // The template starts open for the desktop modeless rail.
-  if (narrowViewport.matches && dialog.open && !dialog.matches(":modal")) {
-    dialog.close();
+  // The template starts open for the desktop modeless rail; in the
+  // always-drawer variant it starts closed instead.
+  if (narrowViewport.matches || alwaysDrawer) {
+    if (dialog.open && !dialog.matches(":modal")) {
+      dialog.close();
+    }
   }
   updateModalState();
 
   toggle.addEventListener("click", () => {
-    if (!narrowViewport.matches) {
+    if (!narrowViewport.matches && !alwaysDrawer) {
       return;
     }
     if (dialog.matches(":modal")) {
@@ -163,7 +168,11 @@
     }
   });
 
+  // In the always-drawer variant the mode never changes with the viewport.
   narrowViewport.addEventListener("change", (event) => {
+    if (alwaysDrawer) {
+      return;
+    }
     const activeElement = document.activeElement;
     if (event.matches) {
       const focusWasInDialog = dialog.contains(activeElement);
