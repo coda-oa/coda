@@ -189,6 +189,29 @@ def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__sidebar__renders_all_statistics_facet_fields(client: Client) -> None:
+    facets = {
+        "institution",
+        "publisher",
+        "journal",
+        "funder",
+        "subject_area",
+        "license",
+        "open_access_type",
+        "publication_form",
+        "cost_type",
+        "funding_source",
+    }
+
+    page_names = rendered_field_names(parse_html(goto_list_page(client).content.decode()))
+    region_names = rendered_field_names(parse_html(get_list_region(client).content.decode()))
+
+    assert facets <= page_names
+    assert facets <= region_names
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__list_region__returns_list_and_sidebar_not_toolbar(client: Client) -> None:
     modelfactory.fundingrequest(title="Region content paper")
 
