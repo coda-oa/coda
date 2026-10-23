@@ -46,7 +46,7 @@ Use Institution sources for:
 
 
 ```{admonition} 
-Using Institution-Type Funding Sources do **not** represent external cost splitting for the [openCost report generation](reporting.md). You have to set this in the [funding source](fundingsources.md) creation process.
+Using Institution-Type Funding Sources do **not** represent external cost splitting for the [openCost report generation](opencost.md). You have to set this in the [funding source](fundingsources.md) creation process.
 
 ```
 

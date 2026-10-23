@@ -8,7 +8,7 @@ The **Preferences** page allows you to configure global settings that affect how
 
 ## Home Institution
 
-The **Home Institution** setting specifies your primary institution. This is used throughout CODA, particularly when generating [openCost reports](reporting.md).
+The **Home Institution** setting specifies your primary institution. This is used throughout CODA, particularly when generating [openCost reports](opencost.md).
 
 ### How to Set Your Home Institution
 
@@ -87,7 +87,7 @@ When creating a [funding request](fundingrequests.md), the publication type and 
 
 ### openCost Exports
 
-When generating [openCost reports](reporting.md):
+When generating [openCost reports](opencost.md):
 - The home institution and its identifiers are included in the XML output
 - Publications are categorized using your chosen vocabularies
 
