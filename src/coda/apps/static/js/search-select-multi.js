@@ -153,8 +153,12 @@ class SearchSelectMulti extends HTMLElement {
         // the caret; the fetching element marked its name so focus returns.
         if (window.__facetSearchFocused === this.getAttribute('name')) {
             window.__facetSearchFocused = null;
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
+            // Deferred: the swap that created this element also moves focus
+            // (element removal drops it to the toggle); win the race.
+            setTimeout(() => {
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            });
         }
     }
 
@@ -181,14 +185,39 @@ class SearchSelectMulti extends HTMLElement {
         }
         clearTimeout(this._remoteTimer);
         this._remoteTimer = setTimeout(() => {
+            // The component drives its own swap: fetch the facet-options
+            // endpoint and replace this element. htmx is deliberately not
+            // involved on the typing path - the rail's region/OOB machinery
+            // must not run per keystroke, and a htmx-triggered custom event
+            // proved unreliable across the drawer's dialog cycles.
             const hidden = this._remoteInput();
-            if (!hidden || hidden.value === query) {
+            if (hidden) {
+                hidden.value = query;
+            }
+            window.__facetSearchFocused = this.getAttribute('name');
+            const endpoint = this.getAttribute('data-endpoint');
+            if (!endpoint) {
                 return;
             }
-            hidden.value = query;
-            window.__facetSearchFocused = this.getAttribute('name');
-            this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            const url = new URL(endpoint, window.location.href);
+            url.searchParams.set('q', query);
+            url.searchParams.delete('selected');
+            for (const value of this._selectedValues()) {
+                url.searchParams.append('selected', value);
+            }
+            fetch(url, { headers: { 'HX-Request': 'true' } })
+                .then((response) => (response.ok ? response.text() : ''))
+                .then((html) => {
+                    if (html) {
+                        this.outerHTML = html;
+                    }
+                })
+                .catch(() => {});
         }, 300);
+    }
+
+    _selectedValues() {
+        return [...this.querySelectorAll('option[selected]')].map((o) => o.value);
     }
 
     disconnectedCallback() {

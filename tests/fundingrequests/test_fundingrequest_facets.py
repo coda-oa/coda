@@ -11,11 +11,14 @@ from typing import Any, cast
 
 import pytest
 from django.forms import TypedMultipleChoiceField
+from django.test import Client
+from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests import fundingrequest_query as fq
-from coda.apps.fundingrequests.forms import _FACET_CHOICE_LIMIT, FundingRequestListFilterForm
+from coda.apps.fundingrequests.facets import _FACET_CHOICE_LIMIT
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.fundingrequest_query import (
     CostTypeCriteria,
     FunderCriteria,
@@ -568,3 +571,32 @@ def test__journal_query_param__is_not_a_search_criterion() -> None:
     criteria, _ = form.search_criteria()
 
     assert criteria == []
+
+
+@pytest.mark.django_db
+def test__facet_options_endpoint__narrowed_options_and_selected(client: Client) -> None:
+    """Typing in a remote-search facet hits this light endpoint instead of the
+    region request: the answer is only the widget markup, narrowed to the
+    query's matches plus the already-selected values, whatever their rank."""
+    journal = modelfactory.journal(title="Darkroom Journal")
+    other = modelfactory.journal(title="Almanac of Testing")
+    modelfactory.journal(title="Field Notes")
+
+    response = client.get(
+        reverse("fundingrequests:facet_options"),
+        {"facet": "journal", "q": "darkroom", "selected": [str(other.pk)]},
+    )
+
+    rendered = response.content.decode()
+    options = dict(re.findall(r'<option[^>]*value="(\d+)"[^>]*>([^<]*)', rendered))
+    assert set(options) == {str(journal.pk), str(other.pk)}
+    assert "Almanac of Testing" in options[str(other.pk)]  # selected, out of the matches
+    assert "Field Notes" not in rendered  # narrowed away
+    assert "remote-search" in rendered
+    assert 'data-q="darkroom"' in rendered
+
+
+@pytest.mark.django_db
+def test__facet_options_endpoint__unknown_facet__404(client: Client) -> None:
+    response = client.get(reverse("fundingrequests:facet_options"), {"facet": "label", "q": ""})
+    assert response.status_code == 404

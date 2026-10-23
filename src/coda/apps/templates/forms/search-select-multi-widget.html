@@ -1,8 +1,9 @@
-<search-select-multi id="{{ widget.attrs.id|default:widget.name }}" name="{{ widget.name }}" {% if widget.remote_search %}remote-search data-q="{{ widget.remote_query }}"{% endif %} {% for attr, value in widget.attrs.items %} {% if attr != 'id' and attr != 'name' and attr != 'required' and attr != 'multiple' %} {{ attr }}="{{ value }}" {% endif %} {% endfor %}>
+<search-select-multi id="{{ widget.attrs.id|default:widget.name }}" name="{{ widget.name }}" {% if widget.remote_search %}remote-search data-q="{{ widget.remote_query }}" data-endpoint="{% url 'fundingrequests:facet_options' %}?facet={{ widget.name }}"{% endif %} {% for attr, value in widget.attrs.items %} {% if attr != 'id' and attr != 'name' and attr != 'required' and attr != 'multiple' %} {{ attr }}="{{ value }}" {% endif %} {% endfor %}>
     {% if widget.remote_search %}
         {% comment %}
-            The component mirrors the search term here; hx-include of the rail
-            form carries it to the server, which re-renders the narrowed options.
+            The component mirrors the search term here; the facet-options
+            request carries it as q=, and the rail's region request carries
+            it too so the narrowed options survive a selection swap.
         {% endcomment %}
         <input type="hidden"
                name="{{ widget.name }}_q"
