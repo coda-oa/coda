@@ -283,9 +283,6 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             if group_sections(group) or (group.has_treemap and treemap)
         ],
         "active_group": tab,
-        # Test-only: sections_by_id() reads this; templates render via the
-        # per-group entries above.
-        "sections": all_sections,
     }
 
 
