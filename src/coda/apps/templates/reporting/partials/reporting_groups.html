@@ -1,0 +1,116 @@
+{% load mathfilters %}
+{% for entry in groups %}
+    {% if entry.group.id == active_group %}
+    <section class="statistics-group" id="group-{{ entry.group.id }}">
+        {% if entry.treemap %}
+            <article class="statistics-section" id="statistics-institution-hierarchy">
+                <header>
+                    <h3 class="my-0">Institution hierarchy</h3>
+                </header>
+                {{ entry.treemap|json_script:"chart-institution-treemap" }}
+                <div class="statistics-chart statistics-treemap"
+                     data-chart="chart-institution-treemap"
+                     role="img"
+                     aria-label="Institution hierarchy treemap: publications as area, spend as colour"></div>
+            </article>
+        {% endif %}
+        <div class="statistics-group-grid">
+        {% for section in entry.sections %}
+            <article class="statistics-section" id="statistics-{{ section.dimension_id }}">
+                <header>
+                    <h3 class="my-0">{{ section.label }}
+                        <small class="statistics-section-meta">
+                            {{ section.value_count }} value{{ section.value_count|pluralize }}
+                            {% if section.unattributed %}
+                                · {{ section.unattributed }} unattributed
+                            {% endif %}
+                        </small>
+                    </h3>
+                </header>
+                {{ section.chart.figure|json_script:section.chart.data_id }}
+                <div class="statistics-chart"
+                     data-chart="{{ section.chart.data_id }}"
+                     role="img"
+                     aria-label="{{ section.chart.title }}"></div>
+                <details class="statistics-exact">
+                    <summary role="button" class="outline secondary">Exact values ({{ section.rows|length }} rows)</summary>
+                    <table class="statistics-values">
+                        <thead>
+                            <tr>
+                                <th scope="col">{{ section.label }}</th>
+                                {% for column in section.columns %}
+                                    <th scope="col" class="statistics-num">{{ column.label }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in section.rows %}
+                                <tr {% if row.is_other %}class="statistics-aggregate"{% endif %}>
+                                    <th scope="row">
+                                        {% if row.link %}
+                                            <a href="{{ row.link }}"
+                                               hx-get="{{ row.link }}"
+                                               hx-include="none"
+                                               hx-target="#reporting-region"
+                                               hx-push-url="true"
+                                               title="Filter these statistics to {{ row.label }}">{{ row.label }}</a>
+                                        {% else %}
+                                            {{ row.label }}
+                                        {% endif %}
+                                    </th>
+                                    {% for column in section.columns %}
+                                        <td class="statistics-num" data-sort="{% if column.measure == 'publications' %}{{ row.publications }}{% else %}{{ row.amount }}{% endif %}">
+                                            {% if column.measure == "publications" %}
+                                                {{ row.publications }}
+                                                {% if compare and row.delta_publications_percent is not None %}
+                                                    <span class="headline-delta {% if row.delta_publications_percent >= 0 %}delta-up{% else %}delta-down{% endif %}">{% if row.delta_publications_percent >= 0 %}+{% else %}−{% endif %}{{ row.delta_publications_percent|abs|floatformat:0 }}%</span>
+                                                {% elif compare and row.comparison_publications == 0 and row.publications %}
+                                                    <span class="headline-delta">new</span>
+                                                {% endif %}
+                                                {% if column.total %}
+                                                    <span class="statistics-share" data-share="{% widthratio row.publications column.total 1000 %}"></span>
+                                                {% endif %}
+                                            {% elif row.amount %}
+                                                <span title="{{ row.amount|floatformat:2 }} €">{{ row.amount|floatformat:"0g" }} €</span>
+                                                {% if compare and row.delta_amount_percent is not None %}
+                                                    <span class="headline-delta {% if row.delta_amount_percent >= 0 %}delta-up{% else %}delta-down{% endif %}">{% if row.delta_amount_percent >= 0 %}+{% else %}−{% endif %}{{ row.delta_amount_percent|abs|floatformat:0 }}%</span>
+                                                {% elif compare and not row.comparison_amount and row.amount %}
+                                                    <span class="headline-delta">new</span>
+                                                {% endif %}
+                                                {% if column.total %}
+                                                    <span class="statistics-share" data-share="{% widthratio row.amount column.total 1000 %}"></span>
+                                                {% endif %}
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th scope="row">Total</th>
+                                {% for column in section.columns %}
+                                    <td class="statistics-num">
+                                        {% if column.note %}
+                                            <em class="statistics-note">{{ column.note }}</em>
+                                        {% elif column.measure == "publications" %}
+                                            {{ column.total }} publications
+                                        {% else %}
+                                            {{ column.total|floatformat:2 }} €
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </details>
+            </article>
+        {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+{% empty %}
+    <p class="my-2">No funding requests match the selected filters.</p>
+{% endfor %}

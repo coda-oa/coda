@@ -1,0 +1,48 @@
+{% comment %}
+    Region swap for the statistics page: the sections re-render, and the whole
+    sidebar form is re-rendered from the URL so the server owns widget state.
+    The form's contents are swapped, not the form element: htmx binds its
+    `change from:#filter-sidebar-form` trigger to that element, so replacing it
+    would silence every later sidebar change.
+{% endcomment %}
+{% include "partials/filter_toolbar_count.html" with toolbar_filter_count_oob=True %}
+<div hx-swap-oob="innerHTML:#filter-sidebar-form">
+    {% include "fundingrequests/fundingrequest_filter_sidebar.html" with filter_period_in_toolbar=True %}
+</div>
+{% comment %}
+    The tab nav lives in the header band, outside the swapped region. The
+    server owns the tab (the band's hidden input serializes it with every
+    region request), so the response also pushes the nav out of band —
+    the freshly rendered buttons carry aria-current directly, no JS.
+{% endcomment %}
+<div hx-swap-oob="innerHTML:#statistics-groups">
+    {% include "reporting/partials/statistics_tab_nav.html" %}
+</div>
+{% comment %}
+    The band form's hidden tab fallback must track the server-owned tab, or an
+    implicit submit (Enter in the search box) resets it.
+{% endcomment %}
+<input type="hidden" name="tab" id="statistics-tab-value" value="{{ tab }}" hx-swap-oob="true">
+<input type="hidden" name="resolution" id="statistics-resolution-value" value="{{ resolution }}" hx-swap-oob="true">
+{% comment %}
+    The resolution control lives in the timeline card header (inside the
+    swapped region), so the region swap re-renders it with the fresh
+    aria-current — only the hidden fallback input needs the OOB update.
+{% endcomment %}
+{% comment %}
+    The band's chip row sits outside the swapped region; the response renders
+    it out of band from the same server-owned chip state as the rail's copy.
+    Id contract: the band include (reporting.html) and this OOB block must
+    both target #statistics-active-filters (wrapper) and carry the same
+    filter_chips_id (statistics-active-filters-list), or the swap misses.
+{% endcomment %}
+<div hx-swap-oob="innerHTML:#statistics-active-filters">
+    {% include "partials/filter_active_filters.html" with filter_list_id="reporting-region" filter_chips_id="statistics-active-filters-list" active_filters=band_active_filters %}
+</div>
+{% comment %}
+    The period block lives in the band too; re-render it so the compare
+    switch's label tracks an edited date range. The OOB attribute sits on the
+    partial's own root div (filter_period_oob), so no wrapper nests up here.
+{% endcomment %}
+{% include "partials/filter_period.html" with filter_period_oob=True %}
+{% include "reporting/partials/reporting_content.html" %}

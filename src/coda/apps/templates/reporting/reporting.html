@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+{% block body_class %}filter-always-drawer{% endblock %}
+{% block content %}
+    <h1 class="my-2">Funding Request Statistics</h1>
+    {% url 'reporting:stats_fundingrequests' as reporting_url %}
+    {% comment %}
+        Sticky band (2.7 + 2.1): the search bar, the active-filter chips, the
+        link into the request list, the group pills — top to bottom, pinned as
+        one block. The band owns the toolbar (filter_layout's copy is off via
+        filter_toolbar=False); everything sits outside the swapped region.
+    {% endcomment %}
+    {% with filter_toolbar_search_placeholder="Search requests by title, author, journal, publisher or ID" filter_list_id="reporting-region" %}
+    <div class="statistics-header-band">
+        {% url 'reporting:stats_fundingrequests_region' as filter_region_url %}
+        <form id="filter-toolbar-form"
+              method="get"
+              action="{{ filter_region_url }}"
+              hx-get="{{ filter_region_url }}"
+              hx-target="#{{ filter_list_id }}"
+              hx-swap="innerHTML"
+              hx-include="#filter-sidebar-form, #filter-toolbar-form"
+              hx-sync="this:replace"
+              hx-indicator="#{{ filter_list_id }}-loading"
+              {% comment %}
+                  Same trigger expression as filter_layout.html's toolbar
+                  form (that copy scopes the toolbar change to
+                  #filter-toolbar-form; here the form is its own listener,
+                  so the bare `change` suffices). Keep the two in sync.
+              {% endcomment %}
+              hx-trigger="submit, change from:#filter-sidebar-form, input delay:300ms from:.filter-search, change[!event.target.matches('.filter-search') || event.target.dataset.lastInputValue !== event.target.value]">
+            {% comment %}
+                Default submit button: without it, pressing Enter in the search
+                box would implicitly click the first tab submit button and
+                reset the tab. The hidden tab input is the fallback value; a
+                tab button's own name/value pair is appended LAST to the
+                serialized fields, so the view's last-value read makes the
+                click win.
+            {% endcomment %}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <input type="hidden" name="tab" id="statistics-tab-value" value="{{ tab }}">
+            <input type="hidden" name="resolution" id="statistics-resolution-value" value="{{ resolution }}">
+            {% include "partials/filter_toolbar.html" with filter_toolbar_hide_sort=True filter_toolbar_extra_template="reporting/partials/label_state.html" %}
+            {% include "partials/filter_period.html" %}
+        </form>
+        <div class="statistics-active-filters mt-1" id="statistics-active-filters">
+            {% include "partials/filter_active_filters.html" with filter_list_id=filter_list_id filter_chips_id="statistics-active-filters-list" active_filters=band_active_filters %}
+        </div>
+        <nav id="statistics-groups" class="statistics-groups" aria-label="Statistics views">
+            {% include "reporting/partials/statistics_tab_nav.html" %}
+        </nav>
+    </div>
+    {% include "partials/filter_layout.html" with filter_toolbar=False filter_period_in_toolbar=True filter_sidebar_template="fundingrequests/fundingrequest_filter_sidebar.html" filter_list_region_template="reporting/partials/reporting_content.html" filter_region_url_name="reporting:stats_fundingrequests_region" filter_list_id=filter_list_id filter_clear_url=reporting_url %}
+    {% endwith %}
+    <script src="{% static 'js/vendor/plotly.min.js' %}"
+            defer
+            crossorigin="anonymous"></script>
+    <script src="{% static 'js/reporting.js' %}" defer crossorigin="anonymous"></script>
+{% endblock content %}
