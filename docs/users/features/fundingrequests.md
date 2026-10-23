@@ -141,7 +141,7 @@ In this step you can collect financial information:
 - **Amount**: Estimated publication costs
 - **Currency**: Select the currency
 - **Payment Method**: Direct, Reimbursement, or Unknown
-- **External cost splitting**: Tick this box to show that you shared costs with an external partner institute. This information is relevant for an [openCost report](reporting.md).
+- **External cost splitting**: Tick this box to show that you shared costs with an external partner institute. This information is relevant for an [openCost report](opencost.md).
 
 **External Research Funding:**
 
