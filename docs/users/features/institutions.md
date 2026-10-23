@@ -58,7 +58,7 @@ CODA supports three types of institutional identifiers that are used for standar
 
 ROR IDs are persistent identifiers for research organizations worldwide. They look like this: `https://ror.org/02mhbdp94`
 
-ROR IDs are used extensively in scholarly publishing and are required for many funding applications and data reporting standards. They are the preferred primary institution identifier for generating an [openCost report](reporting.md).
+ROR IDs are used extensively in scholarly publishing and are required for many funding applications and data reporting standards. They are the preferred primary institution identifier for generating an [openCost report](opencost.md).
 
 **Example**: `https://ror.org/05dxps055`
 
@@ -129,7 +129,7 @@ To update an existing institution:
 ![](/_static/img/institutions_edit_view.png)
 
 ```{admonition} Note
-If publications or contracts are already linked to an institution, updating the institution's identifiers will ensure future exports use the updated values. However, previously generated reports (like [openCost exports](reporting.md)) are snapshots and won't be affected.
+If publications or contracts are already linked to an institution, updating the institution's identifiers will ensure future exports use the updated values. However, previously generated reports (like [openCost exports](opencost.md)) are snapshots and won't be affected.
 ```
 
 ## Organizational Hierarchies
