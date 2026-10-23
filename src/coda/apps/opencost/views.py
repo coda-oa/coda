@@ -49,7 +49,7 @@ from coda.contexts.exports.dto.filters import ExportFiltersDto
 logger = logging.getLogger(__name__)
 
 
-@breadcrumb("openCost Reports", parent_url_name="exports:export_home")
+@breadcrumb("openCost Reports", parent_url_name="reporting:home")
 class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
     model = OpenCostReport
     paginate_by = 20
