@@ -42,7 +42,7 @@ from coda.apps.reporting.dataset import build_facts
 from coda.apps.reporting.drilldown import DrilldownLinks, list_view_url
 from coda.apps.reporting.treemap import institution_treemap
 from coda.contexts.statistics import charts
-from coda.contexts.statistics.dimensions import DIMENSIONS, UNKNOWN
+from coda.contexts.statistics.dimensions import DIMENSIONS
 from coda.contexts.statistics.dto import (
     ChartSpec,
     GroupRow,
@@ -371,9 +371,7 @@ def _sections(
                 ),
                 value_count=len(spec.rows),
                 unattributed=sum(
-                    row.publications
-                    for row in spec.rows
-                    if row.label in _UNATTRIBUTED_LABELS.get(dimension.id, ())
+                    row.publications for row in spec.rows if row.is_unknown
                 ),
             )
         )
@@ -389,20 +387,6 @@ def _panel(spec: ChartSpec, comparison: ChartSpec | None = None) -> ChartPanel:
         title=spec.title,
         figure=figure,
     )
-
-
-#: The sentinel row labels marking requests a facet cannot attribute. Every
-#: dimension's unknown value renders as the UNKNOWN sentinel string.
-_UNATTRIBUTED_LABELS: dict[str, tuple[str, ...]] = {
-    "institution": (UNKNOWN,),
-    "subject_area": (UNKNOWN,),
-    "publication_type": (UNKNOWN,),
-    "publication_form": (UNKNOWN,),
-    "license": (UNKNOWN,),
-    "open_access_type": (UNKNOWN,),
-    "journal": (UNKNOWN,),
-    "publisher": (UNKNOWN,),
-}
 
 
 @dataclass(frozen=True)
