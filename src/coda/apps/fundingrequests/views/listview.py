@@ -15,7 +15,8 @@ from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
-from coda.apps.listfilters import ListRegionMixin, build_filter_summary, params_without
+from coda.apps.fundingrequests.filters import build_filter_summary
+from coda.apps.listfilters import ListRegionMixin, params_without
 from coda.apps.views import EntityListView
 
 
