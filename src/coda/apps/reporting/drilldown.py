@@ -144,11 +144,19 @@ def _lookup_tables(vocabularies: PreloadedVocabularyProvider) -> dict[str, dict[
         if concept.name
     }
     return {
-        "institution": _group_pks(Institution.objects.values_list("pk", "name")),
-        "journal": _group_pks(Journal.objects.values_list("pk", "title")),
-        "publisher": _group_pks(Publisher.objects.values_list("pk", "name")),
-        "funder": _group_pks(FundingOrganization.objects.values_list("pk", "name")),
-        "funding_source": _group_pks(FundingSource.objects.values_list("pk", "name")),
+        "institution": _group_pks(
+            Institution.objects.values_list("pk", Institution.facet_label_field)
+        ),
+        "journal": _group_pks(Journal.objects.values_list("pk", Journal.facet_label_field)),
+        "publisher": _group_pks(
+            Publisher.objects.values_list("pk", Publisher.facet_label_field)
+        ),
+        "funder": _group_pks(
+            FundingOrganization.objects.values_list("pk", FundingOrganization.facet_label_field)
+        ),
+        "funding_source": _group_pks(
+            FundingSource.objects.values_list("pk", FundingSource.facet_label_field)
+        ),
         "subject_area": {
             concept.name: [str(concept.id)]
             for concept in vocabularies.get_subject_classification_vocabulary().concepts

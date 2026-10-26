@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +11,8 @@ from coda.domain.finance.invoice import PaymentStatus
 
 
 class FundingSource(models.Model):
+    facet_label_field: ClassVar[str] = "name"
+
     class TypeChoices(models.TextChoices):
         budget = ("budget", "Budget")
         institution = ("institution", "Institution")
