@@ -17,6 +17,13 @@ class FundingSource(models.Model):
     name = models.CharField(max_length=255, blank=True)
     institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
 
+    def __str__(self) -> str:
+        if self.name:
+            return self.name
+        if self.institution_id:
+            return str(self.institution)
+        return self.TypeChoices[self.type].label
+
 
 class CreditorManager(models.Manager["Creditor"]):
     def get_queryset(self) -> models.QuerySet["Creditor"]:
