@@ -1,7 +1,7 @@
 import enum
 import re
 from collections.abc import Iterable, Iterator
-from typing import Any, NewType
+from typing import NewType
 
 from coda.domain import errors
 from coda.domain.orcid import Orcid
@@ -27,6 +27,15 @@ class Role(enum.Enum):
 
     def is_submitting_role(self) -> bool:
         return self in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
+
+    @classmethod
+    def corresponding_role_names(cls) -> frozenset[str]:
+        """The enum names of the roles that make an author the corresponding
+        author of a publication. The funding-request list filter and the
+        statistics dataset must agree on this rule; both derive it from
+        here."""
+        return frozenset({cls.CORRESPONDING_AUTHOR.name, cls.SUBMITTING_CORRESPONDING_AUTHOR.name})
+
 
 
 class Author:
@@ -243,5 +252,5 @@ class AuthorNames(Iterable[str]):
     def __repr__(self) -> str:
         return "AuthorList([{}])".format(", ".join(repr(x) for x in self._authors))
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return all(my_author == other_author for my_author, other_author in zip(self, other))
