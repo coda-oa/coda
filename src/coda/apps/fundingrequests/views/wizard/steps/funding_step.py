@@ -1,15 +1,13 @@
+from typing import Any
+
+from django.http import HttpRequest
+
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, PaymentForm
 from coda.apps.fundingrequests.views.wizard.formrestore import (
     restore_form,
     restore_formset,
 )
-from coda.apps.wizard import TemplateStep, Store
-
-
-from django.http import HttpRequest
-
-
-from typing import Any
+from coda.apps.wizard import Store, TemplateStep
 
 
 class FundingStep(TemplateStep):
