@@ -30,12 +30,8 @@ from coda.apps.fundingrequests.forms import (
 from coda.apps.fundingrequests.models import Label
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Invoice
-from coda.apps.listfilters import (
-    ListRegionMixin,
-    build_filter_summary,
-    build_url,
-    params_without,
-)
+from coda.apps.fundingrequests.filters import build_filter_summary
+from coda.apps.listfilters import ListRegionMixin, build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.reporting import queries
 from coda.apps.reporting.dataset import build_facts
