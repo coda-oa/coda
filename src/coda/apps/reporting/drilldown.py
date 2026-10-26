@@ -28,28 +28,11 @@ from coda.apps.journals.models import Journal
 from coda.apps.listfilters import build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences, PreloadedVocabularyProvider
 from coda.apps.publishers.models import Publisher
+from coda.contexts.statistics.dimensions import PageFacet, by_id
 from coda.contexts.statistics.dto import ContractRef, GroupRow
 from coda.domain.publication import License, OpenAccessType
 
 _LIST_URL = "fundingrequests:list"
-
-# dimension id -> (facet param, multi-valued facet?)
-_FACETS: Mapping[str, tuple[str, bool]] = {
-    "institution": ("institution", True),
-    "subject_area": ("subject_area", True),
-    "publication_type": ("publication_type_concept", True),
-    "publication_form": ("publication_type", False),
-    "license": ("license", True),
-    "open_access_type": ("open_access_type", True),
-    "journal": ("journal", True),
-    "publisher": ("publisher", True),
-    "cost_type": ("cost_type", True),
-    "funder": ("funder", True),
-    "funding_source": ("funding_source", True),
-}
-
-# Dimensions whose chart label is already the facet's accepted value.
-_IDENTITY_DIMENSIONS = frozenset({"publication_form", "cost_type"})
 
 
 def facet_param_names(dimension_id: str) -> tuple[str, ...]:
@@ -59,10 +42,10 @@ def facet_param_names(dimension_id: str) -> tuple[str, ...]:
     without a facet yields ``()`` — the completeness test in tests/reporting
     pins that no dimension ever reaches that case.
     """
-    if dimension_id == "contract":
-        return ("contract_name", "contract_year")
-    facet = _FACETS.get(dimension_id)
-    return () if facet is None else (facet[0],)
+    facet = by_id(dimension_id).facet
+    if facet is None:
+        return ()
+    return (facet.param, "contract_year") if dimension_id == "contract" else (facet.param,)
 
 
 @dataclass(frozen=True)
@@ -91,18 +74,20 @@ class DrilldownLinks:
     def link(self, dimension_id: str, row: GroupRow) -> str | None:
         if row.is_other or row.is_unknown or row.is_unassigned:
             return None
+        facet = by_id(dimension_id).facet
+        if facet is None:
+            return None
         if dimension_id == "contract":
             return self._contract_link(row.ref)
-        values = self._facet_values(dimension_id, row.label)
+        values = self._facet_values(facet, row.label)
         if not values:
             return None
-        param, multi = _FACETS[dimension_id]
-        return self._url({param: (values, multi)})
+        return self._url({facet.param: (values, facet.multi)})
 
-    def _facet_values(self, dimension_id: str, label: str) -> list[str]:
-        if dimension_id in _IDENTITY_DIMENSIONS:
+    def _facet_values(self, facet: PageFacet, label: str) -> list[str]:
+        if facet.identity:
             return [label]
-        return self._by_name[dimension_id].get(label, [])
+        return self._by_name[facet.lookup].get(label, [])
 
     def _contract_link(self, ref: object | None) -> str | None:
         """The row's ref carries its identity: one contract (pk) and the year

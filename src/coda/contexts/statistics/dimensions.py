@@ -1,7 +1,7 @@
 """The dimension registry (plan §7).
 
 Adding a dimension is one entry here — plus, if it needs one, a query criterion in
-``apps/statistics``. Each entry says how a fact contributes to the dimension's values
+``apps/reporting``. Each entry says how a fact contributes to the dimension's values
 and which measures it supports; the kind and the additive flags carry the ADR-0007
 semantics that keep non-additive charts honest.
 """
@@ -54,6 +54,24 @@ Contributions = Callable[[RequestFact], tuple[Contribution, ...]]
 
 
 @dataclass(frozen=True, slots=True)
+class PageFacet:
+    """The page-facing half of a dimension (§2 #7): how a chart row becomes a
+    facet filter on the shared funding-request form.
+
+    Keeping this beside the dimension gives the facet knowledge one home;
+    the page modules used to carry parallel string maps for the same facts.
+    ``identity`` marks dimensions whose chart label already is the facet's
+    accepted value, so no label→value lookup is needed; ``lookup`` names
+    the value table for the rest.
+    """
+
+    param: str
+    multi: bool = True
+    identity: bool = False
+    lookup: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class Dimension:
     id: str
     label: str
@@ -63,6 +81,7 @@ class Dimension:
     money: Measure | None  # Measure.PAID_OUT | Measure.FUNDED_BY | None
     additive_spend: bool
     contributions: Contributions
+    facet: PageFacet | None = None
 
     def measures(self) -> tuple[Measure, ...]:
         result = [Measure.PUBLICATIONS] if self.has_publications else []
@@ -94,7 +113,10 @@ def _paid_out_under_each(labels: tuple[str, ...], fact: RequestFact) -> tuple[Co
 
 
 def _single_value_paid_out(
-    dimension_id: str, label: str, value: Callable[[RequestFact], str | None]
+    dimension_id: str,
+    label: str,
+    value: Callable[[RequestFact], str | None],
+    facet: PageFacet,
 ) -> Dimension:
     """A single-valued publication attribute partitions requests: both measures add up."""
     return Dimension(
@@ -106,26 +128,52 @@ def _single_value_paid_out(
         money=Measure.PAID_OUT,
         additive_spend=True,
         contributions=lambda fact: (Contribution(_known(value(fact)), fact.paid_out_total),),
+        facet=facet,
     )
 
 
 SUBJECT_AREA = _single_value_paid_out(
-    "subject_area", "Subject area", lambda fact: _named(fact.subject_area)
+    "subject_area",
+    "Subject area",
+    lambda fact: _named(fact.subject_area),
+    facet=PageFacet(param="subject_area", lookup="subject_area"),
 )
 PUBLICATION_TYPE = _single_value_paid_out(
-    "publication_type", "Publication type", lambda fact: _named(fact.publication_type)
+    "publication_type",
+    "Publication type",
+    lambda fact: _named(fact.publication_type),
+    facet=PageFacet(param="publication_type_concept", lookup="publication_type"),
 )
 PUBLICATION_FORM = _single_value_paid_out(
     "publication_form",
     "Publication form",
     lambda fact: None if fact.publication_form == FORM_UNKNOWN else fact.publication_form,
+    facet=PageFacet(param="publication_type", multi=False, identity=True),
 )
-LICENSE = _single_value_paid_out("license", "License", lambda fact: fact.license)
+LICENSE = _single_value_paid_out(
+    "license",
+    "License",
+    lambda fact: fact.license,
+    facet=PageFacet(param="license", lookup="license"),
+)
 OPEN_ACCESS_TYPE = _single_value_paid_out(
-    "open_access_type", "Open access type", lambda fact: fact.open_access_type
+    "open_access_type",
+    "Open access type",
+    lambda fact: fact.open_access_type,
+    facet=PageFacet(param="open_access_type", lookup="open_access_type"),
 )
-JOURNAL = _single_value_paid_out("journal", "Journal", lambda fact: fact.journal)
-PUBLISHER = _single_value_paid_out("publisher", "Publisher", lambda fact: fact.publisher)
+JOURNAL = _single_value_paid_out(
+    "journal",
+    "Journal",
+    lambda fact: fact.journal,
+    facet=PageFacet(param="journal", lookup="journal"),
+)
+PUBLISHER = _single_value_paid_out(
+    "publisher",
+    "Publisher",
+    lambda fact: fact.publisher,
+    facet=PageFacet(param="publisher", lookup="publisher"),
+)
 
 INSTITUTION = Dimension(
     id="institution",
@@ -138,6 +186,7 @@ INSTITUTION = Dimension(
     contributions=lambda fact: _paid_out_under_each(
         tuple(ref.name for ref in fact.institutions) or (UNKNOWN,), fact
     ),
+    facet=PageFacet(param="institution", lookup="institution"),
 )
 
 CONTRACT = Dimension(
@@ -151,6 +200,9 @@ CONTRACT = Dimension(
     contributions=lambda fact: tuple(
         Contribution(ref.label, fact.paid_out_total, ref=ref) for ref in fact.contracts
     ),
+    # The drilldown adds contract_year from the row's ref, so a row drills
+    # down through both params of its (pk, year) identity.
+    facet=PageFacet(param="contract_name", multi=False, lookup="contract"),
 )
 
 COST_TYPE = Dimension(
@@ -164,6 +216,7 @@ COST_TYPE = Dimension(
     contributions=lambda fact: tuple(
         Contribution(cost_type, amount) for cost_type, amount in fact.paid_out_by_cost_type.items()
     ),
+    facet=PageFacet(param="cost_type", identity=True),
 )
 
 FUNDER = Dimension(
@@ -175,6 +228,7 @@ FUNDER = Dimension(
     money=None,
     additive_spend=False,
     contributions=lambda fact: tuple(Contribution(name, ZERO) for name in fact.funders),
+    facet=PageFacet(param="funder", lookup="funder"),
 )
 
 FUNDING_SOURCE = Dimension(
@@ -189,6 +243,7 @@ FUNDING_SOURCE = Dimension(
         tuple(Contribution(ref.name, amount) for ref, amount in fact.funded_by.items())
         + ((Contribution(UNASSIGNED, fact.unassigned),) if fact.unassigned != ZERO else ())
     ),
+    facet=PageFacet(param="funding_source", lookup="funding_source"),
 )
 
 DIMENSIONS: tuple[Dimension, ...] = (
