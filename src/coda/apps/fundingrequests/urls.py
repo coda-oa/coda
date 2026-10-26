@@ -18,12 +18,6 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_reset_funding,
     doi_preview_reset_type,
 )
-from coda.apps.fundingrequests.views.mass_doi_import import (
-    MassDOIImportInputView,
-    MassDOIImportResultView,
-    MassDOIPreviewSaveView,
-    MassDOIPreviewView,
-)
 from coda.apps.fundingrequests.views.facets import facet_options
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
@@ -57,6 +51,12 @@ from coda.apps.fundingrequests.views.labels import (
 from coda.apps.fundingrequests.views.listview import (
     fundingrequest_list,
     fundingrequest_list_region,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
 )
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard

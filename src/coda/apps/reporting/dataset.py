@@ -33,9 +33,6 @@ from coda.domain.money import Currency, CurrencyExchange, Money
 
 ZERO = Decimal("0.00")
 
-CORRESPONDING_AUTHOR_ROLES = frozenset(
-    {Role.CORRESPONDING_AUTHOR.name, Role.SUBMITTING_CORRESPONDING_AUTHOR.name}
-)
 
 
 def build_facts(
@@ -66,7 +63,7 @@ def _build_fact(request: FundingRequest, report_currency: Currency) -> RequestFa
         (
             author
             for author in publication.relevant_authors.all()
-            if author.roles in CORRESPONDING_AUTHOR_ROLES
+            if author.roles in Role.corresponding_role_names()
         ),
         key=lambda author: author.pk,
     )

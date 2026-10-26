@@ -272,10 +272,6 @@ class InvoiceFundingSourceCriteria:
         return Q(publication__position__funding_assignments__funding_source=self.funding_source)
 
 
-_CORRESPONDING_AUTHOR_ROLES = [
-    Role.CORRESPONDING_AUTHOR.name,
-    Role.SUBMITTING_CORRESPONDING_AUTHOR.name,
-]
 
 
 def _institution_subtree_pks(institutions: Iterable[InstitutionId]) -> list[int]:
@@ -303,7 +299,7 @@ class InstitutionCriteria:
             return Q()
 
         return Q(
-            publication__relevant_authors__roles__in=_CORRESPONDING_AUTHOR_ROLES,
+            publication__relevant_authors__roles__in=Role.corresponding_role_names(),
             publication__relevant_authors__affiliation__in=_institution_subtree_pks(
                 self.institutions
             ),

@@ -3,7 +3,8 @@ from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.contracts.mappers import ContractDomainMapper
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel, Label
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries.mappers import PaymentDetailMapper
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.domain.contract import ContractYear
