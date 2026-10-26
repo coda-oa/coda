@@ -20,9 +20,9 @@ from coda.apps.widgets import SearchSelectMultiWidget
 
 #: Registry-scale facets: the form field name and the model attribute the
 #: options are labelled with.
-FACET_FIELDS: dict[str, tuple[type[Journal] | type[Publisher], str]] = {
-    "journal": (Journal, "title"),
-    "publisher": (Publisher, "name"),
+FACET_FIELDS: dict[str, type[Journal] | type[Publisher]] = {
+    "journal": Journal,
+    "publisher": Publisher,
 }
 
 _FACET_CHOICE_LIMIT = 100
@@ -43,7 +43,6 @@ def _selected_pks(selected: Iterable[str]) -> list[int]:
 
 def facet_choices(
     model: type[Journal] | type[Publisher],
-    label_field: str,
     selected: Iterable[str],
     query: str,
 ) -> list[tuple[Any, str]]:
@@ -52,6 +51,7 @@ def facet_choices(
     every already-selected row (which may fall outside that cap). Enumerating
     the whole registry instead blows up the rail on real data volumes.
     """
+    label_field = model.facet_label_field
     matches = (
         model.objects.filter(**{f"{label_field}__icontains": query})
         if query
@@ -73,7 +73,7 @@ def bind_remote_search(field: forms.Field, name: str, data: MultiValueDict[str, 
     hidden input and the choices callable narrows by the submitted term. Lazy
     like the choice lambdas it replaces: form instantiation must not hit the
     database."""
-    model, label_field = FACET_FIELDS[name]
+    model = FACET_FIELDS[name]
     query = str(data.get(f"{name}_q", "")).strip() if data is not None else ""
     widget = field.widget
     assert isinstance(widget, SearchSelectMultiWidget)
@@ -81,4 +81,4 @@ def bind_remote_search(field: forms.Field, name: str, data: MultiValueDict[str, 
     widget.remote_query = query
     selected: list[str] = [str(v) for v in data.getlist(name)] if data is not None else []
     assert isinstance(field, forms.TypedMultipleChoiceField)
-    field.choices = functools.partial(facet_choices, model, label_field, selected, query)
+    field.choices = functools.partial(facet_choices, model, selected, query)

@@ -601,7 +601,10 @@ class FundingRequestListFilterForm(forms.Form):
     )
     institution = forms.TypedMultipleChoiceField(
         coerce=lambda value: InstitutionId(int(value)),
-        choices=lambda: [(inst.pk, inst.name) for inst in institution_repository.non_virtuals()],
+        choices=lambda: [
+            (inst.pk, getattr(inst, inst.facet_label_field))
+            for inst in institution_repository.non_virtuals()
+        ],
         required=False,
         label="Institution",
         widget=SearchSelectMultiWidget(
@@ -614,7 +617,10 @@ class FundingRequestListFilterForm(forms.Form):
     )
     publisher = forms.TypedMultipleChoiceField(
         coerce=int,
-        choices=lambda: [(pub.pk, pub.name) for pub in Publisher.objects.order_by("name")],
+        choices=lambda: [
+            (pub.pk, getattr(pub, pub.facet_label_field))
+            for pub in Publisher.objects.order_by(Publisher.facet_label_field)
+        ],
         required=False,
         label="Publisher",
         widget=SearchSelectMultiWidget(
@@ -627,7 +633,10 @@ class FundingRequestListFilterForm(forms.Form):
     )
     journal = forms.TypedMultipleChoiceField(
         coerce=int,
-        choices=lambda: [(j.pk, j.title) for j in Journal.objects.order_by("title")],
+        choices=lambda: [
+            (j.pk, getattr(j, j.facet_label_field))
+            for j in Journal.objects.order_by(Journal.facet_label_field)
+        ],
         required=False,
         label="Journal",
         widget=SearchSelectMultiWidget(

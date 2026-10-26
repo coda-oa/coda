@@ -283,16 +283,17 @@ def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: st
     return build_url(url_name, params)
 
 
-def _names_by_pk(
-    model: type[Model], values: Sequence[str], *, name_field: str = "name"
-) -> dict[str, str]:
+def _names_by_pk(model: type[Model], values: Sequence[str]) -> dict[str, str]:
     """pk -> display name for the selected values; unparseable ones (stale
-    URLs) stay unresolved and the chip falls back to the raw value."""
+    URLs) stay unresolved and the chip falls back to the raw value. The
+    label field is the model's own facet_label_field."""
     pks = [value for value in values if value.isdigit()]
     if not pks:
         return {}
+    label_field = getattr(model, "facet_label_field", "name")
     return {
-        str(pk): name for pk, name in model.objects.filter(pk__in=pks).values_list("pk", name_field)
+        str(pk): name
+        for pk, name in model.objects.filter(pk__in=pks).values_list("pk", label_field)
     }
 
 
@@ -383,7 +384,7 @@ def build_filter_summary(
     )
     chips.multi(
         "journal",
-        labels=_names_by_pk(Journal, request.GET.getlist("journal"), name_field="title"),
+        labels=_names_by_pk(Journal, request.GET.getlist("journal")),
     )
     chips.multi("publisher", labels=_names_by_pk(Publisher, request.GET.getlist("publisher")))
     chips.multi("funder", labels=_names_by_pk(FundingOrganization, request.GET.getlist("funder")))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Collection, Generator, Iterable
-from typing import TYPE_CHECKING, Final, TypeIs, cast
+from typing import TYPE_CHECKING, ClassVar, Final, TypeIs, cast
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -162,6 +162,8 @@ AllInstitutionManager: type[models.Manager[Institution]] = models.Manager.from_q
 
 
 class Institution(models.Model):
+    facet_label_field: ClassVar[str] = "name"
+
     objects = InstitutionManager()
     all_objects = AllInstitutionManager()
 
