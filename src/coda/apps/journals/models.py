@@ -19,4 +19,4 @@ class Journal(models.Model):
         return reverse("publishing:journals:detail", kwargs={"eissn": self.eissn})
 
     def __str__(self) -> str:
-        return f"{self.title} | {self.publisher.name}"
+        return self.title
