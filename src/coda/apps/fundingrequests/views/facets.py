@@ -29,8 +29,8 @@ def facet_options(request: HttpRequest) -> HttpResponse:
     )
     widget.remote_search = True
     widget.remote_query = query
-    model, label_field = FACET_FIELDS[facet]
-    widget.choices = facet_choices(model, label_field, selected, query)
+    model = FACET_FIELDS[facet]
+    widget.choices = facet_choices(model, selected, query)
 
     return render(
         request,

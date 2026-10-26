@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -41,6 +41,8 @@ class FundingOrganizationManager(models.Manager["FundingOrganization"]):
 
 
 class FundingOrganization(models.Model):
+    facet_label_field: ClassVar[str] = "name"
+
     name = models.CharField()
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
