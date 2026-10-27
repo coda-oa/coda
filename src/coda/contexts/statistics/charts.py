@@ -207,7 +207,7 @@ def _tick_format(measure: Measure) -> str:
 def _row_value(row: GroupRow, measure: Measure) -> int | float:
     if measure is Measure.PUBLICATIONS:
         return row.publications
-    return float(row.amount if row.amount is not None else ZERO)
+    return float(row.amount)
 
 
 def _headline(facts: Sequence[RequestFact]) -> Headline:
