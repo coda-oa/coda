@@ -574,6 +574,7 @@ def test__journal_query_param__is_not_a_search_criterion() -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__facet_options_endpoint__narrowed_options_and_selected(client: Client) -> None:
     """Typing in a remote-search facet hits this light endpoint instead of the
     region request: the answer is only the widget markup, narrowed to the
@@ -597,6 +598,7 @@ def test__facet_options_endpoint__narrowed_options_and_selected(client: Client) 
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__facet_options_endpoint__unknown_facet__404(client: Client) -> None:
     response = client.get(reverse("fundingrequests:facet_options"), {"facet": "label", "q": ""})
     assert response.status_code == 404
