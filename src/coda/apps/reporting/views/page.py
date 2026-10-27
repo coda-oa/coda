@@ -13,7 +13,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -23,6 +22,7 @@ from django.views.generic import TemplateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests.filters import build_filter_summary
 from coda.apps.fundingrequests.forms import (
     FundingRequestListFilterForm,
     parse_label_ids,
@@ -30,7 +30,6 @@ from coda.apps.fundingrequests.forms import (
 from coda.apps.fundingrequests.models import Label
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Invoice
-from coda.apps.fundingrequests.filters import build_filter_summary
 from coda.apps.listfilters import ListRegionMixin, build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.reporting import queries
@@ -128,16 +127,13 @@ class DimensionSection:
 
 
 @breadcrumb("Funding Request Statistics", parent_url_name="reporting:home")
+@login_required
 def reporting_page(request: HttpRequest) -> HttpResponse:
     """The page itself; a bare GET first gets the default period in its URL
     (§8.5), so the effective period is visible everywhere, drill-downs included."""
     if not request.GET.get("start_date") and not request.GET.get("end_date"):
         return redirect(_default_period_url(request))
     return render(request, "reporting/reporting.html", reporting_context(request))
-
-
-if not settings.DEBUG:
-    reporting_page = login_required(reporting_page)
 
 
 class ReportingRegionView(ListRegionMixin, TemplateView):
@@ -154,10 +150,7 @@ class ReportingRegionView(ListRegionMixin, TemplateView):
         return super().get_context_data(**kwargs) | reporting_context(self.request)
 
 
-if not settings.DEBUG:
-    reporting_region = login_required(ReportingRegionView.as_view())
-else:
-    reporting_region = ReportingRegionView.as_view()
+reporting_region = login_required(ReportingRegionView.as_view())
 
 
 def _prior_period(start: date, end: date) -> tuple[date, date] | None:
