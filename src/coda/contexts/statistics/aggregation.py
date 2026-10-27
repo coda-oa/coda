@@ -31,15 +31,18 @@ def group_by(
     refs: dict[str, object] = {}
     for fact in facts:
         contributions = dimension.contributions(fact)
-        for label in dict.fromkeys(contribution.label for contribution in contributions):
-            counts[label] = counts.get(label, 0) + 1
-            sources.setdefault(label, set()).add(fact.request_id)
+        seen: set[str] = set()
         for contribution in contributions:
-            amounts[contribution.label] = (
-                amounts.get(contribution.label, ZERO) + contribution.amount
-            )
+            label = contribution.label
+            amounts[label] = amounts.get(label, ZERO) + contribution.amount
             if contribution.ref is not None:
-                refs[contribution.label] = contribution.ref
+                refs[label] = contribution.ref
+            # A repeated dimension contributes a fact in full under every
+            # value (ADR-0007), but the publication counts once per value.
+            if label not in seen:
+                seen.add(label)
+                counts[label] = counts.get(label, 0) + 1
+                sources.setdefault(label, set()).add(fact.request_id)
 
     def row(label: str) -> GroupRow:
         return GroupRow(
@@ -67,22 +70,12 @@ def group_by(
         (label for label in counts if counts_values or amounts.get(label, ZERO) != ZERO),
         key=rank,
     )
-    if top_n is None:
-        # Unbounded: every value keeps its own row — a whole-of-set view
-        # (the institution treemap) must not fold anything into "Other".
-        rows = [row(label) for label in labels]
-        return Grouping(
-            dimension_id=dimension.id,
-            dimension_label=dimension.label,
-            measures=dimension.measures(),
-            non_additive=frozenset(
-                measure for measure in dimension.measures() if not dimension.is_additive(measure)
-            ),
-            rows=tuple(rows),
-        )
-
-    rows = [row(label) for label in labels[:top_n]]
-    folded = labels[top_n:]
+    # Unbounded (top_n=None): every value keeps its own row — a whole-of-set
+    # view (the institution treemap) must not fold anything into "Other".
+    # (Slicing with None would misbehave: labels[None:] is labels[0:].)
+    visible = labels[:top_n]
+    folded = labels[top_n:] if top_n is not None else []
+    rows = [row(label) for label in visible]
     if folded:
         rows.append(
             GroupRow(
