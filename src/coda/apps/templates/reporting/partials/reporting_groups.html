@@ -45,7 +45,7 @@
                         </thead>
                         <tbody>
                             {% for row in section.rows %}
-                                <tr {% if row.is_other %}class="statistics-aggregate"{% endif %}>
+                                <tr {% if row.kind == "other" %}class="statistics-aggregate"{% endif %}>
                                     <th scope="row">
                                         {% if row.link %}
                                             <a href="{{ row.link }}"

@@ -28,7 +28,7 @@ from coda.apps.reporting.views.page import (
 )
 from coda.contexts.statistics import charts
 from coda.contexts.statistics.dimensions import DIMENSIONS
-from coda.contexts.statistics.dto import Measure
+from coda.contexts.statistics.dto import Measure, RowKind
 from coda.domain.money import Currency
 from coda.domain.publication import License, OpenAccessType
 from tests import modelfactory
@@ -318,7 +318,6 @@ def test__reporting_page__paid_out_nothing__renders_dash_not_zero(client: Client
 def test__reporting_page__additive_dimension__shows_total(client: Client) -> None:
     seed()
 
-
     value_column = column(sections_by_id(client)["subject_area"], Measure.PAID_OUT)
     assert value_column.note is None
     assert value_column.total == Decimal("1200.00")
@@ -590,7 +589,7 @@ def test__reporting_page__row_links__reproduce_their_chart_sets_in_the_region(
         # but a partition dimension (funding_source) legitimately keeps the
         # "Unassigned" remainder row of the same requests.
         section_rows = sections_of(region_response)[dimension_id].rows
-        labels = [row.label for row in section_rows if not row.is_other]
+        labels = [row.label for row in section_rows if row.kind != RowKind.OTHER]
         if dimension_id == "funding_source":
             assert labels == ["Central Fund", "Unassigned"], dimension_id
         else:

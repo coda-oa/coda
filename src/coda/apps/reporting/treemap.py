@@ -42,8 +42,10 @@ def institution_treemap(
     grouping = group_by(facts, INSTITUTION, top_n=None)
     by_name: dict[str, tuple[int, Decimal]] = {}
     for row in grouping.rows:
-        amount = row.amount if row.amount is not None else Decimal(0)
-        by_name[row.label] = (row.publications, amount)
+        by_name[row.label] = (row.publications, row.amount)
+    # The label check stays string-based: UNKNOWN is a group-by label (the
+    # "Unknown" bucket), not a row kind - kind marks the rows, the label set
+    # decides whether the tree has anything to draw.
     if not by_name or set(by_name) == {UNKNOWN}:
         return None
 

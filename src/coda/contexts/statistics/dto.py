@@ -85,9 +85,28 @@ class Measure(StrEnum):
     FUNDED_BY = "funded_by"
 
 
+class RowKind(StrEnum):
+    """What a grouping row represents — mutually exclusive, so one field.
+
+    ``VALUE`` is a real dimension value; the other three are aggregates or
+    absences that must not render as drill-down links or count as attributed
+    publications.
+    """
+
+    VALUE = "value"
+    UNKNOWN = "unknown"  # a missing attribute grouped as "Unknown"
+    UNASSIGNED = "unassigned"  # money with no funding-source assignment
+    OTHER = "other"  # the top-N fold: aggregates many values
+
+
 @dataclass(frozen=True, slots=True)
 class GroupRow:
     """One row of a grouping: a dimension value and the measures under it.
+
+    ``amount`` is always a real number — zero when the dimension has no money
+    measure; whether a spend column exists is the grouping's business (its
+    ``measures``), not the row's. ``kind`` replaces the three boolean flags it
+    grew: the states are mutually exclusive.
 
     ``ref`` mirrors ``Contribution.ref``: the value's structured identity when
     the label alone cannot express it (contract rows). The Other fold has no
@@ -96,10 +115,8 @@ class GroupRow:
 
     label: str
     publications: int
-    amount: Decimal | None
-    is_unknown: bool = False
-    is_other: bool = False
-    is_unassigned: bool = False
+    amount: Decimal
+    kind: RowKind = RowKind.VALUE
     ref: object | None = None
 
 

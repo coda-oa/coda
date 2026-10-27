@@ -8,12 +8,34 @@ charts share exactly its row set.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from coda.contexts.statistics.dimensions import OTHER, UNASSIGNED, UNKNOWN, ZERO, Dimension
-from coda.contexts.statistics.dto import Grouping, GroupRow, Measure, RequestFact
+from coda.contexts.statistics.dto import Grouping, GroupRow, Measure, RequestFact, RowKind
 
 DEFAULT_TOP_N = 10
+
+
+@dataclass
+class _LabelAcc:
+    """Per-label accumulator. Money sums per contribution; publications are
+    the cardinality of distinct request ids — a repeated dimension contributes
+    a fact in full under every value (ADR-0007), but the publication counts
+    once per value. That cardinality rule is sound because the fact grain is
+    one row per funding request (``search()`` fetches ``.distinct()``).
+    ``ref``: the value's structured identity; when several contributions share
+    a label, the last one carrying a ref wins (same as before)."""
+
+    amount: Decimal = ZERO
+    request_ids: set[int] = field(default_factory=set)
+    ref: object | None = None
+
+    def add(self, fact: RequestFact, amount: Decimal, ref: object | None) -> None:
+        self.amount += amount
+        self.request_ids.add(fact.request_id)
+        if ref is not None:
+            self.ref = ref
 
 
 def group_by(
@@ -25,34 +47,29 @@ def group_by(
     spend = dimension.money
     counts_values = Measure.PUBLICATIONS in dimension.measures()
 
-    counts: dict[str, int] = {}
-    amounts: dict[str, Decimal] = {}
-    sources: dict[str, set[int]] = {}
-    refs: dict[str, object] = {}
+    accs: dict[str, _LabelAcc] = {}
     for fact in facts:
-        contributions = dimension.contributions(fact)
-        seen: set[str] = set()
-        for contribution in contributions:
-            label = contribution.label
-            amounts[label] = amounts.get(label, ZERO) + contribution.amount
-            if contribution.ref is not None:
-                refs[label] = contribution.ref
-            # A repeated dimension contributes a fact in full under every
-            # value (ADR-0007), but the publication counts once per value.
-            if label not in seen:
-                seen.add(label)
-                counts[label] = counts.get(label, 0) + 1
-                sources.setdefault(label, set()).add(fact.request_id)
+        for contribution in dimension.contributions(fact):
+            acc = accs.setdefault(contribution.label, _LabelAcc())
+            acc.add(fact, contribution.amount, contribution.ref)
 
     def row(label: str) -> GroupRow:
+        acc = accs[label]
+        kind = _row_kind(label)
         return GroupRow(
             label=label,
-            publications=counts[label],
-            amount=amounts[label] if spend is not None else None,
-            is_unknown=label == UNKNOWN,
-            is_unassigned=label == UNASSIGNED,
-            ref=refs.get(label),
+            publications=len(acc.request_ids),
+            amount=acc.amount,
+            kind=kind,
+            ref=acc.ref,
         )
+
+    def _row_kind(label: str) -> RowKind:
+        if label == UNKNOWN:
+            return RowKind.UNKNOWN
+        if label == UNASSIGNED:
+            return RowKind.UNASSIGNED
+        return RowKind.VALUE
 
     def rank(label: str) -> tuple[Decimal, int, str]:
         # Money leads the ranking — this is a funding report, and paid-out
@@ -60,14 +77,14 @@ def group_by(
         # funded but paid nothing (no invoice, unconvertible amounts per
         # ADR-0003); those rank by count below them. A dimension without a
         # count measure (cost type) ranks purely by money.
-        amount = -amounts.get(label, ZERO) if spend is not None else ZERO
-        publications = -counts[label] if counts_values else 0
+        amount = -accs[label].amount if spend is not None else ZERO
+        publications = -len(accs[label].request_ids) if counts_values else 0
         return (amount, publications, label)
 
     # Without a count column, a zero-money row could show nothing at all —
     # it is noise (cf. UNASSIGNED, contributed only when non-zero).
     labels = sorted(
-        (label for label in counts if counts_values or amounts.get(label, ZERO) != ZERO),
+        (label for label in accs if counts_values or accs[label].amount != ZERO),
         key=rank,
     )
     # Unbounded (top_n=None): every value keeps its own row — a whole-of-set
@@ -77,14 +94,17 @@ def group_by(
     folded = labels[top_n:] if top_n is not None else []
     rows = [row(label) for label in visible]
     if folded:
+        fold_ids: set[int] = set()
+        fold_amount = ZERO
+        for label in folded:
+            fold_ids |= accs[label].request_ids
+            fold_amount += accs[label].amount
         rows.append(
             GroupRow(
                 label=OTHER,
-                publications=len({rid for label in folded for rid in sources[label]}),
-                amount=(
-                    sum((amounts[label] for label in folded), ZERO) if spend is not None else None
-                ),
-                is_other=True,
+                publications=len(fold_ids),
+                amount=fold_amount,
+                kind=RowKind.OTHER,
             )
         )
     return Grouping(
