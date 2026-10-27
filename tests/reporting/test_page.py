@@ -485,7 +485,7 @@ def test__reporting_page__publication_without_journal_or_publisher__forms_unknow
     client: Client,
 ) -> None:
     """§2 #7: the "Unknown" form row has no facet value behind it —
-    ``PublicationFormCriteria`` matches neither form — so it carries no
+    ``EntityTypeCriteria`` matches neither form — so it carries no
     drill-down, and the article/monograph facets both exclude the request."""
     seed()
     formless = helpers.request("Formless paper")

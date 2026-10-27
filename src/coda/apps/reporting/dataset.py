@@ -45,7 +45,7 @@ def build_facts(
 def publication_form(publication: Publication) -> str:
     """Article iff ``article_journal``, monograph iff ``monograph_publisher``,
     neither -> the ``FORM_UNKNOWN`` sentinel — the single rule shared with
-    ``PublicationFormCriteria`` (plan §8, §2 #7). Both fields set: both facet
+    ``EntityTypeCriteria`` (plan §8, §2 #7). Both fields set: both facet
     values match it and the single-valued fact takes article first; neither
     set: no facet value matches, so the fact claims no form and the chart
     groups it with the other linkless "Unknown" rows."""

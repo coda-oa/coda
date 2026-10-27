@@ -216,7 +216,7 @@ def test__monograph_publication__build_facts__form_is_monograph() -> None:
 
 @pytest.mark.django_db
 def test__publication_without_journal_or_publisher__build_facts__form_is_unknown() -> None:
-    """Neither facet value matches such a publication — ``PublicationFormCriteria``
+    """Neither facet value matches such a publication — ``EntityTypeCriteria``
     excludes it from both forms, so the fact must not claim one (plan §8)."""
     fr = helpers.request("Formless paper")
     fr.publication.article_journal = None

@@ -189,6 +189,15 @@ class PublicationEntityType(enum.Enum):
 
 @dataclass
 class EntityTypeCriteria:
+    """Article vs monograph, decided by exactly one rule:
+
+    a publication is an ``article`` when it has an ``article_journal`` and a
+    ``monograph`` when it has a ``monograph_publisher``. The statistics dataset
+    (``dataset.publication_form``) must derive ``RequestFact.publication_form``
+    from this same rule, or the facet and the chart disagree (spec §8). A
+    publication with neither field matches neither form; with both, both.
+    """
+
     entity_type: PublicationEntityType = PublicationEntityType.All
 
     def _to_query(self) -> Q:
@@ -391,27 +400,6 @@ class LicenseCriteria:
 class PublicationForm(enum.StrEnum):
     article = "article"
     monograph = "monograph"
-
-
-@dataclass
-class PublicationFormCriteria:
-    """Article vs monograph, decided by exactly one rule:
-
-    a publication is an ``article`` when it has an ``article_journal`` and a
-    ``monograph`` when it has a ``monograph_publisher``. The statistics dataset
-    (``dataset.build_facts``) must derive ``RequestFact.publication_form`` from
-    this same rule, or the facet and the chart disagree (spec §8). A
-    publication with neither field matches neither form; with both, both.
-    """
-
-    publication_form: PublicationForm = PublicationForm.article
-
-    def _to_query(self) -> Q:
-        match self.publication_form:
-            case PublicationForm.article:
-                return Q(publication__article_journal__isnull=False)
-            case PublicationForm.monograph:
-                return Q(publication__monograph_publisher__isnull=False)
 
 
 @dataclass

@@ -19,7 +19,7 @@ UNASSIGNED = "Unassigned"
 
 #: The fact value ``dataset.publication_form`` gives a publication with neither
 #: an article journal nor a monograph publisher. No facet value matches it
-#: (``PublicationFormCriteria``), so it joins the linkless "Unknown" rows.
+#: (``EntityTypeCriteria``), so it joins the linkless "Unknown" rows.
 FORM_UNKNOWN = "unknown"
 
 ZERO = Decimal(0)
