@@ -234,7 +234,7 @@ def test__searching_by_open_access_type__returns_only_requests_with_the_selected
 
 
 @pytest.mark.django_db
-def test__searching_by_publication_form__splits_articles_and_monographs_on_the_shared_rule() -> (
+def test__searching_by_entity_type__splits_articles_and_monographs_on_the_shared_rule() -> (
     None
 ):
     article = modelfactory.fundingrequest("Journal article")
@@ -245,13 +245,13 @@ def test__searching_by_publication_form__splits_articles_and_monographs_on_the_s
     monograph.publication.save()
 
     articles = fundingrequest_query.search(
-        fundingrequest_query.PublicationFormCriteria(
-            publication_form=fundingrequest_query.PublicationForm.article
+        fundingrequest_query.EntityTypeCriteria(
+            entity_type=fundingrequest_query.PublicationEntityType.Article
         )
     )
     monographs = fundingrequest_query.search(
-        fundingrequest_query.PublicationFormCriteria(
-            publication_form=fundingrequest_query.PublicationForm.monograph
+        fundingrequest_query.EntityTypeCriteria(
+            entity_type=fundingrequest_query.PublicationEntityType.Monograph
         )
     )
 
@@ -361,7 +361,6 @@ def test__empty_search_params__build_criteria__produces_no_facet_criteria() -> N
         FunderCriteria,
         SubjectAreaCriteria,
         LicenseCriteria,
-        fq.PublicationFormCriteria,
         CostTypeCriteria,
         FundingSourcesCriteria,
         PublicationTypeConceptCriteria,
