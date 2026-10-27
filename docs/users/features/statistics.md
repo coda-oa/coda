@@ -52,7 +52,7 @@ The tabs group the breakdowns by theme:
 | **Cost & contracts** | cost type, contract, funding source |
 | **Attribution** | institution, funder |
 
-Each section pairs a chart with a table of exact values. The chart plots the two measures side by side (publications and spend incl. tax, each with the previous period in a lighter shade) and collapses the table under an *Exact values* expander to keep the page scannable. Every row links to the matching funding requests in the list view, with the same filters, so you can drill down from any bar or table cell.
+Each section pairs a chart with a table of exact values. The chart plots the two measures side by side (publications and spend incl. tax, each with the previous period in a lighter shade) and collapses the table under an *Exact values* expander to keep the page scannable. Each table row links to the matching funding requests: clicking a row applies its value as a filter right on the statistics page, so every chart narrows to it and the page's own URL changes. One link above the sections — *"Show the N funding requests behind these numbers"* — opens the same filter set in the funding request list.
 
 ![](/_static/img/statistics_sections_chart.png)
 
