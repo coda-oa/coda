@@ -29,7 +29,7 @@ from coda.apps.listfilters import build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences, PreloadedVocabularyProvider
 from coda.apps.publishers.models import Publisher
 from coda.contexts.statistics.dimensions import PageFacet, by_id
-from coda.contexts.statistics.dto import ContractRef, GroupRow
+from coda.contexts.statistics.dto import ContractRef, GroupRow, RowKind
 from coda.domain.publication import License, OpenAccessType
 
 _LIST_URL = "fundingrequests:list"
@@ -72,7 +72,7 @@ class DrilldownLinks:
         )
 
     def link(self, dimension_id: str, row: GroupRow) -> str | None:
-        if row.is_other or row.is_unknown or row.is_unassigned:
+        if row.kind is not RowKind.VALUE:
             return None
         facet = by_id(dimension_id).facet
         if facet is None:
@@ -148,9 +148,7 @@ def _lookup_tables(vocabularies: PreloadedVocabularyProvider) -> dict[str, dict[
             Institution.objects.values_list("pk", Institution.facet_label_field)
         ),
         "journal": _group_pks(Journal.objects.values_list("pk", Journal.facet_label_field)),
-        "publisher": _group_pks(
-            Publisher.objects.values_list("pk", Publisher.facet_label_field)
-        ),
+        "publisher": _group_pks(Publisher.objects.values_list("pk", Publisher.facet_label_field)),
         "funder": _group_pks(
             FundingOrganization.objects.values_list("pk", FundingOrganization.facet_label_field)
         ),

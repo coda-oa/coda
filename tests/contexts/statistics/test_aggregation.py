@@ -5,7 +5,8 @@ from tests.contexts.statistics.factories import institution, make_fact, source
 
 from coda.contexts.statistics import dimensions
 from coda.contexts.statistics.aggregation import group_by
-from coda.contexts.statistics.dto import ContractRef, Measure
+from coda.contexts.statistics.dimensions import ZERO
+from coda.contexts.statistics.dto import ContractRef, Measure, RowKind
 
 
 def test__group_by_publisher__carries_both_measures_on_every_row() -> None:
@@ -72,7 +73,7 @@ def test__group_by_single_dimension__groups_a_missing_value_as_unknown() -> None
 
     grouping = group_by(facts, dimensions.by_id("publisher"))
 
-    assert [(r.label, r.publications, r.is_unknown) for r in grouping.rows] == [
+    assert [(r.label, r.publications, r.kind == RowKind.UNKNOWN) for r in grouping.rows] == [
         ("Elsevier", 1, False),
         ("Unknown", 1, True),
     ]
@@ -91,7 +92,7 @@ def test__group_by_concept_dimension__groups_a_blank_concept_name_as_unknown(
 
     grouping = group_by(facts, dimensions.by_id(dimension_id))
 
-    assert [(r.label, r.publications, r.is_unknown) for r in grouping.rows] == [
+    assert [(r.label, r.publications, r.kind == RowKind.UNKNOWN) for r in grouping.rows] == [
         ("Biology", 1, False),
         ("Unknown", 1, True),
     ]
@@ -146,9 +147,11 @@ def test__group_by_funder__counts_publications_in_full_and_carries_no_amount() -
 
     grouping = group_by(facts, dimensions.by_id("funder"))
 
+    # A money-less dimension carries zero amounts; the *absence* of the
+    # spend column is the grouping's (measures), not the row's.
     assert [(r.label, r.publications, r.amount) for r in grouping.rows] == [
-        ("DFG", 2, None),
-        ("Wellcome Trust", 1, None),
+        ("DFG", 2, ZERO),
+        ("Wellcome Trust", 1, ZERO),
     ]
     assert Measure.PAID_OUT not in grouping.measures
     assert grouping.total(Measure.PUBLICATIONS) is None
@@ -187,7 +190,7 @@ def test__group_by__folds_rows_beyond_the_top_n_into_an_other_row() -> None:
 
     grouping = group_by(facts, dimensions.by_id("publisher"), top_n=3)
 
-    assert [(r.label, r.publications, r.is_other) for r in grouping.rows] == [
+    assert [(r.label, r.publications, r.kind == RowKind.OTHER) for r in grouping.rows] == [
         ("p01", 1, False),
         ("p02", 1, False),
         ("p03", 1, False),
@@ -206,7 +209,7 @@ def test__group_by__unbounded_top_n__keeps_every_value_without_an_other_row() ->
     assert [(r.label, r.publications) for r in grouping.rows] == [
         (f"p{i:02d}", 1) for i in range(1, 14)
     ]
-    assert all(not r.is_other for r in grouping.rows)
+    assert all(r.kind != RowKind.OTHER for r in grouping.rows)
     assert grouping.total(Measure.PUBLICATIONS) == 13
 
 
@@ -218,7 +221,7 @@ def test__group_by__sums_amounts_in_the_other_row() -> None:
 
     grouping = group_by(facts, dimensions.by_id("publisher"), top_n=2)
 
-    assert [(r.label, r.amount, r.is_other) for r in grouping.rows] == [
+    assert [(r.label, r.amount, r.kind == RowKind.OTHER) for r in grouping.rows] == [
         ("e", Decimal("5.00"), False),
         ("d", Decimal("4.00"), False),
         ("Other", Decimal("6.00"), True),
@@ -235,7 +238,7 @@ def test__group_by_non_additive__other_row_counts_each_request_once() -> None:
 
     grouping = group_by(facts, dimensions.by_id("institution"), top_n=1)
 
-    assert [(r.label, r.publications, r.is_other) for r in grouping.rows] == [
+    assert [(r.label, r.publications, r.kind == RowKind.OTHER) for r in grouping.rows] == [
         ("B", 2, False),
         ("Other", 3, True),
     ]
@@ -302,4 +305,23 @@ def test__group_by__defaults_to_ten_rows_before_the_other_fold() -> None:
     grouping = group_by(facts, dimensions.by_id("publisher"))
 
     assert len(grouping.rows) == 11
-    assert grouping.rows[-1].is_other
+    assert grouping.rows[-1].kind == RowKind.OTHER
+
+
+def test__group_by__publications_equal_distinct_request_ids_per_label() -> None:
+    """Tripwire for the accumulator's counting rule: publications are the
+    cardinality of distinct request ids per label. A repeated dimension
+    (funding_source: several assignments to one source) sums money per
+    contribution but counts the request once; a fact re-contributing the same
+    label twice (contract name shared by two years) must not inflate either."""
+    facts = (
+        make_fact(funded_by={source("Central Fund"): Decimal("30.00")}),
+        make_fact(funded_by={source("Central Fund"): Decimal("10.00")}),
+    )
+
+    grouping = group_by(facts, dimensions.by_id("funding_source"))
+
+    (row,) = grouping.rows
+    assert row.label == "Central Fund"
+    assert row.publications == 2
+    assert row.amount == Decimal("40.00")
