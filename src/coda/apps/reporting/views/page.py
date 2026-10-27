@@ -18,6 +18,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -128,6 +129,7 @@ class DimensionSection:
 
 @breadcrumb("Funding Request Statistics", parent_url_name="reporting:home")
 @login_required
+@require_GET
 def reporting_page(request: HttpRequest) -> HttpResponse:
     """The page itself; a bare GET first gets the default period in its URL
     (§8.5), so the effective period is visible everywhere, drill-downs included."""
