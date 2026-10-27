@@ -12,7 +12,7 @@ facts once per node; no per-child double counting is baked in beyond ADR-0007
 itself. ``branchvalues="remainder"`` keeps plotly from re-summing children.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
@@ -52,49 +52,38 @@ def institution_treemap(
     for pk, node in nodes.items():
         children_of.setdefault(node.parent_id, []).append(pk)
 
-    def subtree_pks(root_pk: int) -> list[int]:
-        stack, found = [root_pk], []
-        while stack:
-            pk = stack.pop()
-            found.append(pk)
-            stack.extend(children_of.get(pk, []))
-        return found
-
-    def subtree_name_pks(root_pk: int) -> set[str]:
-        return {nodes[pk].name for pk in subtree_pks(root_pk)}
-
     # A request counts in full under every affiliation, so a name's value is
     # the group_by result — the tree only re-partitions those exact values.
-    def subtree_value(root_pk: int) -> tuple[int, Decimal]:
-        names = subtree_name_pks(root_pk)
-        publications = sum(by_name[n][0] for n in names if n in by_name)
-        amount = sum((by_name[n][1] for n in names if n in by_name), Decimal(0))
+    # One post-order walk per node sums its own value with every descendant's;
+    # the "placed" set marks the names the walk emitted, so leftovers render
+    # under the root.
+    placed: set[str] = set()
+
+    def add_node(pk: int, parent_label: str) -> tuple[int, Decimal]:
+        node = nodes[pk]
+        publications, amount = by_name.get(node.name, (0, Decimal(0)))
+        for child_pk in sorted(children_of.get(pk, []), key=lambda p: nodes[p].name):
+            c_pubs, c_amount = add_node(child_pk, node.name)
+            publications += c_pubs
+            amount += c_amount
+        if publications >= MIN_SUBTREE_PUBLICATIONS:
+            placed.add(node.name)
+            labels.append(node.name)
+            parents.append(parent_label)
+            values.append(publications)
+            colors.append(amount)
         return publications, amount
 
-    roots = children_of.get(None, [])
     labels: list[str] = [ROOT_LABEL]
     parents: list[str] = [""]
     values: list[int] = [sum(v[0] for v in by_name.values())]
     colors: list[Decimal] = [sum((v[1] for v in by_name.values()), Decimal(0))]
 
-    def add_node(pk: int, parent_label: str) -> None:
-        node = nodes[pk]
-        publications, amount = subtree_value(pk)
-        if publications < MIN_SUBTREE_PUBLICATIONS:
-            return
-        labels.append(node.name)
-        parents.append(parent_label)
-        values.append(publications)
-        colors.append(amount)
-        for child_pk in sorted(children_of.get(pk, []), key=lambda p: nodes[p].name):
-            add_node(child_pk, node.name)
-
-    for root_pk in sorted(roots, key=lambda p: nodes[p].name):
+    for root_pk in sorted(children_of.get(None, []), key=lambda p: nodes[p].name):
         add_node(root_pk, ROOT_LABEL)
 
     # Names not attached to any (unarchived) institution node — e.g. the
     # "Unknown" bucket — still carry their exact value under the root.
-    placed = {nodes[pk].name for pk in subtree_pks_of_all(roots, children_of, nodes)}
     for name, (publications, amount) in by_name.items():
         if name not in placed:
             labels.append(name)
@@ -134,21 +123,6 @@ def institution_treemap(
         "config": {"responsive": True},
     }
     return figure
-
-
-def subtree_pks_of_all(
-    root_pks: Sequence[int],
-    children_of: Mapping[int | None, list[int]],
-    nodes: Mapping[int, Institution],
-) -> set[int]:
-    """Every node pk under the given roots (including the roots)."""
-    found: set[int] = set()
-    stack = list(root_pks)
-    while stack:
-        pk = stack.pop()
-        found.add(pk)
-        stack.extend(children_of.get(pk, []))
-    return found
 
 
 def _title() -> str:
