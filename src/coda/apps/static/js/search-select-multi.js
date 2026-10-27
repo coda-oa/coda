@@ -144,7 +144,7 @@ class SearchSelectMulti extends HTMLElement {
             return;
         }
         const input = this.shadowRoot.querySelector('.search-input');
-        const rendered = this.getAttribute('data-q') || '';
+        const rendered = this.dataset.q || '';
         input.value = rendered;
         // The term is seeded from the markup on every (re)connect — the only
         // state that outlives a swap is what the server rendered.
@@ -195,7 +195,7 @@ class SearchSelectMulti extends HTMLElement {
                 hidden.value = query;
             }
             window.__facetSearchFocused = this.getAttribute('name');
-            const endpoint = this.getAttribute('data-endpoint');
+            const endpoint = this.dataset.endpoint;
             if (!endpoint) {
                 return;
             }
@@ -225,6 +225,8 @@ class SearchSelectMulti extends HTMLElement {
     }
 
     _remoteInput() {
+        // The "<name>_q" format is the server-owned interface defined by
+        // remote_query_key() in coda/apps/widgets.py - keep in sync.
         return this.querySelector(`input[type="hidden"][name="${this.getAttribute('name')}_q"]`);
     }
 

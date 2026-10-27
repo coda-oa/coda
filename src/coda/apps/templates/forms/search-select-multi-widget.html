@@ -1,4 +1,4 @@
-<search-select-multi id="{{ widget.attrs.id|default:widget.name }}" name="{{ widget.name }}" {% if widget.remote_search %}remote-search data-q="{{ widget.remote_query }}" data-endpoint="{% url 'fundingrequests:facet_options' %}?facet={{ widget.name }}"{% endif %} {% for attr, value in widget.attrs.items %} {% if attr != 'id' and attr != 'name' and attr != 'required' and attr != 'multiple' %} {{ attr }}="{{ value }}" {% endif %} {% endfor %}>
+<search-select-multi id="{{ widget.attrs.id|default:widget.name }}" name="{{ widget.name }}" {% if widget.remote_search %}remote-search data-q="{{ widget.remote_query }}" data-endpoint="{{ widget.remote_endpoint }}"{% endif %} {% for attr, value in widget.attrs.items %} {% if attr != 'id' and attr != 'name' and attr != 'required' and attr != 'multiple' %} {{ attr }}="{{ value }}" {% endif %} {% endfor %}>
     {% if widget.remote_search %}
         {% comment %}
             The component mirrors the search term here; the facet-options
@@ -6,7 +6,7 @@
             it too so the narrowed options survive a selection swap.
         {% endcomment %}
         <input type="hidden"
-               name="{{ widget.name }}_q"
+               name="{{ widget.remote_query_key }}"
                value="{{ widget.remote_query }}">
     {% endif %}
     {% for group_name, group_choices, group_index in widget.optgroups %}
