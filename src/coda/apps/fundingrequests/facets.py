@@ -16,7 +16,7 @@ from django.utils.datastructures import MultiValueDict
 
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.widgets import SearchSelectMultiWidget
+from coda.apps.widgets import SearchSelectMultiWidget, remote_query_key
 
 #: Registry-scale facets: the form field name and the model attribute the
 #: options are labelled with.
@@ -68,17 +68,21 @@ def facet_choices(
     return choices
 
 
-def bind_remote_search(field: forms.Field, name: str, data: MultiValueDict[str, list[str]] | None) -> None:
-    """Wire a facet field for remote search: the widget renders the ``<name>_q``
-    hidden input and the choices callable narrows by the submitted term. Lazy
-    like the choice lambdas it replaces: form instantiation must not hit the
-    database."""
+def bind_remote_search(
+    field: forms.Field, name: str, data: MultiValueDict[str, list[str]] | None, endpoint: str
+) -> None:
+    """Wire a facet field for remote search: the widget renders the hidden
+    input named by ``remote_query_key(name)``, fetches options from
+    ``endpoint``, and the choices callable narrows by the submitted term.
+    Lazy like the choice lambdas it replaces: form instantiation must not
+    hit the database."""
     model = FACET_FIELDS[name]
-    query = str(data.get(f"{name}_q", "")).strip() if data is not None else ""
+    query = str(data.get(remote_query_key(name), "")).strip() if data is not None else ""
     widget = field.widget
     assert isinstance(widget, SearchSelectMultiWidget)
     widget.remote_search = True
     widget.remote_query = query
+    widget.remote_endpoint = f"{endpoint}?facet={name}"
     selected: list[str] = [str(v) for v in data.getlist(name)] if data is not None else []
     assert isinstance(field, forms.TypedMultipleChoiceField)
     field.choices = functools.partial(facet_choices, model, selected, query)

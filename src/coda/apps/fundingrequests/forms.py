@@ -9,6 +9,7 @@ from django.db import models
 from django.forms import ModelChoiceField
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
 from django.views.decorators.http import require_POST
@@ -433,9 +434,6 @@ def parse_label_ids(values: Iterable[str]) -> set[int]:
     return ids
 
 
-
-
-
 class FundingRequestListFilterForm(forms.Form):
     """Validation and query mapping for the funding-request filter controls.
 
@@ -501,8 +499,9 @@ class FundingRequestListFilterForm(forms.Form):
             if isinstance(self.data, MultiValueDict)
             else MultiValueDict({k: [v] for k, v in self.data.items()})
         )
+        endpoint = reverse("fundingrequests:facet_options")
         for field_name in FACET_FIELDS:
-            bind_remote_search(self.fields[field_name], field_name, data)
+            bind_remote_search(self.fields[field_name], field_name, data, endpoint)
 
     search_term = forms.CharField(required=False)
     processing_status = forms.TypedMultipleChoiceField(
