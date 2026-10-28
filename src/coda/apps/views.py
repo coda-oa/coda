@@ -1,9 +1,9 @@
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar
 
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Model
+from django.db.models import Model, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
@@ -95,12 +95,27 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
     search_fields: list[str] = ["name"]
     ordering: list[str] = []
 
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[ModelType]:
+        """The queryset searched and listed before any per-view filtering."""
+        return self.model.objects.all()  # type: ignore[attr-defined]
+
+    def filter_queryset(
+        self, queryset: QuerySet[ModelType], request: HttpRequest
+    ) -> QuerySet[ModelType]:
+        """View-specific filtering (checkbox switches, annotations, prefetching)."""
+        return queryset
+
+    def map_entity(self, entity: ModelType) -> ModelType:
+        return entity
+
     def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
         search_term = request.GET.get("query", "").strip()
-        queryset = self.model.objects.all()  # type: ignore[attr-defined]
+        queryset = self.get_base_queryset(request)
 
         if search_term:
             queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
 
+        queryset = self.filter_queryset(queryset, request)
+
         order_by = self.ordering or self.search_fields
-        return DomainQuerySet(queryset.order_by(*order_by), lambda x: cast(ModelType, x))
+        return DomainQuerySet(queryset.order_by(*order_by), self.map_entity)
