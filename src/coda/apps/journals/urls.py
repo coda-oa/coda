@@ -13,6 +13,6 @@ urlpatterns = [
     path("", view=journal_list_view, name="list"),
     path("create/", view=journal_create_view, name="create"),
     path("create-modal/", view=JournalCreateModalView.as_view(), name="create_modal"),
-    path("update/<str:eissn>/", view=journal_update_view, name="update"),
-    path("<str:eissn>/", view=journal_detail_view, name="detail"),
+    path("update/<int:pk>/", view=journal_update_view, name="update"),
+    path("<int:pk>/", view=journal_detail_view, name="detail"),
 ]

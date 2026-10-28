@@ -1,6 +1,5 @@
 import pytest
 from django.test import Client
-from django.urls import reverse
 from tests import modelfactory
 
 from coda.apps.blocklist.models import BlockList
@@ -9,7 +8,7 @@ from coda.apps.journals.models import Journal
 
 
 def _detail_url(journal: Journal) -> str:
-    return reverse("publishing:journals:detail", kwargs={"eissn": journal.eissn})
+    return journal.get_absolute_url()
 
 
 def _fundingrequest_for(journal: Journal, title: str) -> FundingRequest:

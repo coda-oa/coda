@@ -3,11 +3,10 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils.safestring import mark_safe
 from django.views.generic import CreateView, DetailView, FormView, UpdateView
 
@@ -24,8 +23,6 @@ from coda.apps.views import EntityListView
 @breadcrumb("Journal Detail", parent_url_name="publishing:journals:list", preserve_filters=True)
 class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
     model = Journal
-    slug_field = "eissn"
-    slug_url_kwarg = "eissn"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -54,6 +51,7 @@ class JournalViewModel(DomainModelProtocol[int]):
     publisher_name: str
     publisher_url: str
     detail_url: str
+    update_url: str
     is_blocked: bool
     block_reason_display: str
 
@@ -99,6 +97,7 @@ class JournalListView(LoginRequiredMixin, EntityListView[JournalViewModel]):
             publisher_name=journal.publisher.name,
             publisher_url=journal.publisher.get_absolute_url(),
             detail_url=journal.get_absolute_url(),
+            update_url=reverse("publishing:journals:update", kwargs={"pk": journal.pk}),
             is_blocked=journal.id in self.blocked_journal_ids,
             block_reason_display=self.block_reasons.get(journal.id, ""),
         )
@@ -124,19 +123,15 @@ journal_create_view = JournalCreateView.as_view()
 
 @breadcrumb("Update Journal", parent_url_name="publishing:journals:detail")
 class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
+    model = Journal
     form_class = JournalForm
     template_name = "generic_form_view.html"
-    slug_field = "eissn"
-    slug_url_kwarg = "eissn"
     success_url = reverse_lazy("publishing:journals:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Update Journal"
         return context
-
-    def get_object(self, queryset: QuerySet[Journal] | None = None) -> Journal:
-        return Journal.objects.get(eissn=self.kwargs["eissn"])
 
 
 journal_update_view = JournalUpdateView.as_view()
