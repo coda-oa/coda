@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch
 from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -43,6 +43,7 @@ from coda.apps.opencost.report_service import (
     regenerate_report as regenerate_report_service,
 )
 from coda.apps.opencost.transformers import MissingEntityError
+from coda.apps.search import build_search_filter
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
@@ -66,10 +67,7 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
         queryset = self.model.objects.all()
 
         if search_term:
-            query = Q()
-            for field in self.search_fields:
-                query |= Q(**{f"{field}__icontains": search_term})
-            queryset = queryset.filter(query)
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
 
         # The badges read the issues JSON row-locally; the XML artifact is only ever needed
         # one report at a time, so the list never carries it.

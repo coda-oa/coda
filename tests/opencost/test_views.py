@@ -330,6 +330,21 @@ def test__report_list__defers_the_xml_artifact(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__report_list__search_matches_each_word_independently(client: Client) -> None:
+    """Search words AND across the title; a word that matches nothing excludes the report."""
+    report = create_opencost_report(title="open cost report")
+
+    both_words = client.get(reverse("opencost:list"), data={"query": "cost report"})
+    assert both_words.status_code == 200
+    assert [e.id for e in both_words.context["entities"]] == [report.id]
+
+    no_match = client.get(reverse("opencost:list"), data={"query": "open cost zzz"})
+    assert no_match.status_code == 200
+    assert not no_match.context["entities"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__report_detail__issues_panel_is_not_inlined_and_the_page_stays_cheap(
     client: Client,
 ) -> None:
