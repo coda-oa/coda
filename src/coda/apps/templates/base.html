@@ -81,6 +81,9 @@
         <link rel="stylesheet"
               href="{% static 'css/infopage.css' %}"
               crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/reporting.css' %}"
+              crossorigin="anonymous">
         <script src="{% static 'js/global-styles.js' %}"
                 type="module"
                 crossorigin="anonymous"></script>
@@ -102,7 +105,7 @@
               href="{% static 'assets/coda-planet.svg' %}">
         <link rel="icon" href="{% static 'assets/coda-planet.ico' %}">
     </head>
-    <body class="main-grid" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <body class="main-grid {% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
         {% include "partials/nav.html" %}
         <main class="container">
             {% load breadcrumb_tags %}

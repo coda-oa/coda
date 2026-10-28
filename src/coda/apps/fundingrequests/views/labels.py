@@ -10,8 +10,8 @@ from django.views.generic import CreateView, UpdateView
 
 from coda.apps.fundingrequests.forms import LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
-from coda.contexts.fundingrequest.services import labels
 from coda.apps.views import EntityListView
+from coda.contexts.fundingrequest.services import labels
 
 
 class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):

@@ -19,6 +19,7 @@ dependencies = [
   "fastexcel>=0.12.0",
   "pydantic-extra-types>=2.10.2",
   "opencost>=0.3.0",
+  "plotly>=7.1.0",
 ]
 requires-python = ">=3.12"
 readme = "README.md"
@@ -66,6 +67,11 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "environ"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# plotly ships no py.typed marker yet:
+module = "plotly.*"
 ignore_missing_imports = true
 
 [tool.django-stubs]

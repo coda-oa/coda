@@ -1,0 +1,28 @@
+{% comment %}
+    The period (2.8): not a facet but what the page is about — rendered in
+    the sticky toolbar band, outside the filter drawer. Bound to the shared
+    filter form's date_range field; hx-include already pulls this form.
+    The compare switch names the actual prior window (same length ending the
+    day before the selected range). The block re-renders out of band with the
+    region response, so an edited date range updates the label on the next
+    swap.
+{% endcomment %}
+<div class="filter-period" id="filter-period" {% if filter_period_oob %}hx-swap-oob="outerHTML"{% endif %}>
+
+
+    {{ filter_form.date_range.subwidgets.0 }}
+
+    <label for="id_end_date">to</label>
+    {{ filter_form.date_range.subwidgets.1 }}
+
+    {% include "partials/filter_date_error.html" %}
+
+    <label class="compare-switch">
+        <input type="checkbox"
+               name="compare"
+               value="1"
+               role="switch"
+               {% if compare %}checked{% endif %}>
+        Compare with previous period{% if compare_period %}:<br> {{ compare_period.0|date:"Y-m-d" }} – {{ compare_period.1|date:"Y-m-d" }}{% endif %}
+    </label>
+</div>

@@ -35,11 +35,13 @@ urlpatterns = [
     path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
     path("opencost/", include("coda.apps.opencost.urls", namespace="opencost")),
     path("exports/", include("coda.apps.exports.urls", namespace="exports")),
+    path("reporting/", include("coda.apps.reporting.urls", namespace="reporting")),
     path("check-update/", check_update, name="check_update"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
     from debug_toolbar.toolbar import debug_toolbar_urls
+
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
     demo_formset_view = DemoFormset.get_management_view()

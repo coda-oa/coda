@@ -12,7 +12,7 @@ from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
-from coda.apps.wizard import TemplateStep, Store
+from coda.apps.wizard import Store, TemplateStep
 from coda.domain.publication import Monograph
 
 

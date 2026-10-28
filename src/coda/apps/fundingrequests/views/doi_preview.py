@@ -101,7 +101,7 @@ class DOIImportInputView(LoginRequiredMixin, View):
             return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
 
         except (doi_errors.DOINotFoundError, doi_errors.DOIFetchError) as e:
-            context = {"error": f"Failed to import DOI: {str(e)}"}
+            context = {"error": f"Failed to import DOI: {e!s}"}
             return render(request, "fundingrequests/doi_import_input.html", context)
         except Exception:
             context = {"error": "An unexpected error occurred. Please try again."}

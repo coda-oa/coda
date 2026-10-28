@@ -11,27 +11,13 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
-from coda.apps.fundingrequests.forms import (
-    FundingRequestListFilterForm,
-    payment_status_choices,
-    publication_state_choices,
-)
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
-from coda.apps.listfilters import (
-    ChipBuilder,
-    FilterSummary,
-    ListRegionMixin,
-)
+from coda.apps.fundingrequests.filters import build_filter_summary
+from coda.apps.listfilters import ListRegionMixin, params_without
 from coda.apps.views import EntityListView
-from coda.domain.date import DateRange
-
-_DEFAULT_PUBLICATION_TYPE = "all"
-
-
-_DATE_START_KEY = "start_date"
-_DATE_END_KEY = "end_date"
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
@@ -78,6 +64,8 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             ctx["contract_list"],
             included=filter_form.selected_label_ids,
             excluded=filter_form.excluded_label_ids,
+            list_url_name=_LISTVIEW_URL,
+            region_url_name=_LIST_REGION_URL,
             date_range=filter_form.cleaned_data.get("date_range"),
             date_range_error=date_range_error,
         )
@@ -122,9 +110,7 @@ class LabelPill:
 
 
 def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
-    params = request.GET.copy()
-    params.pop("labels", None)
-    params.pop("page", None)
+    params = params_without(request.GET, "labels", "page")
     if labels:
         params.setlist("labels", [str(x) for x in sorted(labels)])
     return reverse(url_name, query=params or None)
@@ -163,64 +149,3 @@ def build_label_pills(
         )
         for label in labels
     ]
-
-
-def build_filter_summary(
-    request: HttpRequest,
-    labels: Sequence[Label],
-    contracts: Sequence[Contract],
-    *,
-    included: set[int],
-    excluded: set[int],
-    date_range: DateRange | None,
-    date_range_error: str | None,
-) -> FilterSummary:
-    """One removable chip per active filter value, in the rail's group order.
-
-    Text is the bare value except where that would be ambiguous (dates, contract
-    year, excluded labels, switch). A deleted Contract falls back to its raw id;
-    label chips come from the resolved include/exclude sets, so ids the form
-    dropped never appear.
-    """
-    chips = ChipBuilder(
-        request,
-        list_url_name=_LISTVIEW_URL,
-        region_url_name=_LIST_REGION_URL,
-    )
-    chips.multi("processing_status")
-    chips.multi("payment_status", labels=dict(payment_status_choices))
-    chips.multi("payment_methods")
-    chips.multi("open_access_type")
-
-    publication_type = request.GET.get("publication_type")
-    if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
-        chips.add("publication_type", publication_type, publication_type.title())
-
-    chips.multi("publication_states", labels=dict(publication_state_choices))
-    chips.date_range(
-        start_key=_DATE_START_KEY,
-        end_key=_DATE_END_KEY,
-        start_source_id="id_start_date",
-        end_source_id="id_end_date",
-        date_range=date_range,
-        error=date_range_error,
-    )
-    chips.single(
-        "contract_name",
-        labels={str(contract.pk): contract.name for contract in contracts},
-    )
-    chips.single("contract_year", prefix="Year ")
-    chips.switch("invalid_contract_years", "Invalid years only")
-
-    names = {label.pk: label.name for label in labels}
-    colors = {label.pk: label.hexcolor for label in labels}
-
-    def label_chips(param: str, ids: set[int], prefix: str = "") -> None:
-        for value in sorted(ids):
-            chips.add(
-                param, str(value), prefix + names[value], kind="label", label_color=colors[value]
-            )
-
-    label_chips("labels", included)
-    label_chips("exclude_labels", excluded, "Not: ")
-    return chips.summary()
