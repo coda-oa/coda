@@ -34,15 +34,15 @@ class PublicationForm(CodaFormBase):
     )
     publication_type = ConceptChoiceField(
         concepts=[],
-        required=True,
+        required=False,
         widget=widgets.SearchSelectWidget,
-        label="Publication type*",
+        label="Publication type",
     )
     subject_area = ConceptChoiceField(
         concepts=[],
-        required=True,
+        required=False,
         widget=widgets.SearchSelectWidget,
-        label="Subject area*",
+        label="Subject area",
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES,
