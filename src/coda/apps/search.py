@@ -1,12 +1,215 @@
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+
 from django.db.models import Q
 
 
-def words_icontains(search_term: str, *fields: str) -> Q:
-    words = search_term.strip().split()
+@dataclass(frozen=True)
+class ScopedAlias:
+    """A field alias with an additional row filter.
+
+    Attributes:
+        fields: The Django field lookup the term should be searched against.
+        extra:  An additional Q condition applied to the same relation row as the
+                field match, e.g. ``Q(publication__links__type__name="DOI")`` when
+                ``fields`` is ``"publication__links__value"``. Must traverse the
+                same relation path as ``fields`` so both conditions apply to one row.
+    """
+
+    fields: str
+    extra: Q
+
+
+type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
+
+# Match a prefixed term: a word-char prefix, a colon, and either a
+# double-quoted value ("...") or a single non-whitespace word
+_PREFIXED_TERM_RE = re.compile(r"""\b(\w+):("[^"]*"|\S+)""")
+
+# Match a double-quoted phrase, capturing its content
+_QUOTED_PHRASE_RE = re.compile(r'"([^"]*)"')
+
+# Standalone conjunction words carry no search weight and are dropped from
+# unquoted word search. Quoted phrases and prefix values are unaffected.
+_STOP_WORDS = {"and", "&"}
+
+
+@dataclass
+class _PrefixedTerm:
+    """A single recognised prefixed search term.
+
+    Attributes:
+        fields: The Django field lookups the term should be searched against.
+        value:  The search value (quotes already stripped).
+        extra:  Additional Q condition applied to the matched row; an empty Q
+                means no scope.
+    """
+
+    fields: list[str]
+    value: str
+    extra: Q = field(default_factory=Q)
+
+
+@dataclass
+class _PrefixedParseResult:
+    """Result of extracting prefixed terms from a search string.
+
+    Attributes:
+        terms:     All recognised prefix:value terms found in the input.
+        remaining: The input string with recognised prefixed terms removed,
+                   ready for generic multi-field search.
+    """
+
+    terms: list[_PrefixedTerm]
+    remaining: str
+
+
+def build_search_filter(
+    query: str,
+    *fields: str,
+    field_aliases: SearchFieldAliases | None = None,
+) -> Q:
+    """Build a Q filter that matches all words/phrases across any of the given fields.
+
+    When ``*fields`` is omitted and ``field_aliases`` is given, the generic fields
+    default to all field paths referenced by the aliases; when ``*fields`` is given
+    explicitly it replaces the derived list.
+
+    Each unquoted word or double-quoted phrase must appear (case-insensitively) in at
+    least one of the fields - AND logic across words, OR across fields.
+
+    When ``field_aliases`` is provided, terms prefixed with a recognised alias are
+    scoped to the mapped field(s) instead of being searched across all ``*fields``.
+    An alias may also be a ``ScopedAlias``, which ANDs an extra Q condition onto the
+    matched row (e.g. only links of a given type).
+    Prefixed terms use the same phrase/word splitting around the colon value:
+    the value can be a double-quoted phrase (``author:"john doe"``) or a single word
+    (``author:john``). Unprefixed terms remain in the generic multi-field search.
+
+    Examples with fields=["title", "author__name"]:
+        "mit press"               -> title ILIKE '%mit%' AND title ILIKE '%press%'
+                                     OR  author ILIKE '%mit%' AND author ILIKE '%press%'
+        '"mit press"'             -> title ILIKE '%mit press%' OR author ILIKE '%mit press%'
+        '"mit press" john'        -> (phrase match) AND (word match)
+
+    With field_aliases={"author": "author__name"}:
+        'author:"john doe"'       -> author ILIKE '%john doe%'  (scoped to author)
+        'author:"john doe" springer'
+                                 -> (author ILIKE '%john doe%')
+                                    AND (title ILIKE '%springer%' OR author ILIKE '%springer%')
+    """
+    if not query.strip():
+        return Q()
+
+    if fields:
+        generic_fields = list(fields)
+    else:
+        generic_fields = alias_field_paths(field_aliases or {})
+
     q = Q()
-    for word in words:
-        word_q = Q()
-        for field in fields:
-            word_q |= Q(**{f"{field}__icontains": word})
-        q &= word_q
+
+    result = _parse_prefixed_terms(query, field_aliases or {})
+
+    for term in result.terms:
+        q &= _match_any_field(term.value, term.fields) & term.extra
+
+    if result.remaining:
+        phrases, words = _parse_search_terms(result.remaining)
+        words = [word for word in words if word.lower() not in _STOP_WORDS]
+        phrases = [phrase for phrase in phrases if phrase.strip()]
+        for value in [*phrases, *words]:
+            q &= _match_any_field(value, generic_fields)
+
+    if not q.children and query.strip():
+        # The query consisted only of stop words (or stop-word-only phrases):
+        # without this fallback it would match every row. Search it literally.
+        q = _match_any_field(query, generic_fields)
+
     return q
+
+
+def _parse_search_terms(search_term: str) -> tuple[list[str], list[str]]:
+    """Split a search string into double-quoted phrases and remaining unquoted words.
+
+    Returns:
+        A tuple (phrases, words) where:
+        - phrases: content inside matched double-quote pairs
+        - words:   tokens remaining after removing quoted portions, split on whitespace
+
+    Unmatched quotes are left in the word tokens as literal characters.
+    """
+    phrases = _QUOTED_PHRASE_RE.findall(search_term)
+    remaining = _QUOTED_PHRASE_RE.sub("", search_term).strip()
+    words = remaining.split() if remaining else []
+    return phrases, words
+
+
+def _parse_prefixed_terms(
+    search_term: str,
+    aliases: SearchFieldAliases,
+) -> _PrefixedParseResult:
+    """Extract field-prefixed terms (``prefix:value``) from the search string.
+
+    Only prefixes present in ``aliases`` are extracted; unknown prefixes are left
+    in the remaining string as-is.
+    """
+    # Normalise aliases to (fields, extra) pairs for uniform handling
+    normalized_aliases: dict[str, tuple[list[str], Q]] = {
+        k: _normalise_alias(v) for k, v in aliases.items()
+    }
+
+    terms: list[_PrefixedTerm] = []
+
+    def _replace(m: re.Match[str]) -> str:
+        prefix = m.group(1)
+        raw_value = m.group(2)
+        if prefix in normalized_aliases:
+            # Strip surrounding quotes if present
+            value = raw_value.strip('"')
+            if value:
+                fields, extra = normalized_aliases[prefix]
+                terms.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
+            return ""
+        return m.group(0)
+
+    remaining = _PREFIXED_TERM_RE.sub(_replace, search_term).strip()
+    return _PrefixedParseResult(terms=terms, remaining=remaining)
+
+
+def _match_any_field(value: str, fields: Sequence[str]) -> Q:
+    """Build a Q that matches value (case-insensitively) in at least one of the fields.
+
+    Returns:
+        A Q joining one ``icontains`` lookup per field with OR logic.
+    """
+    q = Q()
+    for f in fields:
+        q |= Q(**{f"{f}__icontains": value})
+    return q
+
+
+def _normalise_alias(alias: str | list[str] | ScopedAlias) -> tuple[list[str], Q]:
+    """Normalise any alias form to a (fields, extra) pair.
+
+    Returns:
+        A tuple (fields, extra) where fields is a list of Django lookups and extra
+        is the additional Q condition (an empty Q for plain field aliases).
+    """
+    if isinstance(alias, ScopedAlias):
+        return [alias.fields], alias.extra
+    fields = [alias] if isinstance(alias, str) else alias
+    return fields, Q()
+
+
+def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
+    """All field paths referenced by an alias mapping, in dict order.
+
+    Returns:
+        The Django lookups referenced by every alias, flattened.
+    """
+    fields: list[str] = []
+    for alias in aliases.values():
+        normalised, _ = _normalise_alias(alias)
+        fields.extend(normalised)
+    return fields

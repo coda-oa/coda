@@ -222,6 +222,7 @@ TEMPLATES = [
                 "coda.apps.context_processors.version_context",
                 "coda.apps.context_processors.demo_context",
             ],
+
         },
     }
 ]

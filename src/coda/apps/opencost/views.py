@@ -1,12 +1,11 @@
 import logging
-from collections.abc import Sequence
 from typing import cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, QuerySet
 from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -16,7 +15,6 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
@@ -61,28 +59,18 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
     entity_create_url = "opencost:generate"
     ordering = ["-generated_at"]
 
-    def get_entities(self, request: HttpRequest) -> Sequence[OpenCostReport]:
-        search_term = request.GET.get("query", "").strip()
-        queryset = self.model.objects.all()
-
-        if search_term:
-            query = Q()
-            for field in self.search_fields:
-                query |= Q(**{f"{field}__icontains": search_term})
-            queryset = queryset.filter(query)
-
+    def filter_queryset(
+        self, queryset: QuerySet[OpenCostReport], request: HttpRequest
+    ) -> QuerySet[OpenCostReport]:
         # The badges read the issues JSON row-locally; the XML artifact is only ever needed
         # one report at a time, so the list never carries it.
         queryset = queryset.defer("xml_content")
 
         # Annotate with counts to avoid N+1 queries in the template
-        queryset = queryset.annotate(
+        return queryset.annotate(
             publications_count=Count("publications", distinct=True),
             contracts_count=Count("contracts", distinct=True),
         )
-
-        queryset = queryset.order_by(*self.ordering)
-        return DomainQuerySet(queryset, lambda x: x)
 
 
 report_list_view = non_atomic_requests(ReportListView.as_view())

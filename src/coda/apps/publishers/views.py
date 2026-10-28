@@ -17,7 +17,7 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.publishers.models import Publisher
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import EntityListView
 
 
@@ -46,7 +46,7 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
 
     def get_entities(self, request: Any) -> Sequence[PublisherViewModel]:
         search_term = request.GET.get("query", "").strip()
-        queryset = Publisher.objects.filter(words_icontains(search_term, "name"))
+        queryset = Publisher.objects.filter(build_search_filter(search_term, "name"))
         if request.GET.get("blocked_only") == "on":
             queryset = queryset.filter(pk__in=self.blocked_publisher_ids)
         return DomainQuerySet(queryset.order_by("name"), self.publisher_viewmodel)

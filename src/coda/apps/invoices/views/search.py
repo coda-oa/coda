@@ -1,59 +1,97 @@
-from typing import Any
+from typing import Any, ClassVar, Generic, TypeVar
 
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Model, Q, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.views import View
 
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices.views.position_parsers import maybe_request_context
 from coda.apps.publications.models import Publication
-from coda.apps.search import words_icontains
+from coda.apps.search import (
+    ScopedAlias,
+    SearchFieldAliases,
+    build_search_filter,
+)
+
+PUBLICATION_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "title": "title",
+    "doi": ScopedAlias("links__value", Q(links__type__name="DOI")),
+    "request": "fundingrequest__request_id",
+}
+
+CONTRACT_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "name": "name",
+    "esac": ScopedAlias("links__value", Q(links__type__name="ESAC")),
+}
+
+_ModelT = TypeVar("_ModelT", bound=Model)
 
 
-@login_required
-def search_publications(request: HttpRequest) -> HttpResponse:
-    query = request.POST.get("q", "").strip()
-    if query:
-        publications = Publication.objects.filter(
-            words_icontains(query, "title")
-            | (Q(links__type__name="DOI") & words_icontains(query, "links__value"))
-            | words_icontains(query, "fundingrequest__request_id")
-        ).distinct()
-    else:
-        publications = Publication.objects.none()
+class SearchPickerView(LoginRequiredMixin, View, Generic[_ModelT]):
+    """HTMX fragment view for one alias-scoped picker search box.
 
-    search_results = [search_result_for_publication(pub) for pub in publications]
-    return render(request, "invoices/search_publications.html", {"publications": search_results})
+    POSTs the search box's value, filters the queryset through
+    ``build_search_filter`` (words AND, quoted phrases, ``prefix:value`` terms)
+    and re-renders the results fragment.
+    """
 
+    query_param: ClassVar[str]
+    field_aliases: ClassVar[SearchFieldAliases]
+    template_name: ClassVar[str]
+    result_key: ClassVar[str]
 
-def search_result_for_publication(publication: Publication) -> dict[str, Any]:
-    return {
-        "id": publication.id,
-        "title": publication.title,
-        "funding_request": maybe_request_context(publication).to_post_data(),
-    }
+    def get_queryset(self) -> QuerySet[_ModelT]:
+        raise NotImplementedError
 
+    def to_result(self, obj: _ModelT) -> dict[str, Any]:
+        raise NotImplementedError
 
-@login_required
-def search_contracts(request: HttpRequest) -> HttpResponse:
-    query = request.POST.get("contract_query", "").strip()
-    if query:
-        contracts = Contract.objects.filter(
-            words_icontains(query, "name")
-            | (Q(links__type__name="ESAC") & words_icontains(query, "links__value"))
-        ).distinct()
-    else:
-        contracts = Contract.objects.none()
+    def post(self, request: HttpRequest) -> HttpResponse:
+        query = request.POST.get(self.query_param, "").strip()
+        queryset = self.get_queryset().none()
+        if query:
+            queryset = (
+                self.get_queryset()
+                .filter(build_search_filter(query, field_aliases=self.field_aliases))
+                .distinct()
+            )
 
-    search_results = [search_results_for_contract(contract) for contract in contracts]
-    return render(request, "invoices/search_contracts.html", {"contracts": search_results})
+        context = {self.result_key: [self.to_result(obj) for obj in queryset]}
+        return render(request, self.template_name, context)
 
 
-def search_results_for_contract(contract: Contract) -> dict[str, Any]:
-    return {
-        "id": contract.id,
-        "name": contract.name,
-        "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
-    }
+class PublicationSearchPickerView(SearchPickerView[Publication]):
+    query_param = "q"
+    field_aliases = PUBLICATION_SEARCH_FIELD_ALIASES
+    template_name = "invoices/search_publications.html"
+    result_key = "publications"
+
+    def get_queryset(self) -> QuerySet[Publication]:
+        return Publication.objects.all()
+
+    def to_result(self, publication: Publication) -> dict[str, Any]:
+        return {
+            "id": publication.id,
+            "title": publication.title,
+            "funding_request": maybe_request_context(publication).to_post_data(),
+        }
+
+
+class ContractSearchPickerView(SearchPickerView[Contract]):
+    query_param = "contract_query"
+    field_aliases = CONTRACT_SEARCH_FIELD_ALIASES
+    template_name = "invoices/search_contracts.html"
+    result_key = "contracts"
+
+    def get_queryset(self) -> QuerySet[Contract]:
+        return Contract.objects.all()
+
+    def to_result(self, contract: Contract) -> dict[str, Any]:
+        return {
+            "id": contract.id,
+            "name": contract.name,
+            "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
+        }

@@ -4,6 +4,7 @@
            value="{{ request.GET.search_term }}"
            placeholder="{{ filter_toolbar_search_placeholder }}"
            {% if filter_toolbar_search_aria_label %}aria-label="{{ filter_toolbar_search_aria_label }}"{% endif %}
+           {% if filter_toolbar_search_describedby %}aria-describedby="{{ filter_toolbar_search_describedby }}"{% endif %}
            class="filter-search">
     <label class="filter-sort-label" for="sort_by">
         Sort
@@ -17,6 +18,9 @@
         Filters
         {% include "partials/filter_toolbar_count.html" %}
     </button>
+    {% if filter_toolbar_helper_template %}
+        {% include filter_toolbar_helper_template %}
+    {% endif %}
     {% if filter_toolbar_extra_template %}
         {% include filter_toolbar_extra_template %}
     {% endif %}
