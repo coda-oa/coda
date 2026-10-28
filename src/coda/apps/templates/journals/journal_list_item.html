@@ -27,7 +27,7 @@
                     hx-push-url="false"
                     hx-get="{% url "blocklist:request_block_journal" pk=entity.id %}">Block</button>
         {% endif %}
-        <a href="{% url "publishing:journals:update" eissn=entity.eissn %}"
+        <a href="{{ entity.update_url }}"
            role="button"
            class="secondary">Edit</a>
     </div>

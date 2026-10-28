@@ -63,9 +63,7 @@ def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.block_journal(journal, reason)
 
-    return maybe_redirect(
-        request, default_url=reverse("publishing:journals:detail", kwargs={"eissn": journal.eissn})
-    )
+    return maybe_redirect(request, default_url=journal.get_absolute_url())
 
 
 @login_required

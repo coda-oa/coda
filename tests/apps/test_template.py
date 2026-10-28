@@ -153,7 +153,7 @@ def test__nav__journal_detail__highlights_journals(client: Client) -> None:
     """A detail page under a sub-item's prefix activates it in a group without a default."""
     journal = modelfactory.journal(title="Nav highlight journal")
 
-    nav = _nav_html(client.get(reverse("publishing:journals:detail", args=[journal.eissn])))
+    nav = _nav_html(client.get(journal.get_absolute_url()))
 
     assert nav.count("nav__group nav__group--active") == 1
     assert _active_nav_items(nav) == {"Journals"}
