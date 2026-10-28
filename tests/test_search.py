@@ -262,3 +262,63 @@ class TestScopedAlias:
             & (Q(title__icontains="springer") | Q(author__name__icontains="springer"))
         )
         assert q == expected
+
+
+class TestStopWords:
+    def test_stop_word_word_is_dropped(self) -> None:
+        """'and' as a word carries no weight; other words still AND."""
+        q = build_search_filter("wiley and sons", "name")
+        assert q == Q(name__icontains="wiley") & Q(name__icontains="sons")
+
+    def test_ampersand_word_is_dropped(self) -> None:
+        q = build_search_filter("wiley & sons", "name")
+        assert q == Q(name__icontains="wiley") & Q(name__icontains="sons")
+
+    def test_case_insensitive_stop_word(self) -> None:
+        q = build_search_filter("Wiley AND Sons", "name")
+        assert q == Q(name__icontains="Wiley") & Q(name__icontains="Sons")
+
+    def test_quoted_phrase_keeps_conjunction(self) -> None:
+        """Quotes mean exact: the phrase is searched literally, stop-word-free."""
+        q = build_search_filter('"wiley and sons"', "name")
+        assert q == Q(name__icontains="wiley and sons")
+
+    def test_quoted_ampersand_phrase_keeps_ampersand(self) -> None:
+        q = build_search_filter('"wiley & sons"', "name")
+        assert q == Q(name__icontains="wiley & sons")
+
+    def test_prefix_value_keeps_conjunction(self) -> None:
+        q = build_search_filter(
+            'title:"rock and roll"',
+            "title",
+            field_aliases={"title": "title"},
+        )
+        assert q == Q(title__icontains="rock and roll")
+
+    def test_stop_word_inside_larger_word_is_kept(self) -> None:
+        q = build_search_filter("sandwich", "name")
+        assert q == Q(name__icontains="sandwich")
+
+    def test_rd_literal_is_kept(self) -> None:
+        """& inside a word is not a stop word; the word is searched literally."""
+        q = build_search_filter("R&D Systems", "name")
+        assert q == Q(name__icontains="R&D") & Q(name__icontains="Systems")
+
+    def test_only_stop_words_falls_back_to_literal(self) -> None:
+        """A stop-word-only query must not match every row."""
+        q = build_search_filter("and", "name")
+        assert q == Q(name__icontains="and")
+
+    def test_only_ampersand_falls_back_to_literal(self) -> None:
+        q = build_search_filter("&", "name")
+        assert q == Q(name__icontains="&")
+
+    def test_stop_words_and_phrase_mixed(self) -> None:
+        q = build_search_filter('"rock and roll" and springer', "name")
+        expected = Q(name__icontains="rock and roll") & Q(name__icontains="springer")
+        assert q == expected
+
+    def test_precision_widens_without_conjunction_requirement(self) -> None:
+        """Words AND without requiring a conjunction to exist anywhere."""
+        q = build_search_filter("lancet and child", "name")
+        assert q == Q(name__icontains="lancet") & Q(name__icontains="child")
