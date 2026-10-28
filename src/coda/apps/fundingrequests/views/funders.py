@@ -5,6 +5,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -13,7 +14,6 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
@@ -31,7 +31,6 @@ from coda.apps.fundingrequests.services.funder_services import (
     search_organizations_for_merge,
     update_funder_from_ror,
 )
-from coda.apps.search import build_search_filter
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -59,23 +58,16 @@ class FundingOrganizationListView(
     use_generic_entity_filter = True
     entity_filter_extra_template = "partials/archived_filter_checkbox.html"
 
-    def get_entities(self, request: HttpRequest) -> Any:
-        search_term = request.GET.get("query", "").strip()
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[FundingOrganization]:
         include_archived = request.GET.get("include_archived") == "on"
+        if include_archived:
+            return FundingOrganization.all_objects.all()
+        return FundingOrganization.objects.all()
 
-        queryset = (
-            FundingOrganization.all_objects.all()
-            if include_archived
-            else FundingOrganization.objects.all()
-        )
-
-        if search_term:
-            queryset = queryset.filter(build_search_filter(search_term, "name"))
-
-        return DomainQuerySet(
-            queryset.prefetch_related("links").order_by("name"),
-            lambda x: cast(FundingOrganization, x),
-        )
+    def filter_queryset(
+        self, queryset: QuerySet[FundingOrganization], request: HttpRequest
+    ) -> QuerySet[FundingOrganization]:
+        return queryset.prefetch_related("links")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
