@@ -1,6 +1,6 @@
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.db.models import Q
 
@@ -42,12 +42,13 @@ class _PrefixedTerm:
     Attributes:
         fields: The Django field lookups the term should be searched against.
         value:  The search value (quotes already stripped).
-        extra:  Optional additional Q condition applied to the matched row.
+        extra:  Additional Q condition applied to the matched row; an empty Q
+                means no scope.
     """
 
     fields: list[str]
     value: str
-    extra: Q | None = None
+    extra: Q = field(default_factory=Q)
 
 
 @dataclass
@@ -111,18 +112,14 @@ def build_search_filter(
     result = _parse_prefixed_terms(query, field_aliases or {})
 
     for term in result.terms:
-        if term.value.strip():
-            term_q = _match_any_field(term.value, term.fields)
-            if term.extra is not None:
-                term_q = term_q & term.extra
-            q &= term_q
+        q &= _match_any_field(term.value, term.fields) & term.extra
 
     if result.remaining:
         phrases, words = _parse_search_terms(result.remaining)
         words = [word for word in words if word.lower() not in _STOP_WORDS]
+        phrases = [phrase for phrase in phrases if phrase.strip()]
         for value in [*phrases, *words]:
-            if value.strip():
-                q &= _match_any_field(value, generic_fields)
+            q &= _match_any_field(value, generic_fields)
 
     if not q.children and query.strip():
         # The query consisted only of stop words (or stop-word-only phrases):
@@ -158,7 +155,7 @@ def _parse_prefixed_terms(
     in the remaining string as-is.
     """
     # Normalise aliases to (fields, extra) pairs for uniform handling
-    normalized_aliases: dict[str, tuple[list[str], Q | None]] = {
+    normalized_aliases: dict[str, tuple[list[str], Q]] = {
         k: _normalise_alias(v) for k, v in aliases.items()
     }
 
@@ -187,22 +184,22 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
         A Q joining one ``icontains`` lookup per field with OR logic.
     """
     q = Q()
-    for field in fields:
-        q |= Q(**{f"{field}__icontains": value})
+    for f in fields:
+        q |= Q(**{f"{f}__icontains": value})
     return q
 
 
-def _normalise_alias(alias: str | list[str] | ScopedAlias) -> tuple[list[str], Q | None]:
+def _normalise_alias(alias: str | list[str] | ScopedAlias) -> tuple[list[str], Q]:
     """Normalise any alias form to a (fields, extra) pair.
 
     Returns:
         A tuple (fields, extra) where fields is a list of Django lookups and extra
-        is the optional additional Q condition (None for plain field aliases).
+        is the additional Q condition (an empty Q for plain field aliases).
     """
     if isinstance(alias, ScopedAlias):
         return [alias.fields], alias.extra
     fields = [alias] if isinstance(alias, str) else alias
-    return fields, None
+    return fields, Q()
 
 
 def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
