@@ -7,12 +7,12 @@
         </hgroup>
         <div class="flex align-center">
             {% if is_blocked %}
-                <button class="outline success"
+                <button type="button" class="outline success"
                         hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}">
                     Unblock
                 </button>
             {% else %}
-                <button class="outline danger"
+                <button type="button" class="outline danger"
                         hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
                         hx-target="body"
                         hx-swap="beforeend">Block</button>
