@@ -26,7 +26,9 @@ The overview provides powerful filtering options to find specific requests:
 
 The search box matches all entered words against the title, authors, journal, publisher, E-ISSN, DOIs and other identifiers, and the request ID. Every word must occur in at least one of these fields, so results get more specific with each added word.
 
-Wrap a term in double quotes to search for an exact phrase: `"artificial intelligence"` matches the phrase as a whole, not the two words separately.
+Wrap a term in double quotes to search for an exact phrase: `"artificial intelligence"` matches the phrase as a whole, not the two words separately. Quoted phrases are matched spelled exactly as typed.
+
+The words `and` and `&` are ignored in unquoted search - `wiley and sons` matches names containing both `wiley` and `sons`, regardless of the conjunction (or its absence). Inside quotes they are searched literally.
 
 A term can be restricted to a specific field with a prefix:
 

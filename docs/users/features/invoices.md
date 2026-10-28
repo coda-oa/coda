@@ -12,7 +12,9 @@ You can search and filter invoices to find specific transactions quickly. An adv
 
 The search box matches all entered words against the invoice number, the creditor name, the external invoice ID, and the funding request IDs of the invoice's positions. Every word must occur in at least one of these fields, so results get more specific with each added word.
 
-Wrap a term in double quotes to search for an exact phrase: `"alpha beta"` matches the phrase as a whole, not the two words separately.
+Wrap a term in double quotes to search for an exact phrase: `"alpha beta"` matches the phrase as a whole, not the two words separately. Quoted phrases are matched spelled exactly as typed.
+
+The words `and` and `&` are ignored in unquoted search - they carry no search weight. Inside quotes they are searched literally.
 
 When adding positions, the publication and contract search boxes support field prefixes: `title:`, `doi:` and `request:` for publications, `name:` and `esac:` for contracts (e.g. `doi:10.1234/abc`).
 

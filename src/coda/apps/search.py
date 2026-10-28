@@ -30,6 +30,10 @@ _PREFIXED_TERM_RE = re.compile(r"""\b(\w+):("[^"]*"|\S+)""")
 # Match a double-quoted phrase, capturing its content
 _QUOTED_PHRASE_RE = re.compile(r'"([^"]*)"')
 
+# Standalone conjunction words carry no search weight and are dropped from
+# unquoted word search. Quoted phrases and prefix values are unaffected.
+_STOP_WORDS = {"and", "&"}
+
 
 @dataclass
 class _PrefixedTerm:
@@ -115,9 +119,15 @@ def build_search_filter(
 
     if result.remaining:
         phrases, words = _parse_search_terms(result.remaining)
+        words = [word for word in words if word.lower() not in _STOP_WORDS]
         for value in [*phrases, *words]:
             if value.strip():
                 q &= _match_any_field(value, generic_fields)
+
+    if not q.children and query.strip():
+        # The query consisted only of stop words (or stop-word-only phrases):
+        # without this fallback it would match every row. Search it literally.
+        q = _match_any_field(query, generic_fields)
 
     return q
 
