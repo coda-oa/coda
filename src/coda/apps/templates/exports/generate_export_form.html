@@ -34,7 +34,7 @@
                     <input type="date"
                            id="period_start"
                            name="period_start"
-                           value="{{ form.period_start.value|default:current_filters.period_start|default:'' }}"
+                           value="{% firstof form.period_start.value current_filters.period_start "" %}"
                            required>
                 </div>
                 <div class="form-row">
@@ -42,7 +42,7 @@
                     <input type="date"
                            id="period_end"
                            name="period_end"
-                           value="{{ form.period_end.value|default:current_filters.period_end|default:'' }}"
+                           value="{% firstof form.period_end.value current_filters.period_end "" %}"
                            required>
                 </div>
             </div>
