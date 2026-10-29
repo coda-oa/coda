@@ -1,30 +1,26 @@
 # tests/exports/fundingrequest_csv/test_queries.py
 
 import uuid
-
-import pytest
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from pytest_django import DjangoAssertNumQueries
 
-from coda.apps.invoices import funding_source_repository
-from coda.contexts.finance.services import invoice_service
-from tests import domainfactory, modelfactory
 from coda.apps.exports.services.fundingrequest_csv.queries import (
     get_concept_id_lookup,
     get_funding_requests_for_export,
 )
+from coda.apps.fundingrequests import fundingrequest_query, repository
+from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import PublicationPayment
-
-from coda.domain.fundingrequest.review import ReviewResult, Review
-from coda.domain.money import Money, Currency
-from coda.domain.fundingrequest import FundingRequestId
-from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests import fundingrequest_query
+from coda.contexts.finance.services import invoice_service
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import PublicationId
-
+from tests import domainfactory, modelfactory
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
     create_funding_request_with_concepts,
@@ -207,8 +203,8 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     None
 ):
     """Verify prefetch_related prevents N+1 query problems."""
-    from django.test.utils import CaptureQueriesContext
     from django.db import connection
+    from django.test.utils import CaptureQueriesContext
 
     # Arrange: Create 3 funding requests with March request dates, invoices and positions
     _create_three_fundingrequests_for_performance_check()
@@ -246,6 +242,44 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     query_count = len(context.captured_queries)
     assert query_count < 25, (
         f"Too many queries: {query_count}. Prefetch may not be working correctly."
+    )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_invoice__query_for_export__fetch_plan_is_pinned() -> None:
+    """The export query fetches every invoice-related relation without N+1:
+    accessing the prefetched relations must not exceed this upper cap."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    fr = modelfactory.fundingrequest(title="Fetch Plan FR")
+    fr.request_date = date(2026, 3, 15)
+    fr.save()
+
+    create_invoice_with_publication_position(fr)
+
+    with CaptureQueriesContext(connection) as context:
+        results = list(
+            get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
+        )
+        for funding_request in results:
+            for position in funding_request.publication.position_set.all():
+                _ = position.invoice.creditor.name
+                _ = position.invoice.date
+                for conversion in position.invoice.currency_conversions.all():
+                    _ = conversion.id
+                for invoice_position in position.invoice.positions.all():
+                    _ = invoice_position.cost_amount
+                    for assignment in invoice_position.funding_assignments.all():
+                        if assignment.funding_source:
+                            _ = assignment.funding_source.name
+                for assignment in position.funding_assignments.all():
+                    if assignment.funding_source:
+                        _ = assignment.funding_source.name
+
+    assert len(context.captured_queries) <= 20, (
+        f"Too many queries: {len(context.captured_queries)}. "
+        "The export fetch plan regressed (N+1 or redundant prefetch)."
     )
 
 
