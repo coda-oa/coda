@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from io import StringIO
 
 import polars as pl
@@ -7,6 +8,13 @@ from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_det
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.domain.money import DecimalSeparator
+
+
+@dataclass(frozen=True)
+class CsvExportResult:
+    content: str
+    row_count: int
+
 
 CSV_COLUMNS = [
     "legacy_request_id",
@@ -91,7 +99,7 @@ def _single_line(value: str) -> str:
 
 def export_fundingrequests_to_csv(
     filters: ExportFiltersDto,
-) -> str:
+) -> CsvExportResult:
     # 1. Get funding requests using the shared params
     params = filters.to_params()
     funding_requests = list(queries.get_funding_requests_for_export(params))
@@ -136,4 +144,4 @@ def export_fundingrequests_to_csv(
     buffer = StringIO()
     df.write_csv(buffer, separator=";")
 
-    return buffer.getvalue()
+    return CsvExportResult(content=buffer.getvalue(), row_count=df.height)
