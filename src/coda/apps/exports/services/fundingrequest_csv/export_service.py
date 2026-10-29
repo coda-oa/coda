@@ -107,7 +107,9 @@ def export_fundingrequests_to_csv(
     # 2. Fetch concept ids in a single query to avoid N+1 lookups per funding request
     concept_ids = queries.get_concept_id_lookup(funding_requests)
 
-    # 3. Map to export DTOs
+    # 3. Map to export DTOs — the query layer did the request-level
+    #    funding-source filtering; invoice-level scoping happens in the
+    #    mapper (see _has_funding_source in mappers.py)
     export_dtos = [
         map_funding_request_to_export_dto(
             fr,

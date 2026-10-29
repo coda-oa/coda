@@ -199,6 +199,90 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
 
 
 @pytest.mark.django_db
+def test__shared_invoice_with_foreign_position__query_with_funding_source__is_publication_scoped_not_invoice_scoped() -> (
+    None
+):
+    """Request-level half of the funding-source filter.
+
+    The Q object matches a funding request whose publication has *any*
+    position row carrying the source — it is publication-scoped and cannot
+    scope to a specific invoice. Fixture: B funds one of its own positions
+    on a private invoice; B's *other* position sits unfunded on a shared
+    invoice whose source-carrying position belongs to publication C; D
+    shares that invoice but has no funded position anywhere. The query
+    layer admits B and C but excludes D: publication-scoping excludes D,
+    invoice-scoping would admit it. Dropping the shared invoice from B's
+    export is the mapper's job — see _has_funding_source in
+    apps/exports/services/fundingrequest_csv/mappers.py and the shared-
+    invoice filtering test in tests/exports/fundingrequest_csv/ that pins
+    the combined behavior (B's export shows its private invoice only).
+    """
+    funding_request_b = modelfactory.fundingrequest(title="Query Scope B")
+    funding_request_b.request_date = date(2026, 3, 5)
+    funding_request_b.save()
+
+    funding_request_c = modelfactory.fundingrequest(title="Query Scope C")
+    funding_request_c.request_date = date(2026, 3, 10)
+    funding_request_c.save()
+
+    # D shares the shared invoice but has no funded position of its own:
+    # publication-scoping excludes it, invoice-scoping would admit it.
+    funding_request_d = modelfactory.fundingrequest(title="Query Scope D Unfunded")
+    funding_request_d.request_date = date(2026, 3, 15)
+    funding_request_d.save()
+
+    funding_source_x = domainfactory.budget()
+    funding_source_x.id = funding_source_repository.create(funding_source_x)
+    creditor_id = CreditorId(modelfactory.creditor().pk)
+
+    # Shared invoice: C's position carries source X, B's and D's do not.
+    position_b_on_shared = domainfactory.publication_position(
+        PublicationId(funding_request_b.publication.id), currency=Currency.EUR
+    )
+    position_c = domainfactory.publication_position(
+        PublicationId(funding_request_c.publication.id), currency=Currency.EUR
+    )
+    position_d_on_shared = domainfactory.publication_position(
+        PublicationId(funding_request_d.publication.id), currency=Currency.EUR
+    )
+    position_c.assign_funding(funding_source_x, position_c.cost.amount)
+    shared_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_b_on_shared, position_c, position_d_on_shared],
+    )
+    shared_invoice.id = invoice_service.save(shared_invoice)
+
+    # B's private invoice: its own position carries source X.
+    position_b_private = domainfactory.publication_position(
+        PublicationId(funding_request_b.publication.id), currency=Currency.EUR
+    )
+    position_b_private.assign_funding(funding_source_x, position_b_private.cost.amount)
+    private_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_b_private],
+    )
+    private_invoice.id = invoice_service.save(private_invoice)
+
+    results = get_funding_requests_for_export(
+        _make_params(
+            date(2026, 3, 1),
+            date(2026, 3, 31),
+            funding_source=FundingSourceId(funding_source_x.id),
+        )
+    )
+
+    # The query layer includes B (via its funded private position) and C
+    # (via its position on the shared invoice) — but not D, whose only
+    # position is the unfunded one on the shared invoice. An invoice-scoped
+    # criterion would admit D too; this pins publication-scoping.
+    # Whether the shared invoice appears in B's export is invisible here —
+    # that scoping is deliberately left to the mapper layer.
+    # (default sort is request_date descending)
+    assert list(results) == [funding_request_c, funding_request_b]
+    assert funding_request_d not in results
+
+
+@pytest.mark.django_db
 def test__query_with_prefetch__accessing_related_objects__does_not_trigger_additional_queries() -> (
     None
 ):
