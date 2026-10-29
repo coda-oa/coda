@@ -4,29 +4,28 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
+from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import (
     Concept,
     PublicationAttachedConcept,
     Vocabulary,
 )
-
-from coda.apps.contracts.mappers._domain import ContractDomainMapper
-from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
-from coda.apps.invoices import funding_source_repository
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.contexts.finance.services import invoice_service
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from coda.domain.publication.publication import PublicationId
-from tests import domainfactory, modelfactory
-
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency, DecimalSeparator, Money
+from coda.domain.publication.publication import PublicationId
+from tests import domainfactory, modelfactory
 
 
 def _make_params(
@@ -36,6 +35,20 @@ def _make_params(
 ) -> FundingRequestSearchParams:
     return FundingRequestSearchParams(
         date_range=DateRange(period_start, period_end),
+        **kwargs,
+    )
+
+
+def _make_filters(
+    period_start: date,
+    period_end: date,
+    decimal_separator: DecimalSeparator | None = None,
+    **kwargs: Any,
+) -> ExportFiltersDto:
+    return ExportFiltersDto(
+        period_start=period_start,
+        period_end=period_end,
+        decimal_separator=decimal_separator,
         **kwargs,
     )
 

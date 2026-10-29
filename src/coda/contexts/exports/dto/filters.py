@@ -16,6 +16,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import AliasChoices, BeforeValidator, ConfigDict, Field
+
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.fundingrequest_query import (
     FundingRequestSearchParams,
@@ -146,5 +147,4 @@ class ExportFiltersDto(CodaBaseDto):
             contract_id=self.contract_name,
             funding_source=self.funding_source,
             contract_year=self.contract_year,
-            decimal_separator=self.decimal_separator.value if self.decimal_separator else ".",
         )

@@ -10,24 +10,19 @@ from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests import repository as fr_repository
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel, Label
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import CoveredByContractDetail, FundingRequestListItem
-from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.apps.publications.models import AttachedContract
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.publication import JournalId
 from tests import domainfactory, modelfactory
-
-
-def test__funding_request_search_params__without_decimal_separator__defaults_to_dot() -> None:
-    params = fq.FundingRequestSearchParams()
-
-    assert params.decimal_separator == "."
 
 
 @pytest.mark.django_db
