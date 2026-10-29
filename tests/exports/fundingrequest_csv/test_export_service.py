@@ -6,6 +6,7 @@ import polars as pl
 import pytest
 
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
+    CSV_COLUMNS,
     export_fundingrequests_to_csv,
 )
 from coda.apps.fundingrequests.repository import save_review
@@ -802,3 +803,18 @@ def test__funding_request__export_to_csv__keeps_dot_decimal_separator_by_default
 
     assert "1500.0000" in requests_exports
     assert "1500,0000" not in requests_exports
+
+
+@pytest.mark.django_db
+def test__funding_request_with_invoice__export_to_csv__columns_match_declared_columns() -> None:
+    funding_request = modelfactory.fundingrequest(title="Column Pinning Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_funding_assignments(funding_request)
+
+    csv_content = export_fundingrequests_to_csv(_make_filters(date(2026, 1, 1), date(2026, 12, 31)))
+
+    df = pl.read_csv(StringIO(csv_content), separator=";")
+    assert df.columns == CSV_COLUMNS
+    assert df.height > 0

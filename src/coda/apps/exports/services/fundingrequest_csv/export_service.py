@@ -125,12 +125,12 @@ def export_fundingrequests_to_csv(
                 }
             )
 
-    # 5. Build Polars DataFrame from rows
-    if not all_rows:
-        schema = {column: pl.String for column in CSV_COLUMNS}
-        df = pl.DataFrame(schema=schema)
-    else:
-        df = pl.DataFrame(all_rows)
+    # 5. Build the Polars DataFrame pinned to CSV_COLUMNS: every row is
+    #    projected onto the declared columns and the schema is explicit,
+    #    so the column set is identical for empty and non-empty exports
+    rows = [{column: row.get(column, "") for column in CSV_COLUMNS} for row in all_rows]
+    schema = {column: pl.String for column in CSV_COLUMNS}
+    df = pl.DataFrame(rows, schema=schema)
 
     # 6. Write CSV to StringIO with separator semicolon
     buffer = StringIO()
