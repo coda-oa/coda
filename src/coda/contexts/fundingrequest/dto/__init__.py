@@ -22,7 +22,7 @@ from .import_dtos import (
     PublishingStateImportDto,
     ResearchFundingImportDto,
     ReviewImportDto,
-    SeperateContactImportDto,
+    SeparateContactImportDto,
 )
 
 __all__ = [
@@ -47,5 +47,5 @@ __all__ = [
     "PublishingStateImportDto",
     "ResearchFundingImportDto",
     "ReviewImportDto",
-    "SeperateContactImportDto",
+    "SeparateContactImportDto",
 ]
