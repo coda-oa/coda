@@ -1,8 +1,6 @@
 {% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
 {% block content %}
-    <div class="flex justify-between align-center my-2">
-        <h1 class="my-2">{{ page_title }}</h1>
-    </div>
     <form method="post" action="{{ form_action_url }}">
         {% csrf_token %}
         {% if form_errors %}

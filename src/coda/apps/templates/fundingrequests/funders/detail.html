@@ -1,27 +1,26 @@
 {% extends "base.html" %}
+{% block page_supertitle %}Funding Organization{% endblock page_supertitle %}
+{% block page_title %}
+    {{ object.name }}
+    {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+{% endblock page_title %}
+{% block page_actions %}
+    {% if has_ror_link %}
+        <button class="secondary"
+                hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
+                hx-target="body"
+                hx-swap="beforeend">Update from ROR</button>
+    {% else %}
+        <button class="secondary" disabled
+                title="Add a ROR identifier first">Update from ROR</button>
+    {% endif %}
+    <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
+       class="button secondary">Edit</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1 class="my-2">
-            Funding Organization
-            {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
-        </h1>
-        <div class="flex">
-            {% if has_ror_link %}
-                <button class="secondary"
-                        hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
-                        hx-target="body"
-                        hx-swap="beforeend">Update from ROR</button>
-            {% else %}
-                <button class="secondary" disabled
-                        title="Add a ROR identifier first">Update from ROR</button>
-            {% endif %}
-            <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
-               class="button secondary">Edit</a>
-        </div>
-    </div>
     <article>
         <header>
-            <h2 class="my-0">{{ object.name }}</h2>
+            <h2 class="my-0">Basic Information</h2>
         </header>
         {% if object.archived_at %}
             <p>
