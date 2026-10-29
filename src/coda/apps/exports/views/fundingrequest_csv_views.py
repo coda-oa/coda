@@ -132,7 +132,7 @@ def fundingrequest_csv_export_create_view(
         cleaned = cast(FilterCleanedData, form.cleaned_data)
         title = cleaned["title"].strip() or "Unnamed CSV Export"
         dto = ExportFiltersDto.from_form_data(cleaned)
-        csv_content = export_fundingrequests_to_csv(dto.to_params())
+        csv_content = export_fundingrequests_to_csv(dto)
 
         export = FundingRequestCSVExport.objects.create(
             name=title,
@@ -261,4 +261,4 @@ def _create_preview_dataframe(
 
 def _generate_csv_from_filters(filters: dict[str, Any]) -> str:
     dto = ExportFiltersDto.model_validate(filters)
-    return export_fundingrequests_to_csv(dto.to_params())
+    return export_fundingrequests_to_csv(dto)
