@@ -14,7 +14,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django_htmx.http import HttpResponseClientRefresh
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
