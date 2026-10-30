@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
 from django.db import models
 from django.db.models import Prefetch
 
@@ -9,7 +10,13 @@ from coda.apps.publications.mappers import VocabularyDomainMapper
 from coda.apps.publications.models import Concept as ConceptModel
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.domain.money import Currency
+from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import VocabularyProtocol
+
+if TYPE_CHECKING:
+    from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._politeness import (
+        CrossrefPoliteness,
+    )
 
 
 # NOTE: we have to keep this function around for now,
@@ -66,7 +73,6 @@ class GlobalPreferences(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="Home institution",
     )
     subject_classification_vocabulary = models.ForeignKey(
         VocabularyModel,
@@ -86,6 +92,51 @@ class GlobalPreferences(models.Model):
         null=True,
         related_name="+",
     )
+    crossref_contact_email = models.EmailField(
+        blank=True,
+        default="",
+        help_text="Email address Crossref can contact about our requests",
+    )
+    crossref_plus_api_token = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Key for faster Crossref access",
+    )
+    crossref_plus_api_token_valid = models.BooleanField(
+        null=True,
+        default=None,
+        help_text=(
+            "None: no verdict (no key saved or never checked). "
+            "True: Crossref confirmed the key. False: Crossref rejected it "
+            "(e.g. expired); requests then go out without it until a new key "
+            "is saved or a status check confirms it"
+        ),
+    )
+
+    @classmethod
+    def get_crossref_politeness(cls) -> CrossrefPoliteness:
+        """Return the configured Crossref access credentials.
+
+        Reads the singleton preferences row at call time; never caches, so
+        changes at /preferences/ take effect on the next API call.
+        """
+        from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._politeness import (
+            CrossrefPoliteness,
+        )
+
+        prefs, _ = cls.objects.get_or_create()
+        plus_token: str | None = None
+        # Exclude only a key Crossref explicitly rejected; None (no verdict)
+        # and True both allow its use.
+        if prefs.crossref_plus_api_token and prefs.crossref_plus_api_token_valid is not False:
+            plus_token = prefs.crossref_plus_api_token
+        return CrossrefPoliteness(
+            email=NonEmptyStr(prefs.crossref_contact_email)
+            if prefs.crossref_contact_email
+            else None,
+            plus_token=plus_token,
+        )
 
     @classmethod
     def _get_prefs_with_vocabularies(cls) -> GlobalPreferences:
