@@ -58,7 +58,7 @@ def request_block_journal(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
+def block_journal(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     reason = request.POST.get("reason", "PREDATORY")
     journal = get_object_or_404(Journal, pk=pk)
 
