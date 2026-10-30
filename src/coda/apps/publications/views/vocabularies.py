@@ -7,7 +7,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
-from django_htmx.http import HttpResponseClientRedirect
+from django_htmx.http import HttpResponseClientRedirect, reswap, retarget
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.forms import (
@@ -119,17 +119,21 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
 def _invalid_vocabulary_response(
     request: HttpRequest, form: LimitedVocabularyTargetForm
 ) -> HttpResponse:
-    """400 with a rendered error fragment; these endpoints are HTMX-swapped,
-    so a bare text response would leave the user with an unusable panel."""
+    """Render the error fragment into ``#vocabulary-status`` above the table.
+
+    htmx 2 does not swap 4xx responses, so the response must be 200; the
+    retarget keeps the concept trees and the user's checkbox state intact.
+    """
     errors = list(form.non_field_errors())
     for field_errors in form.errors.values():
         errors.extend(field_errors)
-    return render(
+    response = render(
         request,
         "publications/vocabulary_error.html",
         {"form_errors": errors},
-        status=400,
     )
+    retarget(response, "#vocabulary-status")
+    return reswap(response, "innerHTML")
 
 
 def _tree_context(vocabulary: LimitedVocabulary) -> dict[str, Any]:
