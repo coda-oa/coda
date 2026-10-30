@@ -28,7 +28,7 @@ docker exec -w /app coda_local_django pdm run pytest tests/fundingrequests -q
 docker exec -w /app coda_local_django sh -lc 'pdm run ruff format <files> && pdm run ruff check <files>'
 ```
 
-Test selection via pdm scripts: `unittests`, `integrationtests`, `migrationtests`, `uitests`.
+Test selection via pdm scripts: `unittests`, `integrationtests`, `migrationtests`, `uitests`. DB-suite scripts run parallel via `pytest-xdist` — new tests must be parallel-safe (no fixed ports, no shared module state, no execution-order deps). Tests use `--reuse-db` (in `addopts`), so pass `--create-db` after schema/migration changes. `tests/database/conftest.py` gives migration tests their own databases because `django_test_migrations` mutates schema mid-run.
 Pre-commit runs ruff, djlint (templates), mypy `--strict` (+django/pydantic stubs), commitizen.
 
 ## Tests
