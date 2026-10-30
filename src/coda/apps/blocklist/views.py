@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from django_htmx.http import HttpResponseClientRefresh
+
 from coda.apps.blocklist.models import (
     BlockedJournal,
     BlockedPublisher,
@@ -74,7 +76,7 @@ def unblock_journal(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_journal(journal)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
 @login_required
@@ -124,7 +126,7 @@ def unblock_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_publisher(publisher)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
 def maybe_redirect(request: HttpRequest, default_url: str = "") -> HttpResponse:

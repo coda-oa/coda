@@ -14,12 +14,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
+from django_htmx.http import HttpResponseClientRefresh
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
 from django.views.decorators.http import require_GET, require_POST
-from django_htmx.http import HttpResponseClientRedirect
+from django_htmx.http import HttpResponseClientRefresh
 
 from coda import formdata
 from coda.apps.dto import CodaBaseDto
@@ -325,9 +325,7 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
 
     request.session[session_key] = session_data
     request.session.modified = True
-    return HttpResponseClientRedirect(
-        reverse("fundingrequests:doi_preview_detail", kwargs={"session_key": session_key})
-    )
+    return HttpResponseClientRefresh()
 
 
 @require_session()
@@ -347,9 +345,7 @@ def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpRespon
 
     request.session[session_key] = session_data
     request.session.modified = True
-    return HttpResponseClientRedirect(
-        reverse("fundingrequests:doi_preview_detail", kwargs={"session_key": session_key})
-    )
+    return HttpResponseClientRefresh()
 
 
 class DeleteFunding(CodaBaseDto):

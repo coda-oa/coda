@@ -105,7 +105,7 @@ def test__block_publisher__posted_url_wins_over_current_htmx_url(client: Client)
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__unblock_publisher__redirects_to_current_htmx_url(client: Client) -> None:
+def test__unblock_publisher__stays_on_current_page(client: Client) -> None:
     blocklist = BlockList.objects.create()
 
     publisher = modelfactory.publisher()
@@ -118,7 +118,9 @@ def test__unblock_publisher__redirects_to_current_htmx_url(client: Client) -> No
 
     assert response.status_code == 200
     assert not blocklist.is_publisher_blocked(publisher)
-    assert response.headers["HX-Redirect"] == "/publishing/publishers/"
+    # the browser reloads the page it was on: no redirect to another URL
+    assert "HX-Redirect" not in response.headers
+    assert "Location" not in response.headers
 
 
 @pytest.mark.django_db
@@ -155,7 +157,7 @@ def test__block_journal__redirects_to_detail_by_default(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__unblock_journal__redirects_to_current_htmx_url(client: Client) -> None:
+def test__unblock_journal__stays_on_current_page(client: Client) -> None:
     blocklist = BlockList.objects.create()
 
     journal = modelfactory.journal()
@@ -168,4 +170,6 @@ def test__unblock_journal__redirects_to_current_htmx_url(client: Client) -> None
 
     assert response.status_code == 200
     assert not blocklist.is_journal_blocked(journal)
-    assert response.headers["HX-Redirect"] == "/publishing/journals/"
+    # the browser reloads the page it was on: no redirect to another URL
+    assert "HX-Redirect" not in response.headers
+    assert "Location" not in response.headers
