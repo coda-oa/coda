@@ -286,8 +286,7 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
 
     On validation failure: re-renders the appropriate partial with an inline error
     message so HTMX can swap it back into #type-change-form.
-    On success: returns HX-Redirect header so HTMX triggers a full page navigation
-    to the preview detail page.
+    On success: returns HX-Refresh so the browser reloads the preview detail page.
     """
     session_data = request.session[session_key]
 
@@ -334,7 +333,7 @@ def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpRespon
     """HTMX endpoint: Reset publication type override to original auto-detected type.
 
     Clears any journal_id/publisher_id override from session, re-derives the
-    original type from original_metadata, and issues HX-Redirect to the preview page.
+    original type from original_metadata, and issues HX-Refresh to reload the preview page.
     """
     session_data = request.session[session_key]
 
