@@ -7,6 +7,12 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
+from django_htmx.http import (
+    HttpResponseClientRedirect,
+    reswap,
+    retarget,
+    trigger_client_event,
+)
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.forms import (
@@ -68,11 +74,12 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
             return _invalid_vocabulary_response(request, form)
         _apply_disallowed(form.cleaned_data["disallowed_concepts"], limited)
 
-    return render(
+    response = render(
         request,
         "publications/vocabulary.html",
         _tree_context(limited),
     )
+    return trigger_client_event(response, "concept-ui-init")
 
 
 @login_required
@@ -108,27 +115,32 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
     # name) and the concept checkboxes in their posted state; nothing is
     # persisted. Only reachable when the save form failed on its own
     # required_name field — target-level failures are handled above.
-    return render(
+    response = render(
         request,
         "publications/vocabulary.html",
         _tree_context(vocabulary) | {"form": form},
     )
+    return trigger_client_event(response, "concept-ui-init")
 
 
 def _invalid_vocabulary_response(
     request: HttpRequest, form: LimitedVocabularyTargetForm
 ) -> HttpResponse:
-    """400 with a rendered error fragment; these endpoints are HTMX-swapped,
-    so a bare text response would leave the user with an unusable panel."""
+    """Render the error fragment into ``#vocabulary-status`` above the table.
+
+    htmx 2 does not swap 4xx responses, so the response must be 200; the
+    retarget keeps the concept trees and the user's checkbox state intact.
+    """
     errors = list(form.non_field_errors())
     for field_errors in form.errors.values():
         errors.extend(field_errors)
-    return render(
+    response = render(
         request,
         "publications/vocabulary_error.html",
         {"form_errors": errors},
-        status=400,
     )
+    retarget(response, "#vocabulary-status")
+    return reswap(response, "innerHTML")
 
 
 def _tree_context(vocabulary: LimitedVocabulary) -> dict[str, Any]:
@@ -159,7 +171,8 @@ def _move_concepts_between_lists(
         else:
             vocabulary.allow(concept_id)
 
-    return render(request, "publications/vocabulary_table.html", _tree_context(vocabulary))
+    response = render(request, "publications/vocabulary_table.html", _tree_context(vocabulary))
+    return trigger_client_event(response, "concept-ui-init")
 
 
 @login_required
@@ -209,4 +222,4 @@ def delete(request: HttpRequest, pk: int) -> HttpResponse:
         vocabularies.delete(VocabularyId(pk))
     except vocabulary_repository.VocabularyInUseError:
         return HttpResponse(status=409)
-    return HttpResponse(status=200, headers={"HX-Redirect": reverse("publications:vocabularies")})
+    return HttpResponseClientRedirect(reverse("publications:vocabularies"))

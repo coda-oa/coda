@@ -9,6 +9,10 @@ from functools import wraps
 from typing import ParamSpec, TypeVar, cast
 
 from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.urls import reverse
+from django_htmx.http import HttpResponseClientRedirect
+
+from coda.apps.htmx_components.request import HtmxHttpRequest
 
 P = ParamSpec("P")
 R = TypeVar("R", bound=HttpResponse)
@@ -20,7 +24,12 @@ def require_session(
     key: str = "session_key",
     message: str = SESSION_NOT_FOUND,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Return a decorator that 404s when ``kwargs[key]`` is missing from session.
+    """Return a decorator that guards a session-backed view.
+
+    On a missing session key, htmx requests get ``HX-Redirect`` to the DOI
+    import input page (htmx 2 does not swap 4xx responses, so a 404 would
+    leave the htmx action dead); plain requests keep the 404 — the preview
+    URL is transient and a redirect would mask a dead bookmark as a live one.
 
     Works on both function-based views (no ``self``) and methods of
     class-based views (with ``self``).
@@ -49,6 +58,11 @@ def require_session(
 
             session_data = request.session.get(cast(str, kwargs[key]))
             if not session_data:
+                if cast(HtmxHttpRequest, request).htmx:
+                    return cast(
+                        R,
+                        HttpResponseClientRedirect(reverse("fundingrequests:doi_import_input")),
+                    )
                 return HttpResponseNotFound(message)  # type: ignore[return-value]
 
             return view_func(*args, **kwargs)

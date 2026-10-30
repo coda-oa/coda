@@ -281,9 +281,10 @@ def test__regenerate__flashes_the_new_issue_counts_and_redirects_to_detail(
 
     response = client.post(reverse("opencost:regenerate", args=[report.id]))
 
-    # the htmx button posts and the browser navigates on the HX-Redirect header
+    # the browser reloads the report page it was on: no redirect to another URL
     assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == reverse("opencost:detail", args=[report.id])
+    assert "HX-Redirect" not in response.headers
+    assert "Location" not in response.headers
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert len(flash) == 1
     # the ESAC-less contract is one warning - the flash counts what the new run recorded
@@ -307,7 +308,8 @@ def test__regenerate__broken_run__flashes_the_error_and_still_navigates(
 
     # the failed run must not strand the htmx button on a response with nowhere to go
     assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == reverse("opencost:detail", args=[report.id])
+    assert "HX-Redirect" not in response.headers
+    assert "Location" not in response.headers
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert len(flash) == 1
     assert "Error regenerating report" in flash[0]

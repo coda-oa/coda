@@ -6,6 +6,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
 from coda.apps.blocklist.models import (
     BlockedJournal,
@@ -14,6 +15,7 @@ from coda.apps.blocklist.models import (
     JournalBlockReason,
 )
 from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.htmx_components.request import HtmxHttpRequest
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 
@@ -56,7 +58,7 @@ def request_block_journal(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
+def block_journal(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     reason = request.POST.get("reason", "PREDATORY")
     journal = get_object_or_404(Journal, pk=pk)
 
@@ -74,7 +76,7 @@ def unblock_journal(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_journal(journal)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
 @login_required
@@ -105,7 +107,7 @@ def request_block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
+def block_publisher(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     publisher = Publisher.objects.get(pk=pk)
 
     blocklist = BlockList.objects.get()
@@ -124,19 +126,21 @@ def unblock_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_publisher(publisher)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
-def maybe_redirect(request: HttpRequest, default_url: str = "") -> HttpResponse:
+def maybe_redirect(request: HtmxHttpRequest, default_url: str = "") -> HttpResponse:
     """Redirect the HTMX caller back to where the request came from.
 
     Resolution order: an explicitly posted ``redirect_url`` (rarely needed),
-    the page the request was triggered from (htmx's ``HX-Current-URL``), then
-    the caller-supplied default.
+    the page the request was triggered from (htmx's ``HX-Current-URL``,
+    validated against this request's scheme and host), then the
+    caller-supplied default.
     """
     redirect_url = (
-        request.POST.get("redirect_url") or request.headers.get("HX-Current-URL") or default_url
+        request.POST.get("redirect_url") or request.htmx.current_url_abs_path or default_url
     )
     if redirect_url:
-        return HttpResponse(headers={"HX-Redirect": redirect_url})
+        return HttpResponseClientRedirect(redirect_url)
+
     return HttpResponse()
