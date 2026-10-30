@@ -1,0 +1,34 @@
+<article id="crossref-card" class="card my-2">
+    <h2>Crossref Metadata Access</h2>
+    <div>
+        <p class="my-2">
+            When CODA looks up publication details by DOI, it talks to Crossref. Configure here who Crossref
+            should contact about these requests, and optionally provide a key for faster access.
+        </p>
+        <form method="post"
+              action="{% url 'preferences:crossref_settings' %}"
+              hx-post="{% url 'preferences:crossref_settings' %}"
+              hx-target="#crossref-card"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            {{ crossref_form.non_field_errors }}
+            <table>
+                {{ crossref_form.as_table }}
+            </table>
+            <button type="submit">Save Crossref settings</button>
+        </form>
+    </div>
+    {% if has_stored_token %}
+        <footer id="crossref-token-status">
+            {% if token_rejected %}
+                <p>Crossref key status: rejected by Crossref (expired?). Requests go out without it.</p>
+            {% else %}
+                <p>Crossref key status: not checked yet.</p>
+            {% endif %}
+            <button type="button"
+                    hx-post="{% url 'preferences:crossref_token_status' %}"
+                    hx-target="#crossref-token-status"
+                    hx-swap="outerHTML">Check key status</button>
+        </footer>
+    {% endif %}
+</article>

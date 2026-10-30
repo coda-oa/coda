@@ -3,17 +3,22 @@
     CODA Global Preferences
 {% endblock title %}
 {% block content %}
-    <section class="my-2">
-        <h1>CODA Global Preferences</h1>
-        <p class="my-2">
-            The global preferences control the default vocabularies that are available when creating publications.
-        </p>
-        <form method="post">
-            {% csrf_token %}
-            <table>
-                {{ form.as_table }}
-            </table>
-            <button type="submit">Save</button>
-        </form>
-    </section>
+    <h1 class="my-2">CODA Global Preferences</h1>
+    <article class="card my-2">
+        <h2>General Preferences</h2>
+        <div>
+            <p class="my-2">
+                The global preferences control the default vocabularies that are available when creating publications.
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+                <table>
+                    {{ form.as_table }}
+                </table>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </article>
+    {% include "preferences/partials/crossref_card.html" %}
 {% endblock content %}
