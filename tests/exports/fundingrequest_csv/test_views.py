@@ -1,9 +1,10 @@
 import os
+from datetime import date, timedelta
+
 import pytest
+from django.core.files.base import ContentFile
 from django.test import Client
 from django.urls import reverse
-from datetime import date, timedelta
-from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from coda.apps.exports.models import FundingRequestCSVExport
@@ -11,6 +12,7 @@ from coda.contexts.finance.services import invoice_service
 from coda.domain.finance.invoice import CreditorId
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
+from tests.exports.fundingrequest_csv.helpers import create_invoice_with_funding_assignments
 
 PREVIEW_COLUMNS = [
     "request_id",
@@ -117,6 +119,36 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
     assert export.filters["period_start"] == period_start
     assert export.filters["period_end"] == period_end
     assert export.record_count == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__split_funding_assignments__record_count_counts_csv_rows(
+    client: Client,
+) -> None:
+    """A position with two funding assignments flattens to two CSV rows;
+    record_count must reflect the serialised rows, not the request count."""
+    fundingrequest = modelfactory.fundingrequest(title="Split Funding Publication")
+    fundingrequest.request_date = date(2024, 3, 5)
+    fundingrequest.save()
+
+    create_invoice_with_funding_assignments(fundingrequest)
+
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Split Funding Export",
+        },
+    )
+
+    assert response.status_code == 302
+    export = FundingRequestCSVExport.objects.get(name="Split Funding Export")
+    export.refresh_from_db()
+    with export.csv_file.open("rb") as f:
+        data_rows = sum(1 for _ in f) - 1  # minus header
+    assert export.record_count == data_rows == 2
 
 
 @pytest.mark.django_db

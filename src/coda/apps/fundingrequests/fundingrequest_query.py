@@ -6,10 +6,9 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.search import words_icontains
-
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.search import words_icontains
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -284,7 +283,6 @@ class FundingRequestSearchParams:
     contract_year: int | None = None
     show_invalid_contract_years: bool = False
     funding_source: FundingSourceId | None = None
-    decimal_separator: str = "."
 
     def without_date_range(self) -> "FundingRequestSearchParams":
         # return a new instance with the date_range set to None, keeping all other attributes the same

@@ -1,30 +1,26 @@
 # tests/exports/fundingrequest_csv/test_queries.py
 
 import uuid
-
-import pytest
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from pytest_django import DjangoAssertNumQueries
 
-from coda.apps.invoices import funding_source_repository
-from coda.contexts.finance.services import invoice_service
-from tests import domainfactory, modelfactory
 from coda.apps.exports.services.fundingrequest_csv.queries import (
     get_concept_id_lookup,
     get_funding_requests_for_export,
 )
+from coda.apps.fundingrequests import fundingrequest_query, repository
+from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import PublicationPayment
-
-from coda.domain.fundingrequest.review import ReviewResult, Review
-from coda.domain.money import Money, Currency
-from coda.domain.fundingrequest import FundingRequestId
-from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests import fundingrequest_query
+from coda.contexts.finance.services import invoice_service
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import PublicationId
-
+from tests import domainfactory, modelfactory
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
     create_funding_request_with_concepts,
@@ -203,12 +199,96 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
 
 
 @pytest.mark.django_db
+def test__shared_invoice_with_foreign_position__query_with_funding_source__is_publication_scoped_not_invoice_scoped() -> (
+    None
+):
+    """Request-level half of the funding-source filter.
+
+    The Q object matches a funding request whose publication has *any*
+    position row carrying the source — it is publication-scoped and cannot
+    scope to a specific invoice. Fixture: B funds one of its own positions
+    on a private invoice; B's *other* position sits unfunded on a shared
+    invoice whose source-carrying position belongs to publication C; D
+    shares that invoice but has no funded position anywhere. The query
+    layer admits B and C but excludes D: publication-scoping excludes D,
+    invoice-scoping would admit it. Dropping the shared invoice from B's
+    export is the mapper's job — see _has_funding_source in
+    apps/exports/services/fundingrequest_csv/mappers.py and the shared-
+    invoice filtering test in tests/exports/fundingrequest_csv/ that pins
+    the combined behavior (B's export shows its private invoice only).
+    """
+    funding_request_b = modelfactory.fundingrequest(title="Query Scope B")
+    funding_request_b.request_date = date(2026, 3, 5)
+    funding_request_b.save()
+
+    funding_request_c = modelfactory.fundingrequest(title="Query Scope C")
+    funding_request_c.request_date = date(2026, 3, 10)
+    funding_request_c.save()
+
+    # D shares the shared invoice but has no funded position of its own:
+    # publication-scoping excludes it, invoice-scoping would admit it.
+    funding_request_d = modelfactory.fundingrequest(title="Query Scope D Unfunded")
+    funding_request_d.request_date = date(2026, 3, 15)
+    funding_request_d.save()
+
+    funding_source_x = domainfactory.budget()
+    funding_source_x.id = funding_source_repository.create(funding_source_x)
+    creditor_id = CreditorId(modelfactory.creditor().pk)
+
+    # Shared invoice: C's position carries source X, B's and D's do not.
+    position_b_on_shared = domainfactory.publication_position(
+        PublicationId(funding_request_b.publication.id), currency=Currency.EUR
+    )
+    position_c = domainfactory.publication_position(
+        PublicationId(funding_request_c.publication.id), currency=Currency.EUR
+    )
+    position_d_on_shared = domainfactory.publication_position(
+        PublicationId(funding_request_d.publication.id), currency=Currency.EUR
+    )
+    position_c.assign_funding(funding_source_x, position_c.cost.amount)
+    shared_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_b_on_shared, position_c, position_d_on_shared],
+    )
+    shared_invoice.id = invoice_service.save(shared_invoice)
+
+    # B's private invoice: its own position carries source X.
+    position_b_private = domainfactory.publication_position(
+        PublicationId(funding_request_b.publication.id), currency=Currency.EUR
+    )
+    position_b_private.assign_funding(funding_source_x, position_b_private.cost.amount)
+    private_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_b_private],
+    )
+    private_invoice.id = invoice_service.save(private_invoice)
+
+    results = get_funding_requests_for_export(
+        _make_params(
+            date(2026, 3, 1),
+            date(2026, 3, 31),
+            funding_source=FundingSourceId(funding_source_x.id),
+        )
+    )
+
+    # The query layer includes B (via its funded private position) and C
+    # (via its position on the shared invoice) — but not D, whose only
+    # position is the unfunded one on the shared invoice. An invoice-scoped
+    # criterion would admit D too; this pins publication-scoping.
+    # Whether the shared invoice appears in B's export is invisible here —
+    # that scoping is deliberately left to the mapper layer.
+    # (default sort is request_date descending)
+    assert list(results) == [funding_request_c, funding_request_b]
+    assert funding_request_d not in results
+
+
+@pytest.mark.django_db
 def test__query_with_prefetch__accessing_related_objects__does_not_trigger_additional_queries() -> (
     None
 ):
     """Verify prefetch_related prevents N+1 query problems."""
-    from django.test.utils import CaptureQueriesContext
     from django.db import connection
+    from django.test.utils import CaptureQueriesContext
 
     # Arrange: Create 3 funding requests with March request dates, invoices and positions
     _create_three_fundingrequests_for_performance_check()
@@ -246,6 +326,44 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     query_count = len(context.captured_queries)
     assert query_count < 25, (
         f"Too many queries: {query_count}. Prefetch may not be working correctly."
+    )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_invoice__query_for_export__fetch_plan_is_pinned() -> None:
+    """The export query fetches every invoice-related relation without N+1:
+    accessing the prefetched relations must not exceed this upper cap."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    fr = modelfactory.fundingrequest(title="Fetch Plan FR")
+    fr.request_date = date(2026, 3, 15)
+    fr.save()
+
+    create_invoice_with_publication_position(fr)
+
+    with CaptureQueriesContext(connection) as context:
+        results = list(
+            get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
+        )
+        for funding_request in results:
+            for position in funding_request.publication.position_set.all():
+                _ = position.invoice.creditor.name
+                _ = position.invoice.date
+                for conversion in position.invoice.currency_conversions.all():
+                    _ = conversion.id
+                for invoice_position in position.invoice.positions.all():
+                    _ = invoice_position.cost_amount
+                    for assignment in invoice_position.funding_assignments.all():
+                        if assignment.funding_source:
+                            _ = assignment.funding_source.name
+                for assignment in position.funding_assignments.all():
+                    if assignment.funding_source:
+                        _ = assignment.funding_source.name
+
+    assert len(context.captured_queries) <= 20, (
+        f"Too many queries: {len(context.captured_queries)}. "
+        "The export fetch plan regressed (N+1 or redundant prefetch)."
     )
 
 

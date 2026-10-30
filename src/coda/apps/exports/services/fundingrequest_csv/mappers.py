@@ -2,39 +2,38 @@ import uuid
 from collections.abc import Mapping
 
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
-
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.mappers import FundingSourceDomainMapper
-from coda.apps.invoices.models import Invoice, Position, FundingAssignment
+from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.contexts.finance.dto.import_dtos import (
+    ContractPositionImportDto,
+    ConversionImportDto,
+    FreePositionImportDto,
+    FundingAssignmentImportDto,
+    InvoiceImportDto,
+    PublicationPositionImportDto,
+)
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
-    ContractImportDto,
     ConceptImportDto,
+    ContractImportDto,
     CostEstimateImportDto,
+    DecidedFundingImportDto,
     FundingRequestImportDto,
     LinkImportDto,
     PublicationImportDto,
     PublishingStateImportDto,
     ResearchFundingImportDto,
     ReviewImportDto,
-    DecidedFundingImportDto,
     SeperateContactImportDto,
 )
-from coda.contexts.finance.dto.import_dtos import (
-    InvoiceImportDto,
-    PublicationPositionImportDto,
-    ContractPositionImportDto,
-    FreePositionImportDto,
-    FundingAssignmentImportDto,
-    ConversionImportDto,
-)
 from coda.domain.author import Role
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
+from coda.domain.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.orcid import Orcid
 from coda.domain.publication import License, OpenAccessType
-from coda.domain.finance.costtypes import PublicationCostType, ContractCostType
-from coda.domain.finance.invoice import PaymentStatus, FundingSourceId
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.fundingrequest import PaymentMethod
 
 
 def map_funding_request_to_dto(
@@ -360,6 +359,26 @@ def map_funding_request_to_export_dto(
 
 
 def _has_funding_source(positions: list[Position], funding_source: FundingSourceId | None) -> bool:
+    """Invoice-level half of the two-stage funding-source filter.
+
+    The query-level criterion (``InvoiceFundingSourceCriteria`` in
+    ``apps/fundingrequests/fundingrequest_query.py``) is the request-level
+    half: it cheaply excludes funding requests whose own publication
+    positions never carry the filtered source — publication-scoped, with
+    no notion of which invoice a position sits on. This check is the
+    invoice-level half: a shared invoice must only appear under requests
+    whose own positions on *that invoice* carry the source — a constraint
+    the Q object cannot express, since it matches on any position row.
+    Both halves are load-bearing; removing either changes results.
+
+    Behavior is pinned by the shared-invoice filtering test in
+    tests/exports/fundingrequest_csv/test_export_service.py (asserts the
+    shared invoice appears under C but not under B, and not at all for A)
+    and by the publication-scope test in
+    tests/exports/fundingrequest_csv/test_queries.py (asserts the query
+    layer admits B even though its position on the shared invoice is
+    unfunded).
+    """
     if funding_source is None:
         return True
     return any(

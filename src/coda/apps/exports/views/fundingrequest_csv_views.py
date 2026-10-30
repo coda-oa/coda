@@ -1,26 +1,20 @@
+import os
 from io import StringIO
 from typing import Any, cast
 
-from django.contrib import messages
-
-from django.urls import reverse
 import polars as pl
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.text import slugify
-import os
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from coda.apps.exports.models import FundingRequestCSVExport
-from coda.apps.exports.services.fundingrequest_csv.export_service import (
-    export_fundingrequests_to_csv,
-)
-from coda.apps.views import SimpleSearchEntityListView
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
-
+from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
@@ -34,6 +28,11 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
+from coda.apps.exports.services.fundingrequest_csv.export_service import (
+    CsvExportResult,
+    export_fundingrequests_to_csv,
+)
+from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
@@ -133,14 +132,14 @@ def fundingrequest_csv_export_create_view(
         cleaned = cast(FilterCleanedData, form.cleaned_data)
         title = cleaned["title"].strip() or "Unnamed CSV Export"
         dto = ExportFiltersDto.from_form_data(cleaned)
-        csv_content = export_fundingrequests_to_csv(dto.to_params())
+        result = export_fundingrequests_to_csv(dto)
 
         export = FundingRequestCSVExport.objects.create(
             name=title,
             filters=dto.to_storage(),
-            record_count=0,
+            record_count=result.row_count,
         )
-        _save_csv_file(export, csv_content)
+        _save_csv_file(export, result.content, result.row_count)
 
         return redirect(
             "exports:fundingrequests_csv_detail",
@@ -223,8 +222,8 @@ def fundingrequest_csv_regen_view(
         pk=pk,
     )
 
-    csv_content = _generate_csv_from_filters(export.filters)
-    _save_csv_file(export, csv_content)
+    result = _generate_csv_from_filters(export.filters)
+    _save_csv_file(export, result.content, result.row_count)
 
     return redirect(
         "exports:fundingrequests_csv_detail",
@@ -232,8 +231,7 @@ def fundingrequest_csv_regen_view(
     )
 
 
-def _save_csv_file(export: FundingRequestCSVExport, csv_content: str) -> None:
-    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
+def _save_csv_file(export: FundingRequestCSVExport, csv_content: str, row_count: int) -> None:
     filename = f"{slugify(export.name) or 'export'}-{export.id}.csv"
     export.csv_file.save(filename, ContentFile(csv_content.encode(CSV_ENCODING)), save=False)
     export.record_count = row_count
@@ -262,6 +260,6 @@ def _create_preview_dataframe(
     )
 
 
-def _generate_csv_from_filters(filters: dict[str, Any]) -> str:
+def _generate_csv_from_filters(filters: dict[str, Any]) -> CsvExportResult:
     dto = ExportFiltersDto.model_validate(filters)
-    return export_fundingrequests_to_csv(dto.to_params())
+    return export_fundingrequests_to_csv(dto)

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from io import StringIO
 
 import polars as pl
@@ -5,7 +6,15 @@ import polars as pl
 from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
+from coda.contexts.exports.dto.filters import ExportFiltersDto
+from coda.domain.money import DecimalSeparator
+
+
+@dataclass(frozen=True)
+class CsvExportResult:
+    content: str
+    row_count: int
+
 
 CSV_COLUMNS = [
     "legacy_request_id",
@@ -71,8 +80,8 @@ MONEY_COLUMNS = {
 }
 
 
-def _format_money_value(value: str, key: str, decimal_separator: str) -> str:
-    if decimal_separator == "," and key in MONEY_COLUMNS:
+def _format_money_value(value: str, key: str, decimal_separator: DecimalSeparator) -> str:
+    if decimal_separator == DecimalSeparator.German and key in MONEY_COLUMNS:
         return value.replace(".", ",")
     return value
 
@@ -89,15 +98,18 @@ def _single_line(value: str) -> str:
 
 
 def export_fundingrequests_to_csv(
-    params: FundingRequestSearchParams,
-) -> str:
+    filters: ExportFiltersDto,
+) -> CsvExportResult:
     # 1. Get funding requests using the shared params
+    params = filters.to_params()
     funding_requests = list(queries.get_funding_requests_for_export(params))
 
     # 2. Fetch concept ids in a single query to avoid N+1 lookups per funding request
     concept_ids = queries.get_concept_id_lookup(funding_requests)
 
-    # 3. Map to export DTOs
+    # 3. Map to export DTOs — the query layer did the request-level
+    #    funding-source filtering; invoice-level scoping happens in the
+    #    mapper (see _has_funding_source in mappers.py)
     export_dtos = [
         map_funding_request_to_export_dto(
             fr,
@@ -114,20 +126,24 @@ def export_fundingrequests_to_csv(
         for row in rows:
             all_rows.append(
                 {
-                    key: _format_money_value(_single_line(value), key, params.decimal_separator)
+                    key: _format_money_value(
+                        _single_line(value),
+                        key,
+                        filters.decimal_separator or DecimalSeparator.English,
+                    )
                     for key, value in row.items()
                 }
             )
 
-    # 5. Build Polars DataFrame from rows
-    if not all_rows:
-        schema = {column: pl.String for column in CSV_COLUMNS}
-        df = pl.DataFrame(schema=schema)
-    else:
-        df = pl.DataFrame(all_rows)
+    # 5. Build the Polars DataFrame pinned to CSV_COLUMNS: every row is
+    #    projected onto the declared columns and the schema is explicit,
+    #    so the column set is identical for empty and non-empty exports
+    rows = [{column: row.get(column, "") for column in CSV_COLUMNS} for row in all_rows]
+    schema = {column: pl.String for column in CSV_COLUMNS}
+    df = pl.DataFrame(rows, schema=schema)
 
     # 6. Write CSV to StringIO with separator semicolon
     buffer = StringIO()
     df.write_csv(buffer, separator=";")
 
-    return buffer.getvalue()
+    return CsvExportResult(content=buffer.getvalue(), row_count=df.height)
