@@ -1,7 +1,10 @@
 import datetime
+import logging
 from typing import Any
 
 import httpx
+from django.core.exceptions import ImproperlyConfigured
+from django.db.utils import InterfaceError, OperationalError, ProgrammingError
 
 from coda.contexts.fundingrequest.dto.external_metadata import (
     ExternalAuthor,
@@ -10,26 +13,108 @@ from coda.contexts.fundingrequest.dto.external_metadata import (
     ExternalJournal,
     ExternalPublicationMetadata,
 )
+from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._politeness import (
+    CrossrefPoliteness,
+)
+from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._token_validity import (
+    AUTH_REJECT_STATUSES,
+    mark_token_invalid,
+)
 from coda.contexts.fundingrequest.services.doi_import.doi_client.errors import map_to_doi_error
 from coda.domain.publication.links import Doi
 
 CROSSREF_API_BASE = "https://api.crossref.org/works/"
 
+logger = logging.getLogger(__name__)
 
-def fetch_publication(doi: Doi, timeout: int = 10) -> ExternalPublicationMetadata:
+
+def _resolve_politeness(politeness: CrossrefPoliteness | None) -> CrossrefPoliteness:
+    """Return the given politeness, or resolve it from global preferences.
+
+    The database lookup happens per fetch call, so preference changes take
+    effect immediately without touching any call site. If no database is
+    available (bare unit tests, CLI without DB), fall back to the public
+    pool — identification is advisory, never required for a fetch.
+    """
+    if politeness is not None:
+        return politeness
+
+    from coda.apps.preferences.models import GlobalPreferences
+
+    resolved: CrossrefPoliteness
+    try:
+        resolved = GlobalPreferences.get_crossref_politeness()
+    except (
+        ImproperlyConfigured,
+        InterfaceError,
+        OperationalError,
+        ProgrammingError,
+        RuntimeError,
+    ):
+        # Only transport/config problems fall back to the public pool:
+        # - OperationalError/InterfaceError/ProgrammingError: no usable DB
+        #   connection (bare unit tests, CLI without DB)
+        # - RuntimeError: pytest-django's DB blocker for non-django_db tests
+        # - ImproperlyConfigured: settings without a default DB
+        # Data integrity errors (e.g. MultipleObjectsReturned from duplicate
+        # preference rows) propagate: silently dropping credentials would be
+        # worse than a failed fetch.
+        logger.warning(
+            "Could not read Crossref credentials from preferences; falling back to public pool",
+            exc_info=True,
+        )
+        resolved = CrossrefPoliteness()
+    return resolved
+
+
+def _apply_politeness(
+    url: str,
+    params: dict[str, str | int],
+    politeness: CrossrefPoliteness | None,
+) -> tuple[str, dict[str, str | int], dict[str, str]]:
+    resolved = _resolve_politeness(politeness)
+    merged = {**params, **resolved.query_params()}
+    return url, merged, resolved.headers()
+
+
+def fetch_publication(
+    doi: Doi,
+    timeout: int = 10,
+    *,
+    politeness: CrossrefPoliteness | None = None,
+    http_client: Any | None = None,
+) -> ExternalPublicationMetadata:
     """Fetch metadata from Crossref API.
+
+    Args:
+        doi: The DOI to fetch metadata for
+        timeout: HTTP request timeout in seconds
+        politeness: Explicit access credentials. When None, credentials are
+            resolved from the global preferences (see /preferences/).
+        http_client: Injectable HTTP client (defaults to httpx); for tests.
 
     Raises:
         DOINotFoundError: If DOI not found (404)
         DOIFetchError: If request fails due to network/API errors
     """
-    url = f"{CROSSREF_API_BASE}{doi}"
+    url, params, headers = _apply_politeness(f"{CROSSREF_API_BASE}{doi}", {}, politeness)
+    client: Any = http_client or httpx
 
     try:
-        response = httpx.get(url, timeout=timeout, follow_redirects=True).raise_for_status()
+        response = client.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=True,
+        ).raise_for_status()
         data = response.json()
 
         return _parse_crossref_response(data)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code in AUTH_REJECT_STATUSES and "Crossref-Plus-API-Token" in headers:
+            mark_token_invalid()
+        raise map_to_doi_error(e, doi) from e
     except Exception as e:
         raise map_to_doi_error(e, doi) from e
 
