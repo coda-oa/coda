@@ -7,7 +7,12 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
-from django_htmx.http import HttpResponseClientRedirect, reswap, retarget
+from django_htmx.http import (
+    HttpResponseClientRedirect,
+    reswap,
+    retarget,
+    trigger_client_event,
+)
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.forms import (
@@ -69,11 +74,12 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
             return _invalid_vocabulary_response(request, form)
         _apply_disallowed(form.cleaned_data["disallowed_concepts"], limited)
 
-    return render(
+    response = render(
         request,
         "publications/vocabulary.html",
         _tree_context(limited),
     )
+    return trigger_client_event(response, "concept-ui-init")
 
 
 @login_required
@@ -109,11 +115,12 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
     # name) and the concept checkboxes in their posted state; nothing is
     # persisted. Only reachable when the save form failed on its own
     # required_name field — target-level failures are handled above.
-    return render(
+    response = render(
         request,
         "publications/vocabulary.html",
         _tree_context(vocabulary) | {"form": form},
     )
+    return trigger_client_event(response, "concept-ui-init")
 
 
 def _invalid_vocabulary_response(
@@ -164,7 +171,8 @@ def _move_concepts_between_lists(
         else:
             vocabulary.allow(concept_id)
 
-    return render(request, "publications/vocabulary_table.html", _tree_context(vocabulary))
+    response = render(request, "publications/vocabulary_table.html", _tree_context(vocabulary))
+    return trigger_client_event(response, "concept-ui-init")
 
 
 @login_required
