@@ -45,6 +45,8 @@ CSV_COLUMNS = [
     "creditor",
     "invoice_status",
     "invoice_currency",
+    "invoice_conversion_currency",
+    "invoice_conversion_rate",
     "invoice_comment",
     "external_invoice_id",
     "position_amount",
@@ -68,6 +70,7 @@ MONEY_COLUMNS = {
     "position_amount",
     "tax_rate",
     "funded_amount",
+    "invoice_conversion_rate",
 }
 
 

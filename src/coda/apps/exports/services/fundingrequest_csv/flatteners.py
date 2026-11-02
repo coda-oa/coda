@@ -3,20 +3,20 @@ from decimal import Decimal
 
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 from coda.contexts.finance.dto.import_dtos import (
-    InvoiceImportDto,
-    PublicationPositionImportDto,
     ContractPositionImportDto,
     FreePositionImportDto,
     FundingAssignmentImportDto,
+    InvoiceImportDto,
+    PublicationPositionImportDto,
 )
 from coda.contexts.fundingrequest.dto.import_dtos import (
-    FundingRequestImportDto,
     AuthorImportDto,
-    LinkImportDto,
-    ResearchFundingImportDto,
-    PublishingStateImportDto,
-    ReviewImportDto,
     CostEstimateImportDto,
+    FundingRequestImportDto,
+    LinkImportDto,
+    PublishingStateImportDto,
+    ResearchFundingImportDto,
+    ReviewImportDto,
 )
 
 
@@ -117,6 +117,8 @@ def _create_row(
 ) -> dict[str, str]:
     row = _create_base_row(funding_request)
 
+    conversion = invoice.conversion if invoice else None
+
     row.update(
         {
             "invoice_number": (invoice.number if invoice else ""),
@@ -124,6 +126,8 @@ def _create_row(
             "creditor": (invoice.creditor if invoice else ""),
             "invoice_status": (invoice.status.value if invoice else ""),
             "invoice_currency": (invoice.currency if invoice else ""),
+            "invoice_conversion_currency": (conversion.target_currency if conversion else ""),
+            "invoice_conversion_rate": (str(conversion.exchange_rate) if conversion else ""),
             "invoice_comment": (invoice.comment if invoice else ""),
             "external_invoice_id": (invoice.external_id if invoice else ""),
             "position_amount": (str(position.amount) if position else ""),

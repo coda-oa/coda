@@ -1,13 +1,14 @@
-import pytest
 from datetime import date
 from decimal import Decimal
 from io import StringIO
 
 import polars as pl
+import pytest
 
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
+from coda.apps.fundingrequests.repository import save_review
 from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import AttachedContract
 from coda.contexts.finance.services import invoice_service
@@ -18,20 +19,78 @@ from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
+from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import Authors, PublicationId
 from tests import domainfactory, modelfactory
-from coda.domain.fundingrequest.review import ReviewResult, Review
-from coda.domain.money import Money, Currency
-from coda.domain.fundingrequest import FundingRequestId
-from coda.apps.fundingrequests.repository import save_review
-
-
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
     create_funding_request_with_concepts,
     create_invoice_with_funding_assignments,
     create_invoice_with_publication_position,
 )
+
+
+@pytest.mark.django_db
+def test__invoice_with_currency_conversion__export_to_csv__includes_conversion_rate_columns() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Conversion Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(
+        funding_request,
+        conversion=(Decimal("1.2500"), Currency.USD),
+    )
+
+    csv_content = export_fundingrequests_to_csv(_make_params(date(2026, 1, 1), date(2026, 12, 31)))
+    df = pl.read_csv(StringIO(csv_content), separator=";", infer_schema_length=0)
+
+    assert df.height == 1
+    assert df["invoice_conversion_currency"][0] == "USD"
+    assert df["invoice_conversion_rate"][0] == "1.2500"
+
+
+@pytest.mark.django_db
+def test__invoice_with_currency_conversion__comma_separator__formats_exchange_rate_with_comma() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Conversion Comma Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(
+        funding_request,
+        conversion=(Decimal("1.2500"), Currency.USD),
+    )
+
+    csv_content = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+    )
+    df = pl.read_csv(StringIO(csv_content), separator=";", infer_schema_length=0)
+
+    assert df.height == 1
+    assert df["invoice_conversion_rate"][0] == "1,2500"
+
+
+@pytest.mark.django_db
+def test__invoice_without_currency_conversion__export_to_csv__leaves_conversion_columns_empty() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="No Conversion Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(funding_request)
+
+    csv_content = export_fundingrequests_to_csv(_make_params(date(2026, 1, 1), date(2026, 12, 31)))
+    df = pl.read_csv(StringIO(csv_content), separator=";", infer_schema_length=0)
+
+    assert df.height == 1
+    assert df["invoice_conversion_currency"][0] == ""
+    assert df["invoice_conversion_rate"][0] == ""
 
 
 @pytest.mark.django_db
