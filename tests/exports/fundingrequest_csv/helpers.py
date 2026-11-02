@@ -4,29 +4,27 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
+from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import (
     Concept,
     PublicationAttachedConcept,
     Vocabulary,
 )
-
-from coda.apps.contracts.mappers._domain import ContractDomainMapper
-from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
-from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.services import invoice_service
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from coda.domain.publication.publication import PublicationId
-from tests import domainfactory, modelfactory
-
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
+from coda.domain.publication.publication import PublicationId
+from tests import domainfactory, modelfactory
 
 
 def _make_params(
@@ -87,6 +85,7 @@ def create_funding_request_with_concepts(
 def create_invoice_with_publication_position(
     funding_request: FundingRequest,
     comment: str | None = None,
+    conversion: tuple[Decimal, Currency] | None = None,
 ) -> Invoice:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
@@ -95,6 +94,9 @@ def create_invoice_with_publication_position(
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
     if comment is not None:
         invoice.comment = comment
+    if conversion is not None:
+        exchange_rate, target_currency = conversion
+        invoice.add_conversion(exchange_rate, target_currency)
     invoice.id = invoice_service.save(invoice)
 
     return invoice
