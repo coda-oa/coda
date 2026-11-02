@@ -1,26 +1,21 @@
+import os
 from io import StringIO
 from typing import Any, cast
 
-from django.contrib import messages
-
-from django.urls import reverse
 import polars as pl
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.text import slugify
-import os
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django_htmx.http import HttpResponseClientRedirect
 
-from coda.apps.exports.models import FundingRequestCSVExport
-from coda.apps.exports.services.fundingrequest_csv.export_service import (
-    export_fundingrequests_to_csv,
-)
-from coda.apps.views import SimpleSearchEntityListView
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
-
+from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
@@ -34,6 +29,10 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
+from coda.apps.exports.services.fundingrequest_csv.export_service import (
+    export_fundingrequests_to_csv,
+)
+from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
@@ -190,9 +189,7 @@ def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
     export.delete()
     messages.success(request, f"CSV export '{export_title}' deleted successfully.")
 
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("exports:fundingrequests_csv_list")
-    return response
+    return HttpResponseClientRedirect(reverse("exports:fundingrequests_csv_list"))
 
 
 @login_required

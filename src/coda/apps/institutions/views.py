@@ -11,12 +11,13 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, UpdateView
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.institutions import services, repository
+from coda.apps.institutions import repository, services
 from coda.apps.institutions.forms import InstitutionForm, InstitutionLinkForm
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.preferences.models import GlobalPreferences
@@ -268,7 +269,7 @@ def _render_successor_modal_with_errors(
 def _archive_without_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
     services.archive(institution)
     messages.success(request, f"Institution '{institution.name}' archived successfully.")
-    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _archive_and_create_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -287,7 +288,7 @@ def _archive_and_create_successor(request: HttpRequest, institution: Institution
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": successor.pk}))
+    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": successor.pk}))
 
 
 def _archive_with_existing_successor(
@@ -311,7 +312,7 @@ def _archive_with_existing_successor(
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 @login_required
@@ -344,12 +345,6 @@ def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
         return _render_successor_modal_with_errors(request, institution, general_error=str(e))
 
 
-def _htmx_redirect(url: str) -> HttpResponse:
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = url
-    return response
-
-
 @login_required
 @require_POST
 def delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
@@ -358,21 +353,21 @@ def delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     # Cannot delete archived institutions
     if institution.archived_at:
         messages.error(request, "Cannot delete archived institutions.")
-        return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": pk}))
 
     # Check if can delete
     can_delete, blocking_reasons = services.can_delete_institution(institution)
 
     if not can_delete:
         messages.error(request, f"Cannot delete institution: {', '.join(blocking_reasons)}")
-        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse("institutions:detail", kwargs={"pk": pk}))
 
     # Delete the institution
     institution_name = institution.name
     institution.delete()
     messages.success(request, f"Institution '{institution_name}' deleted successfully.")
 
-    return _htmx_redirect(reverse("institutions:list"))
+    return HttpResponseClientRedirect(reverse("institutions:list"))
 
 
 @login_required
@@ -427,7 +422,7 @@ def _restore_without_children(request: HttpRequest, institution: Institution) ->
 
     services.restore_without_children(institution, new_parent=new_parent)
     messages.success(request, f"Institution '{institution.name}' has been restored successfully.")
-    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _restore_with_children(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -449,7 +444,7 @@ def _restore_with_children(request: HttpRequest, institution: Institution) -> Ht
         request,
         f"Institution '{institution.name}' and child institutions have been restored successfully.",
     )
-    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _render_restore_modal_with_errors(
@@ -492,7 +487,7 @@ def restore(request: HttpRequest, pk: int) -> HttpResponse:
 
     if not institution.archived_at:
         messages.info(request, "This institution is already active.")
-        return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+        return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
     restore_handlers = {
         "without_children": _restore_without_children,
@@ -553,7 +548,7 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         messages.error(
             request,
-            f"Failed to import file: {str(e)}. Please check that the file is a valid CSV with the correct format.",
+            f"Failed to import file: {e!s}. Please check that the file is a valid CSV with the correct format.",
         )
         return redirect(INSTITUTION_IMPORT_VIEW_URL)
 

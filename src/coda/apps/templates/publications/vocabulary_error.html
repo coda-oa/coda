@@ -1,7 +1,7 @@
 {% comment %}
-Error fragment for HTMX-swapped vocabulary endpoints. Rendered with a 400
-status so callers can still detect failure; the markup lands in the swap
-target and tells the user what went wrong.
+Error fragment for HTMX-swapped vocabulary endpoints. The response swaps into
+#vocabulary-status (above the table) so the concept trees and checkboxes stay
+untouched while the error is shown.
 {% endcomment %}
 <div class="voc-error" role="alert">
     <p><strong>The vocabulary could not be updated.</strong></p>

@@ -85,7 +85,11 @@ def test__save_vocabularies__unknown_vocabulary_id__rejects_request(client: Clie
         {"vocabulary_id": "999999", "vocabulary_name": "Whatever"},
     )
 
-    assert response.status_code == 400
+    # Same contract as the move endpoints: 200 retargeted into #vocabulary-status.
+    assert response.status_code == 200
+    assert response.headers["HX-Retarget"] == "#vocabulary-status"
+    assert response.headers["HX-Reswap"] == "innerHTML"
+    assert b"voc-error" in response.content
 
 
 @pytest.mark.django_db
@@ -238,7 +242,13 @@ def test__move_to_forbidden__unknown_concept_code__rejects_request(client: Clien
         {"vocabulary_id": limited.id, "allowed_concepts_check": ["GHOST"]},
     )
 
-    assert response.status_code == 400
+    # htmx 2 does not swap 4xx responses: the error fragment must arrive as a
+    # 200 retargeted into #vocabulary-status, leaving the table intact.
+    assert response.status_code == 200
+    assert response.headers["HX-Retarget"] == "#vocabulary-status"
+    assert response.headers["HX-Reswap"] == "innerHTML"
+    assert b"Unknown concept ids: GHOST" in response.content
+    assert b"voc-error" in response.content
 
 
 @pytest.mark.django_db

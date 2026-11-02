@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
@@ -287,7 +288,6 @@ def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
     and the regenerated state it describes reach the user's eyes.
     """
     report = get_object_or_404(OpenCostReport, pk=report_id)
-    detail_url = reverse("opencost:detail", args=[report.id])
 
     try:
         report = regenerate_report_service(report)
@@ -304,9 +304,7 @@ def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
     else:
         _flash_report_outcome(request, report)
 
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = detail_url
-    return response
+    return HttpResponseClientRefresh()
 
 
 @login_required
@@ -317,6 +315,4 @@ def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     report.delete()
     messages.success(request, f"Report '{report_title}' deleted successfully.")
 
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("opencost:list")
-    return response
+    return HttpResponseClientRedirect(reverse("opencost:list"))

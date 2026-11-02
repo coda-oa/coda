@@ -65,9 +65,11 @@
             </ul>
         {% endwith %}
         <div class="update-banner-wrapper">
-            <div hx-get="{% url 'check_update' %}"
-                 hx-trigger="load"
-                 hx-swap="innerHTML"></div>
+            {% if user.is_authenticated %}
+                <div hx-get="{% url 'check_update' %}"
+                     hx-trigger="load"
+                     hx-swap="innerHTML"></div>
+            {% endif %}
         </div>
         <p class="nav__version my-1">Version: {{ coda_version }}</p>
         <div>

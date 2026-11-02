@@ -8,16 +8,16 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
-
-from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.invoices import repository, services
-from coda.apps.search import words_icontains
-from coda.apps.invoices.forms import CreditorForm
-from coda.apps.invoices.models import Creditor
-from coda.apps.views import SimpleSearchEntityListView
-from coda.domain.finance.invoice import CreditorId
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.invoices import repository, services
+from coda.apps.invoices.forms import CreditorForm
+from coda.apps.invoices.models import Creditor
+from coda.apps.search import words_icontains
+from coda.apps.views import SimpleSearchEntityListView
+from coda.domain.finance.invoice import CreditorId
 
 
 @breadcrumb("Creditors", parent_url_name="invoices:finances_home")
@@ -80,12 +80,6 @@ class CreditorUpdateView(LoginRequiredMixin, UpdateView[Creditor, CreditorForm])
         return super().get_context_data(**kwargs) | {"title": "Edit Creditor"}
 
 
-def _htmx_redirect(url: str) -> HttpResponse:
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = url
-    return response
-
-
 @login_required
 @require_GET
 def request_delete_creditor(request: HttpRequest, pk: int) -> HttpResponse:
@@ -112,19 +106,19 @@ def delete_creditor(request: HttpRequest, pk: int) -> HttpResponse:
 
     if creditor.archived_at:
         messages.error(request, "Cannot delete archived creditors.")
-        return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
     can_delete, blocking_reasons = services.can_delete_creditor(creditor)
 
     if not can_delete:
         messages.error(request, f"Cannot delete creditor: {', '.join(blocking_reasons)}")
-        return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
     creditor_name = creditor.name
     creditor.delete()
     messages.success(request, f"Creditor '{creditor_name}' deleted successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_list"))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_list"))
 
 
 @login_required
@@ -163,7 +157,7 @@ def archive_creditor(request: HttpRequest, pk: int) -> HttpResponse:
     creditor_name = creditor.name
     messages.success(request, f"Creditor '{creditor_name}' archived successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
 
 @login_required
@@ -202,4 +196,4 @@ def restore_creditor(request: HttpRequest, pk: int) -> HttpResponse:
     creditor_name = creditor.name
     messages.success(request, f"Creditor '{creditor_name}' restored successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))

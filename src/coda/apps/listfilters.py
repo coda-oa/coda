@@ -18,7 +18,9 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, QueryDict
 from django.urls import reverse
 from django.views.generic import TemplateView
+from django_htmx.http import push_url
 
+from coda.apps.htmx_components.request import HtmxHttpRequest
 from coda.apps.widgets import DateRangeWidget
 from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
 
@@ -51,8 +53,9 @@ class ListRegionMixin(TemplateView):
 
     def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
         response = super().render_to_response(context, **response_kwargs)
-        if self.request.headers.get("HX-Request") == "true":
-            response["HX-Push-Url"] = self._push_url()
+        request: HtmxHttpRequest = self.request  # type: ignore[assignment]
+        if request.htmx:
+            return push_url(response, self._push_url())
         return response
 
     def _push_url(self) -> str:
