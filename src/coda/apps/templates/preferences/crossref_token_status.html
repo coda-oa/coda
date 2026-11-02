@@ -1,0 +1,20 @@
+<footer id="crossref-token-status" class="{{ css_status }}">
+    {# The id must stay in sync with the hx-target in global.html's card footer. #}
+    {# css_status maps verified->success, rejected->error, unverified->warning (status.css). #}
+    <p>
+        {% if status == "verified" %}
+            <strong>✓</strong>
+        {% elif status == "rejected" %}
+            <strong>✗</strong>
+        {% else %}
+            <strong>?</strong>
+        {% endif %}
+        {{ message }}
+    </p>
+    {% if has_token %}
+        <button type="button"
+                hx-post="{% url 'preferences:crossref_token_status' %}"
+                hx-target="#crossref-token-status"
+                hx-swap="outerHTML">Check again</button>
+    {% endif %}
+</footer>

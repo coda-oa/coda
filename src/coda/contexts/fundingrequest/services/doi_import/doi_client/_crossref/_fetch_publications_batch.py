@@ -18,7 +18,9 @@ from coda.contexts.fundingrequest.services.doi_import.doi_client.errors import (
 )
 from coda.domain.publication.links import Doi
 
-from ._fetch_publication import CROSSREF_API_BASE, _parse_crossref_response
+from ._fetch_publication import CROSSREF_API_BASE, _parse_crossref_response, _resolve_politeness
+from ._politeness import CrossrefPoliteness
+from ._token_validity import AUTH_REJECT_STATUSES, mark_token_invalid
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +33,22 @@ class HttpGetClient(Protocol):
     interface works (httpx.Response in production, custom fakes in tests).
     """
 
-    def get(self, url: str, *, params: Any, timeout: int, follow_redirects: bool) -> Any: ...
+    def get(
+        self,
+        url: str,
+        *,
+        params: Any,
+        headers: dict[str, str] | None = None,
+        timeout: int,
+        follow_redirects: bool,
+    ) -> Any: ...
 
 
 def fetch_publications_batch(
     dois: Sequence[Doi],
     timeout: int = 30,
     *,
+    politeness: CrossrefPoliteness | None = None,
     http_client: HttpGetClient | None = None,
 ) -> dict[str, ExternalPublicationMetadata | Exception]:
     """Fetch publication metadata for multiple DOIs in a single batch call.
@@ -48,6 +59,8 @@ def fetch_publications_batch(
     Args:
         dois: The DOIs to fetch metadata for
         timeout: HTTP request timeout in seconds
+        politeness: Explicit access credentials. When None, credentials are
+            resolved from the global preferences (see /preferences/).
 
     Returns:
         Dict keyed by DOI string. Each value is either ExternalPublicationMetadata
@@ -58,16 +71,25 @@ def fetch_publications_batch(
 
     client: Any = http_client or httpx
 
-    filter_value = ",".join(f"doi:{doi}" for doi in dois)
+    resolved = _resolve_politeness(politeness)
     params: dict[str, str | int] = {
-        "filter": filter_value,
+        "filter": ",".join(f"doi:{doi}" for doi in dois),
         "rows": len(dois),
         "cursor": "*",
+        **resolved.query_params(),
     }
+    headers = resolved.headers()
 
     # Safety cap: at most one item per requested DOI can match,
     # so len(dois) pages is a generous upper bound.
-    items, error = _fetch_all_pages(client, params, len(dois), timeout)
+    items, error = _fetch_all_pages(client, params, headers, len(dois), timeout)
+
+    if (
+        isinstance(error, httpx.HTTPStatusError)
+        and error.response.status_code in AUTH_REJECT_STATUSES
+        and "Crossref-Plus-API-Token" in headers
+    ):
+        mark_token_invalid()
 
     found = _parse_batch_items(items)
     return _build_batch_results(dois, found, error)
@@ -76,6 +98,7 @@ def fetch_publications_batch(
 def _fetch_all_pages(
     client: Any,
     params: dict[str, str | int],
+    headers: dict[str, str],
     max_pages: int,
     timeout: int,
 ) -> tuple[list[dict[str, Any]], Exception | None]:
@@ -94,6 +117,7 @@ def _fetch_all_pages(
             response = client.get(
                 CROSSREF_API_BASE,
                 params=params,
+                headers=headers,
                 timeout=timeout,
                 follow_redirects=True,
             ).raise_for_status()
