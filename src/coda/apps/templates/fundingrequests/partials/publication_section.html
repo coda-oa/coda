@@ -37,7 +37,9 @@
                             <a href="mailto:{{ author.email }}">{{ author.email }}</a>
                         </td>
                         <td>
-                            {% if author.orcid %}{{ author.orcid }}{% endif %}
+                            {% if author.orcid %}
+                                <a href="{{ author.orcid.url }}" target="_blank" rel="noopener">{{ author.orcid }}</a>
+                            {% endif %}
                         </td>
                         <td>{{ author.affiliation }}</td>
                         <td>{{ author.role.value }}</td>

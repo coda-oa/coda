@@ -82,3 +82,14 @@ def test__orcids_with_leading_or_trailing_whitespace__get_trimmed() -> None:
 )
 def test__orcids_with_orcid_address__get_stripped(orcid_address: str) -> None:
     assert orcid.Orcid(orcid_address) == JOSIAH_CARBERRY
+
+
+@pytest.mark.parametrize("valid_orcid", VALID_ORCIDS)
+def test__orcid_url__is_canonical_orcid_org_url(valid_orcid: str) -> None:
+    assert orcid.Orcid(valid_orcid).url == f"https://orcid.org/{valid_orcid}"
+
+
+def test__orcid_url__of_url_form_orcid__points_to_canonical_form() -> None:
+    assert orcid.Orcid(f"https://orcid.org/{JOSIAH_CARBERRY}/").url == (
+        f"https://orcid.org/{JOSIAH_CARBERRY}"
+    )

@@ -16,17 +16,22 @@ class Orcid(str):
         if not instance:
             raise InvalidOrcid("ORCID cannot be empty")
 
-        instance = cast(Self, instance.strip())
-        instance = cast(Self, strip_url_components(instance))
+        cleaned = strip_url_components(instance.strip())
 
-        split = instance.split("-")
+        split = cleaned.split("-")
         if len(split) != 4 or not all(len(block) == 4 for block in split):
             raise InvalidOrcid("ORCID must consist of four blocks separated by hyphens")
 
-        if instance[-1] != checksum(instance):
+        if cleaned[-1] != checksum(cleaned):
             raise InvalidOrcid("ORCID has an invalid checksum")
 
-        return instance
+        # str methods return plain str; re-wrap so subclass attributes (e.g. .url) survive.
+        return cast(Self, super().__new__(cls, cleaned))
+
+    @property
+    def url(self) -> str:
+        """Canonical ORCID iD URI, per https://support.orcid.org ORCID identifier structure."""
+        return f"https://orcid.org/{self}"
 
 
 def strip_url_components(orcid: str) -> str:
