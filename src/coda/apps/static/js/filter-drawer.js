@@ -16,12 +16,6 @@
   let isClosing = false;
   let closeBackstopTimer = 0;
 
-  // Suppress the blur change event when input already scheduled this search value.
-  const searchInput = layout.querySelector(".filter-search");
-  searchInput?.addEventListener("input", () => {
-    searchInput.dataset.lastInputValue = searchInput.value;
-  });
-
   const updateModalState = () => {
     const isModal = dialog.matches(":modal");
     document.body.classList.toggle("filter-drawer-open", isModal);
