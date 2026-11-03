@@ -167,6 +167,24 @@ span.icon-tooltip[data-tooltip] {
   border: none;
 }
 
+.icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-url, none) center / contain no-repeat;
+  mask: var(--icon-url, none) center / contain no-repeat;
+}
+
+.icon-book {
+  --icon-url: url("../assets/book.svg");
+}
+
+.icon-article {
+  --icon-url: url("../assets/article.svg");
+}
+
 .striped li.odd>label,
 .striped li.odd>p {
   background-color: var(--pico-table-row-stripped-background-color);
