@@ -29,6 +29,14 @@ CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
 # coda.apps.version from touching the cache or the network at all.
 CODA_UPDATE_CHECK = env.bool("CODA_UPDATE_CHECK", True)
 
+# Panter PriceMonitor API base URL (APC pricing lookup).
+# Override per environment via PANTER_API_BASE; the default points at the
+# shared dev/prod instance.
+PANTER_API_BASE = env(
+    "PANTER_API_BASE",
+    default="http://iproject01.informatik.htw-dresden.de:11187/pricemonitor/coda/v1",
+)
+
 # GENERAL
 # ------------------------------------------------------------------------------
 # FORMS
