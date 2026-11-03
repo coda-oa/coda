@@ -23,12 +23,21 @@
               hx-sync="this:replace"
               hx-indicator="#{{ filter_list_id }}-loading"
               {% comment %}
-                  Same trigger expression as filter_layout.html's toolbar
-                  form (that copy scopes the toolbar change to
-                  #filter-toolbar-form; here the form is its own listener,
-                  so the bare `change` suffices). Keep the two in sync.
+                  Trigger notes: the sidebar change is debounced (one date
+                  edit fires one change per input; each undebounced change
+                  ran the whole pipeline). Dates are excluded from change —
+                  browsers commit `change` per valid segment mid-edit
+                  (stackoverflow.com/a/60996719) — and the search box is off
+                  change entirely: the pipeline is too expensive for
+                  search-as-you-type. Both commit on `focusout changed`:
+                  blur does not bubble and `from:` resolves once at init, so
+                  an OOB swap of the period block would orphan blur
+                  listeners; the form is never swapped and hears the
+                  bubbling focusout. Enter still works via `submit`.
+                  filter_layout.html's toolbar copy has the same expression
+                  scoped to its own form — keep the two in sync.
               {% endcomment %}
-              hx-trigger="submit, change from:#filter-sidebar-form, input delay:300ms from:.filter-search, change[!event.target.matches('.filter-search') || event.target.dataset.lastInputValue !== event.target.value]">
+              hx-trigger="submit, change delay:300ms from:#filter-sidebar-form, change[!event.target.matches('.filter-search') && !event.target.matches('input[type=date]')] delay:300ms, focusout changed[event.target.matches('.filter-search, #id_start_date, #id_end_date')]">
             {% comment %}
                 Default submit button: without it, pressing Enter in the search
                 box would implicitly click the first tab submit button and
