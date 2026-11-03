@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% block page_title %}{{ entity_name }}{% endblock page_title %}
+{% block page_title %}
+    {{ entity_name }}
+{% endblock page_title %}
 {% block page_actions %}
     {% if entity_create_url %}
-        <a href="{% url entity_create_url %}" class="secondary" role="button">New</a>
+        <a href="{% url entity_create_url %}" class="button secondary">New</a>
     {% endif %}
 {% endblock page_actions %}
 {% block content %}

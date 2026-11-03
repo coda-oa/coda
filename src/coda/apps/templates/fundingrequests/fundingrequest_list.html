@@ -1,10 +1,12 @@
 {% extends "base.html" %}
-{% block page_title %}Funding Requests{% endblock page_title %}
+{% block page_title %}
+    Funding Requests
+{% endblock page_title %}
 {% block page_actions %}
-    <a href="{% url "fundingrequests:create_wizard" %}" class="secondary" role="button">New Article</a>
+    <a href="{% url "fundingrequests:create_wizard" %}"
+       class="button secondary">New Article</a>
     <a href="{% url "fundingrequests:create_monograph" %}"
-       class="secondary"
-       role="button">New Monograph</a>
+       class="button secondary">New Monograph</a>
     <details class="dropdown m-0">
         <summary role="button" class="secondary">Import</summary>
         <ul>
