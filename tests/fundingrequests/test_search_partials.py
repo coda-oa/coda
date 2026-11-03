@@ -1,6 +1,7 @@
 import pytest
 from django.test import Client
 from django.urls import reverse
+
 from tests import modelfactory
 
 
@@ -54,7 +55,7 @@ def test__find_publisher__no_results__shows_no_results_message(client: Client) -
     )
 
     assert response.status_code == 200
-    assert 'No publishers found for "nonexistent"' in response.content.decode()
+    assert 'No results for "nonexistent"' in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -100,7 +101,7 @@ def test__find_journal__no_results__shows_no_results_message(client: Client) -> 
     )
 
     assert response.status_code == 200
-    assert 'No journals found for "nonexistent"' in response.content.decode()
+    assert 'No results for "nonexistent"' in response.content.decode()
 
 
 @pytest.mark.django_db

@@ -4,38 +4,18 @@
         <div class="my-2 scroll-container max-h-30">
             <table>
                 <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Select</th>
-                </tr>
+                    <tr>
+                        <th>Name</th>
+                        <th>Select</th>
+                    </tr>
                 </thead>
                 <tbody>
-                {% for publisher in publishers %}
-                    {% include "fundingrequests/partials/publisher_row.html" %}
-                {% endfor %}
+                    {% for publisher in publishers %}
+                        {% include "fundingrequests/partials/publisher_row.html" %}
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
     {% endif %}
-    {% if search_term or  publishers %}
-        <div class="flex justify-between align-center my-2">
-            {% if publishers %}
-                <p>Couldn't find the right publisher?</p>
-            {% else %}
-                <p>No results for "{{ search_term }}".</p>
-            {% endif %}
-            <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher
-            </button>
-        </div>
-    {% endif %}
-    <div class="flex justify-between align-center mt-2">
-        <button type="button"
-                hx-get="{% url 'publishing:publishers:create_modal' %}"
-                hx-target="#entity-creation-modal-wrapper"
-                class="secondary">New Publisher</button>
-    </div>
-    <div id="entity-creation-modal-wrapper"></div>
+    {% include "fundingrequests/partials/create_missing_publishing_entity.html" with search_term=search_term results=publishers entity_name="publisher" entity_create_url="publishing:publishers:create_modal" %}
 </div>

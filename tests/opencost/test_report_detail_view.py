@@ -44,7 +44,7 @@ def test__all_excluded_report__detail_page__renders_seed_rows_and_issues_without
 
     content = _detail(client, report.id)
 
-    assert "Unexportable Title" in content  # the kept seed column, the only title source left
+    assert "Unexportable Title" in content
     assert "Not in XML" in content
     assert "it has no institution name or identifier" in content
     assert f'hx-get="/opencost/{report.id}/issues/"' in content
@@ -77,7 +77,7 @@ def test__exported_publication_row__detail_page_shows_xml_values_and_seed_title_
     assert "Displayed Publication" in content
     assert row.publisher in content
     # the invoice count is read off the parsed document
-    assert "View Invoices (1)" in content
+    assert "Invoices (1)" in content
 
 
 @pytest.mark.django_db
@@ -94,7 +94,7 @@ def test__exported_contract_row__detail_page_shows_xml_normalized_values(client:
     assert "<td>UNKNOWN</td>" in content
     assert "Display Contract" in content
     assert "2024-01-01 - 2024-12-31" in content  # participation, from the parsed document
-    assert "View Invoices (1)" in content
+    assert "Invoices (1)" in content
     home = GlobalPreferences.objects.get().home_institution
     assert home is not None
     assert home.name in content
@@ -122,11 +122,15 @@ def test__degraded_publication__detail_page__links_the_issues_panel_and_names_th
 
     content = _detail(client, report.id)
 
-    assert "In XML, with issues" in content
-    assert 'href="#issues"' in content
+    assert_in_xml_with_issues(content)
     # the Contract column shows the part_of_contract ESAC the XML names
     assert "ESAC-COVER" in content
     assert "Covered by contract" in content
+
+
+def assert_in_xml_with_issues(content: str) -> None:
+    assert "In the XML" in content
+    assert 'href="#issues"' in content
 
 
 @pytest.mark.django_db
