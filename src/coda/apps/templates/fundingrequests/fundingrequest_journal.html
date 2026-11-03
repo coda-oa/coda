@@ -16,7 +16,12 @@
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
     {% if journal_error and request.method == "POST" and not selected_journal %}
-        <ul class="errorlist" id="journal-error">
+        <ul class="errorlist"
+            id="journal-error"
+            hx-post="{% url 'fundingrequests:clear_validation_error' %}"
+            hx-trigger="change from:input[name='journal'] once"
+            hx-target="this"
+            hx-swap="innerHTML">
             <li>{{ journal_error }}</li>
         </ul>
     {% endif %}

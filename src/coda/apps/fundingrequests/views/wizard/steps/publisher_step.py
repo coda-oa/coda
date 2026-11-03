@@ -1,9 +1,6 @@
 from typing import Any
 
-from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
-from django.views.decorators.http import require_POST
+from django.http import HttpRequest
 
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.forms import ContractFormset
@@ -80,21 +77,9 @@ class PublisherStep(TemplateStep):
         store.save()
 
 
-@login_required
-@require_POST
-def clear_publisher_error(request: HttpRequest) -> HttpResponse:
-    publisher_name = request.POST.get("publisher_name", "")
-    return render(
-        request,
-        "fundingrequests/partials/clear_publisher_error.html",
-        {"publisher_name": publisher_name},
-    )
-
-
 find_publisher = make_search_view(
     param_name="publisher_name",
     search_fn=publisher_services.find_by_name_contains,
     results_key="publishers",
     results_template="fundingrequests/partials/publisher_search_results.html",
-    default_row_template="fundingrequests/partials/publisher_row.html",
 )
