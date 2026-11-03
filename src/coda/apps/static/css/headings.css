@@ -13,3 +13,19 @@ h2 {
 h3 {
   --coda-font-size: 1.25rem;
 }
+
+hgroup .supertitle {
+  margin-top: 0;
+  margin-bottom: 0;
+  color: var(--coda-primary);
+  --pico-font-weight: 600;
+  font-size: 1rem;
+}
+
+hgroup .supertitle:empty {
+  display: none;
+}
+
+hgroup .subtitle:empty {
+  display: none;
+}

@@ -1,28 +1,22 @@
 {# Context: journals, search_term #}
-<div id="journal-search-results" class="scroll-container max-h-30">
+<div id="journal-search-results">
     {% if journals %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Publisher</th>
-                    <th>Select</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for journal in journals %}
-                    {% include "fundingrequests/partials/journal_row.html" %}
-                {% endfor %}
-            </tbody>
-        </table>
-    {% elif search_term %}
-        <p>No journals found for "{{ search_term }}".</p>
+        <div class="my-2 scroll-container max-h-30">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Publisher</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for journal in journals %}
+                        {% include "fundingrequests/partials/journal_row.html" %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% endif %}
-    <div class="flex justify-between align-center mt-2">
-        <button type="button"
-                hx-get="{% url 'publishing:journals:create_modal' %}"
-                hx-target="#entity-creation-modal-wrapper"
-                class="secondary">New Journal</button>
-    </div>
-    <div id="entity-creation-modal-wrapper"></div>
+    {% include "fundingrequests/partials/create_missing_publishing_entity.html" with search_term=search_term results=journals entity_name="journal" entity_create_url="publishing:journals:create_modal" %}
 </div>

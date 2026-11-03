@@ -1,5 +1,4 @@
-<div class="my-2"
-     id="positions-summary"
+<div id="positions-summary"
      hx-post="{% url 'invoices:get_total' %}"
      hx-target="#positions-summary"
      hx-trigger="change from:(#positions__list input.cost-amount), change from:(#positions__list select.cost-type), change from:(#positions__list input.tax-rate)"
