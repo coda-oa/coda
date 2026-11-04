@@ -216,9 +216,7 @@ def test__journal_facet__selecting_a_match__keeps_the_narrowed_list(
 
     # Clear all lives in the drawer header; the drawer scrolls its facet
     # content, so bring it home before clicking.
-    coda_page.evaluate(
-        "document.getElementById('filter-sidebar').scrollTo({top: 0})"
-    )
+    coda_page.evaluate("document.getElementById('filter-sidebar').scrollTo({top: 0})")
     coda_page.locator(filter_ui_selectors.FILTER_CLEAR_ALL).click()
 
     expect(facet.locator("option")).to_have_count(_FACET_CHOICE_LIMIT)

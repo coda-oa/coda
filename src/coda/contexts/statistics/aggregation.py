@@ -38,6 +38,18 @@ class _LabelAcc:
             self.ref = ref
 
 
+def has_rows(facts: Sequence[RequestFact], dimensions: Sequence[Dimension]) -> bool:
+    """Whether any dimension would produce at least one chart row for these
+    facts. A cheap presence test: stops at the first contribution instead of
+    accumulating (group_by). Drives the tab nav: a dimension whose values the
+    fact set never carries renders no section, and its tab disappears."""
+    for dimension in dimensions:
+        for fact in facts:
+            if any(dimension.contributions(fact)):
+                return True
+    return False
+
+
 def group_by(
     facts: Sequence[RequestFact],
     dimension: Dimension,

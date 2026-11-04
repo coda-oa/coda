@@ -37,8 +37,8 @@ from coda.apps.reporting import queries
 from coda.apps.reporting.dataset import build_facts
 from coda.apps.reporting.drilldown import DrilldownLinks, list_view_url
 from coda.apps.reporting.treemap import institution_treemap
-from coda.contexts.statistics import charts
-from coda.contexts.statistics.dimensions import DIMENSIONS
+from coda.contexts.statistics import aggregation, charts
+from coda.contexts.statistics.dimensions import DIMENSIONS, Dimension, by_id
 from coda.contexts.statistics.dto import (
     ChartSpec,
     GroupRow,
@@ -159,7 +159,15 @@ reporting_region = login_required(ReportingRegionView.as_view())
 
 def reporting_context(request: HttpRequest) -> dict[str, Any]:
     """The whole page context: filtered facts -> report -> sections, plus the
-    shared rail's form/chips state."""
+    shared rail's form/chips state.
+
+    Computation is scoped to the active tab: the dimension report, its drill
+    link tables and the comparison report cover only the active group's
+    dimensions. The facts pipeline below them dominates the request cost,
+    and every tab switch re-runs it anyway. Group *membership* (which tabs
+    the nav shows) stays data-driven and tab-independent: a group whose
+    dimensions the fact set never populates vanishes from the nav on every
+    tab, exactly as before."""
     labels = list(Label.objects.all().order_by("name"))
     contracts = list(Contract.objects.all())
     vocabularies = GlobalPreferences.preloaded()
@@ -199,8 +207,15 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         resolution = TemporalResolution(request.GET.get("resolution", "weekly"))
     except ValueError:
         resolution = TemporalResolution.WEEKLY
-    comparison_report = charts.report(comparison_facts, DIMENSIONS) if comparison_period else None
-    report = charts.report(facts, DIMENSIONS)
+
+    active_group = next((group for group in DIMENSION_GROUPS if group.id == tab), None)
+    active_dimensions = (
+        tuple(by_id(section_id) for section_id in active_group.section_ids) if active_group else ()
+    )
+    comparison_report = (
+        charts.report(comparison_facts, active_dimensions) if comparison_period else None
+    )
+    report = charts.report(facts, active_dimensions)
 
     date_errors = filter_form.errors.get("date_range")
     summary = build_filter_summary(
@@ -215,16 +230,29 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         date_range_error=str(date_errors[0]) if date_errors else None,
     )
 
-    all_sections = _sections(
+    sections = _sections(
         report,
-        DrilldownLinks.build(request, region_url_name=_REGION_URL, vocabularies=vocabularies),
+        DrilldownLinks.build(
+            request,
+            region_url_name=_REGION_URL,
+            vocabularies=vocabularies,
+            lookups=_needed_lookups(active_dimensions),
+        ),
         comparison=comparison_report,
     )
+    # The treemap reads the whole fact set, not the active group's dimensions,
+    # and costs ~4ms. It is computed unconditionally and shown on the group that owns
+    # it. Its presence keeps the attribution tab in the nav even when the
+    # institution section itself has no rows.
     treemap = institution_treemap(facts, Institution.objects.all())
-    by_id = {section.dimension_id: section for section in all_sections}
+    sections_by_id = {section.dimension_id: section for section in sections}
 
     def group_sections(group: DimensionGroup) -> list[DimensionSection]:
-        return [by_id[section_id] for section_id in group.section_ids if section_id in by_id]
+        return [
+            sections_by_id[section_id]
+            for section_id in group.section_ids
+            if section_id in sections_by_id
+        ]
 
     return {
         "filter_form": filter_form,
@@ -262,8 +290,10 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         ),
         "tab": tab,
         "incomplete_invoices": _incomplete_invoices(facts),
-        # The full group list drives the tab nav; the active tab filters the
-        # rendered sections only.
+        # The tab nav needs every surviving group; only the active one renders
+        # its sections (the template loops groups and filters on the tab).
+        # Membership is the cheap has_rows pass. Figures and link tables are
+        # built only for the active group above.
         "groups": [
             {
                 "group": group,
@@ -271,7 +301,7 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
                 "sections": group_sections(group) if tab == group.id else (),
             }
             for group in DIMENSION_GROUPS
-            if group_sections(group) or (group.has_treemap and treemap)
+            if group_sections(group) or (group.has_treemap and treemap) or _has_rows(group, facts)
         ],
         "active_group": tab,
     }
@@ -432,6 +462,28 @@ DIMENSION_GROUPS: tuple[DimensionGroup, ...] = (
         has_treemap=True,
     ),
 )
+
+
+def _has_rows(group: DimensionGroup, facts: Sequence[RequestFact]) -> bool:
+    """The cheap nav-membership test for one group: any of its dimensions
+    would produce a chart row (first-contribution early exit, no figures)."""
+    return aggregation.has_rows(
+        facts,
+        tuple(by_id(section_id) for section_id in group.section_ids),
+    )
+
+
+def _needed_lookups(dimensions: Sequence[Dimension]) -> tuple[str, ...]:
+    """The drilldown lookup tables the rendered dimensions' facets name.
+    Rows without a facet, or whose label already is the facet value
+    (``identity``), resolve without a table."""
+    return tuple(
+        {
+            dimension.facet.lookup
+            for dimension in dimensions
+            if dimension.facet is not None and not dimension.facet.identity
+        }
+    )
 
 
 def _incomplete_invoices(facts: Sequence[RequestFact]) -> tuple[IncompleteInvoice, ...]:

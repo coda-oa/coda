@@ -16,7 +16,7 @@ form cannot express their set.
 """
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 
 from django.http import HttpRequest
@@ -38,7 +38,7 @@ _LIST_URL = "fundingrequests:list"
 def facet_param_names(dimension_id: str) -> tuple[str, ...]:
     """The shared-form GET params reproducing a dimension's chart set (§2 #7).
 
-    The ``contract`` facet only reproduces a row with both params; a dimension
+    The ``contract`` facet only reproduces a row with both params. A dimension
     without a facet yields ``()`` — the completeness test in tests/reporting
     pins that no dimension ever reaches that case.
     """
@@ -64,11 +64,19 @@ class DrilldownLinks:
         *,
         region_url_name: str,
         vocabularies: PreloadedVocabularyProvider | None = None,
+        lookups: Collection[str] | None = None,
     ) -> "DrilldownLinks":
+        """``lookups`` narrows the label→value tables to the given facet
+        lookup keys (None: all). A page that renders only a subset of the
+        dimensions pays only for their tables; ``_facet_values`` touches a
+        table exactly when the row's dimension names its lookup, so the set
+        must be derived from the rendered dimensions, not guessed."""
         if vocabularies is None:
             vocabularies = GlobalPreferences.preloaded()
         return cls(
-            request=request, _region_url_name=region_url_name, _by_name=_lookup_tables(vocabularies)
+            request=request,
+            _region_url_name=region_url_name,
+            _by_name=_lookup_tables(vocabularies, lookups=lookups),
         )
 
     def link(self, dimension_id: str, row: GroupRow) -> str | None:
@@ -126,15 +134,12 @@ def list_view_url(request: HttpRequest) -> str:
     return build_url(_LIST_URL, params_without(request.GET, "page", "tab", "compare", "resolution"))
 
 
-def _lookup_tables(vocabularies: PreloadedVocabularyProvider) -> dict[str, dict[str, list[str]]]:
-    """Chart label -> facet values. Concept-typed dimensions key off the
-    configured vocabularies — the page's one pre-loaded provider, not the raw
-    concept registry: a row whose concept the shared form would reject as an
-    invalid choice must not get a link that silently widens the chart's set
-    (§2 #7)."""
-    # Keyed by concept id: a concept configured for both vocabularies is one
-    # facet value, not two.
-    publication_type_concepts = {
+def _publication_type_table(
+    vocabularies: PreloadedVocabularyProvider,
+) -> dict[str, list[str]]:
+    """Chart label -> concept ids. Keyed by concept id: a concept configured
+    for both publication-type vocabularies is one facet value, not two."""
+    concepts = {
         concept.id: concept.name
         for vocabulary in (
             vocabularies.get_article_publication_type_vocabulary(),
@@ -143,28 +148,54 @@ def _lookup_tables(vocabularies: PreloadedVocabularyProvider) -> dict[str, dict[
         for concept in vocabulary.concepts
         if concept.name
     }
-    return {
-        "institution": _group_pks(
-            Institution.objects.values_list("pk", Institution.facet_label_field)
-        ),
-        "journal": _group_pks(Journal.objects.values_list("pk", Journal.facet_label_field)),
-        "publisher": _group_pks(Publisher.objects.values_list("pk", Publisher.facet_label_field)),
-        "funder": _group_pks(
-            FundingOrganization.objects.values_list("pk", FundingOrganization.facet_label_field)
-        ),
-        "funding_source": _group_pks(
-            FundingSource.objects.values_list("pk", FundingSource.facet_label_field)
-        ),
-        "subject_area": {
-            concept.name: [str(concept.id)]
-            for concept in vocabularies.get_subject_classification_vocabulary().concepts
-        },
-        "publication_type": _group_pks(
-            (str(concept_id), name) for concept_id, name in publication_type_concepts.items()
-        ),
-        "license": {license.name: [license.value] for license in License},
-        "open_access_type": {access.name: [access.value] for access in OpenAccessType},
-    }
+    return _group_pks((str(concept_id), name) for concept_id, name in concepts.items())
+
+
+#: Lookup key -> how to build its label→value table. Registry order is build
+#: order, and the page's query budget counts on it. The keys are exactly the
+#: ``PageFacet.lookup`` values of the facetable dimensions (pinned by
+#: ``test__lookup_tables__keys_match_facet_lookups``). ``_facet_values`` indexes
+#: ``_by_name[facet.lookup]``, so a key missing here raises KeyError rather
+#: than degrading a drilldown link. Each builder runs only when its lookup is
+#: requested, so a tab-scoped page pays for its dimensions' tables and nothing
+#: else.
+_TABLE_BUILDERS: Mapping[str, Callable[[PreloadedVocabularyProvider], dict[str, list[str]]]] = {
+    "institution": lambda v: _group_pks(
+        Institution.objects.values_list("pk", Institution.facet_label_field)
+    ),
+    "journal": lambda v: _group_pks(Journal.objects.values_list("pk", Journal.facet_label_field)),
+    "publisher": lambda v: _group_pks(
+        Publisher.objects.values_list("pk", Publisher.facet_label_field)
+    ),
+    "funder": lambda v: _group_pks(
+        FundingOrganization.objects.values_list("pk", FundingOrganization.facet_label_field)
+    ),
+    "funding_source": lambda v: _group_pks(
+        FundingSource.objects.values_list("pk", FundingSource.facet_label_field)
+    ),
+    "subject_area": lambda v: {
+        concept.name: [str(concept.id)]
+        for concept in v.get_subject_classification_vocabulary().concepts
+    },
+    "publication_type": _publication_type_table,
+    "license": lambda v: {license.name: [license.value] for license in License},
+    "open_access_type": lambda v: {access.name: [access.value] for access in OpenAccessType},
+}
+
+
+def _lookup_tables(
+    vocabularies: PreloadedVocabularyProvider, *, lookups: Collection[str] | None = None
+) -> dict[str, dict[str, list[str]]]:
+    """Chart label -> facet values. Concept-typed dimensions key off the
+    configured vocabularies — the page's one pre-loaded provider, not the raw
+    concept registry: a row whose concept the shared form would reject as an
+    invalid choice must not get a link that silently widens the chart's set
+    (§2 #7). ``lookups`` builds only the named tables (None: all); unknown
+    names are ignored, as they always were."""
+    wanted = (
+        _TABLE_BUILDERS.keys() if lookups is None else (n for n in _TABLE_BUILDERS if n in lookups)
+    )
+    return {name: _TABLE_BUILDERS[name](vocabularies) for name in wanted}
 
 
 def _group_pks(rows: Iterable[tuple[object, str]]) -> dict[str, list[str]]:

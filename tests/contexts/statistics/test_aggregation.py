@@ -4,8 +4,8 @@ import pytest
 from tests.contexts.statistics.factories import institution, make_fact, source
 
 from coda.contexts.statistics import dimensions
-from coda.contexts.statistics.aggregation import group_by
-from coda.contexts.statistics.dimensions import ZERO
+from coda.contexts.statistics.aggregation import group_by, has_rows
+from coda.contexts.statistics.dimensions import ZERO, Contribution
 from coda.contexts.statistics.dto import ContractRef, Measure, RowKind
 
 
@@ -83,7 +83,7 @@ def test__group_by_single_dimension__groups_a_missing_value_as_unknown() -> None
 def test__group_by_concept_dimension__groups_a_blank_concept_name_as_unknown(
     dimension_id: str,
 ) -> None:
-    """The default row of these non-nullable concepts carries an empty name —
+    """The default row of these non-nullable concepts carries an empty name,
     the chart must call it "Unknown", like a missing value."""
     facts = (
         make_fact(**{dimension_id: ""}, paid_out_total=Decimal("10.00")),
@@ -325,3 +325,45 @@ def test__group_by__publications_equal_distinct_request_ids_per_label() -> None:
     assert row.label == "Central Fund"
     assert row.publications == 2
     assert row.amount == Decimal("40.00")
+
+
+def test__has_rows__populated_dimension__is_true() -> None:
+    facts = (make_fact(publisher="Elsevier"),)
+
+    assert has_rows(facts, (dimensions.by_id("publisher"),)) is True
+
+
+def test__has_rows__empty_fact_set__is_false() -> None:
+    assert has_rows((), (dimensions.by_id("publisher"),)) is False
+
+
+def test__has_rows__dimension_without_contributions__is_false() -> None:
+    """Funders only contribute for facts carrying funders. A set without any
+    must report no rows, or the tab nav would show a dead tab."""
+    facts = (make_fact(funders=()),)
+
+    assert has_rows(facts, (dimensions.by_id("funder"),)) is False
+
+
+def test__has_rows__stops_at_the_first_contribution() -> None:
+    """The presence test must not group the whole fact set: a counting
+    contributions callback proves the loop exits after the first fact."""
+    calls: list[int] = []
+
+    def counting(fact: object) -> tuple[Contribution, ...]:
+        calls.append(1)
+        return (Contribution("x", ZERO),)
+
+    probe = dimensions.Dimension(
+        id="probe",
+        label="Probe",
+        kind=dimensions.DimensionKind.SINGLE,
+        has_publications=True,
+        additive_publications=True,
+        money=None,
+        additive_spend=False,
+        contributions=counting,  # type: ignore[arg-type]
+    )
+
+    assert has_rows((make_fact(),), (probe,)) is True
+    assert len(calls) == 1
