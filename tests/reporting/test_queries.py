@@ -35,7 +35,7 @@ def test__requests_outside_the_period__fetch_requests__returns_only_requests_in_
 def test__populated_requests__fetch_and_build_facts__reads_facts_without_extra_queries(
     django_assert_num_queries: DjangoAssertNumQueries,
 ) -> None:
-    """The whole fact set comes out of the shared fetch graph — no N+1."""
+    """The whole fact set comes out of the shared fetch graph, with no N+1."""
     institution = modelfactory.institution()
     fr_1 = helpers.request("Populated one")
     helpers.corresponding_author(fr_1, institution.pk)
@@ -72,12 +72,15 @@ def test__reporting_page__render__fits_a_fixed_query_budget(
     client: Client, django_assert_num_queries: DjangoAssertNumQueries
 ) -> None:
     """The render's cost is fixed per view: the fact graph, the rail's facet
-    choice lists, the drill-down lookup tables and exactly one round-trip for
-    the configured vocabularies — the form and the drill-down share the page's
-    one pre-loaded provider. The institution treemap adds one query for the
-    hierarchy. Contract drill-down links carry their (pk, year) identity in
-    the fact data, costing no queries."""
+    choice lists, exactly one round-trip for the configured vocabularies (the
+    form and the drill-down share the page's one pre-loaded provider) and the
+    institution treemap's one hierarchy query. The drill-down lookup tables
+    are scoped to the active tab's dimensions, so the default (overview) page
+    pays for none of them; the venue tab's two tables are the worst case."""
     seed()
 
-    with django_assert_num_queries(48):
+    with django_assert_num_queries(43):
         assert goto(client).status_code == 200
+
+    with django_assert_num_queries(40):
+        assert goto(client, tab="venues").status_code == 200
