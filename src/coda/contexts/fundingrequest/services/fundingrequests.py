@@ -377,11 +377,11 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
         funding_splits=splits if result == ReviewResult.Approved else (),
     )
     persisted_splits = repository.save_review(review_)
-    for split in persisted_splits:
+    for persisted_split in persisted_splits:
         budget_service.record_commitment(
-            split.funding_source_id,
-            Money(split.amount, decided_funding.currency),
-            review_split=split.pk,
+            persisted_split.funding_source_id,
+            Money(persisted_split.amount, decided_funding.currency),
+            review_split=persisted_split.pk,
         )
 
 
