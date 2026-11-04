@@ -9,7 +9,7 @@ funding request list's own — reused through ``partials/filter_layout.html``.
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -52,6 +52,7 @@ from coda.contexts.statistics.timeline import (
     temporal_counts,
     timeline_figure,
 )
+from coda.domain.date import DateRange
 
 _PAGE_URL = "reporting:stats_fundingrequests"
 _REGION_URL = "reporting:stats_fundingrequests_region"
@@ -156,16 +157,6 @@ class ReportingRegionView(ListRegionMixin, TemplateView):
 reporting_region = login_required(ReportingRegionView.as_view())
 
 
-def _prior_period(start: date, end: date) -> tuple[date, date] | None:
-    """The window of the same length immediately before [start, end], or None
-    for an unbounded range (a missing bound uses the date.min/max sentinels —
-    "the same length before eternity" is not a window and would overflow)."""
-    if start == date.min or end == date.max:
-        return None
-    length = (end - start).days + 1
-    return start - timedelta(days=length), start - timedelta(days=1)
-
-
 def reporting_context(request: HttpRequest) -> dict[str, Any]:
     """The whole page context: filtered facts -> report -> sections, plus the
     shared rail's form/chips state."""
@@ -180,7 +171,25 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     # lookup serves both build_facts calls.
     home_currency = GlobalPreferences.get_home_currency()
     facts = build_facts(queries.fetch_requests(criteria), home_currency)
-    compare = request.GET.get("compare") == "1" and filter_form.cleaned_data.get("date_range")
+    # The comparison period is resolved before anything else consumes it: the
+    # pipeline below takes it as given and never assumes WHICH period it is.
+    # Today the only strategy is "the same length immediately before"; a
+    # custom period (picked window, fiscal year) resolves here and flows
+    # through unchanged. None means "no comparison": a one-sided range has no
+    # prior window (not zero; an all-zero comparison would lie), and the
+    # toggle only compares when a window exists.
+    comparison_period: DateRange | None = None
+    if (
+        request.GET.get("compare") == "1"
+        and (date_range := filter_form.cleaned_data.get("date_range")) is not None
+    ):
+        comparison_period = date_range.prior_window()
+    comparison_facts: tuple[RequestFact, ...] = ()
+    if comparison_period:
+        comparison_criteria = filter_form.search_criteria(
+            date_override=(comparison_period.start, comparison_period.end)
+        )[0]
+        comparison_facts = build_facts(queries.fetch_requests(comparison_criteria), home_currency)
     # QueryDict.get returns the LAST value of a repeated key — exactly the
     # submitter-wins semantics the tab/resolution submit buttons rely on.
     tab = request.GET.get("tab", "overview")
@@ -190,20 +199,7 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         resolution = TemporalResolution(request.GET.get("resolution", "weekly"))
     except ValueError:
         resolution = TemporalResolution.WEEKLY
-    # The switch label names the prior window even when unchecked — the user
-    # should see what "compare" would cover for the current date range. With
-    # a one-sided range the prior window is undefined, not zero: compare
-    # stays off (a one-sided window would otherwise render an all-zero
-    # comparison).
-    compare_period: tuple[date, date] | None = None
-    if (date_range := filter_form.cleaned_data.get("date_range")) is not None:
-        compare_period = _prior_period(date_range.start, date_range.end)
-    compare = bool(compare and compare_period)
-    comparison_facts: tuple[RequestFact, ...] = ()
-    if compare:
-        comparison_criteria = filter_form.search_criteria(date_override=compare_period)[0]
-        comparison_facts = build_facts(queries.fetch_requests(comparison_criteria), home_currency)
-    comparison_report = charts.report(comparison_facts, DIMENSIONS) if compare else None
+    comparison_report = charts.report(comparison_facts, DIMENSIONS) if comparison_period else None
     report = charts.report(facts, DIMENSIONS)
 
     date_errors = filter_form.errors.get("date_range")
@@ -259,8 +255,11 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         "resolutions": list(TemporalResolution),
         "comparison": comparison_report,
         "compare": bool(comparison_report),
-        # The switch label names the actual prior window, not a vague "previous".
-        "compare_period": compare_period,
+        # The switch label names the actual comparison window, not a vague
+        # "previous". Whatever strategy resolved it, the user sees the dates.
+        "comparison_period": (
+            (comparison_period.start, comparison_period.end) if comparison_period else None
+        ),
         "tab": tab,
         "incomplete_invoices": _incomplete_invoices(facts),
         # The full group list drives the tab nav; the active tab filters the
@@ -328,11 +327,12 @@ def _sections(
     report: StatisticsReport,
     links: DrilldownLinks,
     comparison: StatisticsReport | None = None,
+    comparison_label: str = "previous period",
 ) -> list[DimensionSection]:
     """Figure and shared table under their dimension, in registry order;
     dimensions without a non-empty grouping do not get an empty section.
-    ``comparison`` carries the previous period's report when the compare
-    toggle is on — its rows join by label into the delta columns."""
+    ``comparison`` carries the comparison period's report when compare is
+    on, and its rows join by label into the delta columns."""
     specs = {spec.dimension_id: spec for spec in report.charts}
     comparison_specs = {spec.dimension_id: spec for spec in comparison.charts} if comparison else {}
     sections: list[DimensionSection] = []
@@ -358,7 +358,9 @@ def _sections(
             DimensionSection(
                 dimension_id=dimension.id,
                 label=dimension.label,
-                chart=_panel(spec, comparison_specs.get(dimension.id)),
+                chart=_panel(
+                    spec, comparison_specs.get(dimension.id), comparison_label=comparison_label
+                ),
                 rows=rows,
                 columns=tuple(
                     MeasureColumn(
@@ -378,10 +380,14 @@ def _sections(
     return sections
 
 
-def _panel(spec: ChartSpec, comparison: ChartSpec | None = None) -> ChartPanel:
+def _panel(
+    spec: ChartSpec,
+    comparison: ChartSpec | None = None,
+    comparison_label: str = "previous period",
+) -> ChartPanel:
     figure = spec.figure
     if comparison is not None:
-        figure = charts.with_comparison(figure, spec, comparison)
+        figure = charts.with_comparison(figure, spec, comparison, comparison_label=comparison_label)
     return ChartPanel(
         data_id=f"chart-{spec.dimension_id}",
         title=spec.title,

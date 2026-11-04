@@ -26,3 +26,29 @@ def test__inverted_range__still_raises_a_value_error_for_existing_handlers() -> 
     """contracts/forms.py catches ValueError around DateRange construction."""
     with pytest.raises(ValueError):
         DateRange(datetime.date(2025, 1, 1), datetime.date(2024, 1, 1))
+
+
+def test__prior_window__bounded_range__is_the_same_length_immediately_before() -> None:
+    period = DateRange(datetime.date(2026, 3, 10), datetime.date(2026, 4, 20))
+
+    prior = period.prior_window()
+
+    assert prior is not None
+    assert (prior.start, prior.end) == (datetime.date(2026, 1, 27), datetime.date(2026, 3, 9))
+    assert (prior.end - prior.start).days == (period.end - period.start).days
+
+
+def test__prior_window__one_day_range__is_the_previous_day() -> None:
+    period = DateRange(datetime.date(2026, 5, 1), datetime.date(2026, 5, 1))
+
+    prior = period.prior_window()
+
+    assert prior == DateRange(datetime.date(2026, 4, 30), datetime.date(2026, 4, 30))
+
+
+def test__prior_window__unbounded_or_half_open__is_none() -> None:
+    """A missing bound uses the date.min/max sentinels; "the same length
+    before eternity" is not a window, so compare stays off."""
+    assert DateRange(datetime.date.min, datetime.date.max).prior_window() is None
+    assert DateRange(datetime.date(2026, 1, 1), datetime.date.max).prior_window() is None
+    assert DateRange(datetime.date.min, datetime.date(2026, 12, 31)).prior_window() is None

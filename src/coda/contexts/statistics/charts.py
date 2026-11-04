@@ -43,7 +43,7 @@ MEASURE_COLORS: dict[Measure, str] = {
 
 NON_ADDITIVE_NOTE = (
     "Totals for this column count each request once, so entities sharing a "
-    "request are double-counted — sum the rows for a grand total."
+    "request are double-counted. Sum the rows for a grand total."
 )
 
 
@@ -240,6 +240,8 @@ def with_comparison(
     figure: dict[str, Any],
     spec: ChartSpec,
     comparison: ChartSpec,
+    *,
+    comparison_label: str = "previous period",
 ) -> dict[str, Any]:
     """Augment a bars figure with the comparison period's series.
 
@@ -250,7 +252,9 @@ def with_comparison(
     measure over the same categories; stacking would claim they sum, and
     overlaying would hide one behind the other. Non-bar figures pass
     through unchanged (the treemap is out of scope for comparison).
-    """
+    ``comparison_label`` names the series in legend and hover; the caller
+    owns what the period is called ("previous period" is only the default
+    strategy's name)."""
     if not spec.rows or not figure.get("data"):
         return figure
     if any(trace.get("type") != "bar" for trace in figure["data"]):
@@ -261,8 +265,8 @@ def with_comparison(
     data = list(figure["data"])
     # Traces are in measure order (one per panel); insert each comparison
     # series directly BEFORE its current-series twin: within a grouped pair,
-    # plotly draws traces left-to-right in trace order, and "previous" reads
-    # first (earlier in time) then "current".
+    # plotly draws traces left-to-right in trace order, and the comparison
+    # reads first (earlier in time) then the current.
     augmented: list[dict[str, Any]] = []
     for index, trace in enumerate(data):
         measure = measures[index].measure if index < len(measures) else None
@@ -278,10 +282,10 @@ def with_comparison(
                     "type": "bar",
                     "x": [row.label for row in spec.rows],
                     "y": values,
-                    "name": f"previous — {MEASURE_LABELS[measure]}",
+                    "name": f"{comparison_label} — {MEASURE_LABELS[measure]}",
                     "marker": {"color": _muted(MEASURE_COLORS[measure])},
                     "yaxis": trace.get("yaxis", "y"),
-                    "hovertemplate": "%{x}: %{y:,.2f}<extra>previous period</extra>",
+                    "hovertemplate": f"%{{x}}: %{{y:,.2f}}<extra>{comparison_label}</extra>",
                     "showlegend": True,
                 }
             )

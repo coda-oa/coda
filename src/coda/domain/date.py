@@ -64,6 +64,24 @@ class DateRange:
     def is_unbounded(self) -> bool:
         return self.start == datetime.date.min and self.end == datetime.date.max
 
+    def prior_window(self) -> "DateRange | None":
+        """The window of the same length immediately before this one, or None
+        for an unbounded range: a missing bound uses the date.min/max
+        sentinels, and "the same length before eternity" is not a window and
+        would overflow.
+
+        One default for "which period does compare show". The statistics
+        pipeline itself never derives it: it receives whatever period the
+        caller resolved, so a custom comparison period (a picked window, a
+        fiscal year) plugs in without touching anything below the view."""
+        if self.start == datetime.date.min or self.end == datetime.date.max:
+            return None
+        length = (self.end - self.start).days + 1
+        return DateRange(
+            self.start - datetime.timedelta(days=length),
+            self.start - datetime.timedelta(days=1),
+        )
+
     def __contains__(self, key: object) -> bool:
         if not isinstance(key, datetime.date):
             return False

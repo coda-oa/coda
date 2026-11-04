@@ -118,6 +118,7 @@ def timeline_figure(
     comparison: Sequence[TimelinePoint] | None = None,
     *,
     resolution: TemporalResolution = TemporalResolution.WEEKLY,
+    comparison_label: str = "previous period",
 ) -> dict[str, object]:
     """The plotly figure JSON for the timeline: one bar per bucket.
 
@@ -126,13 +127,15 @@ def timeline_figure(
     first days) so nothing interpolates between buckets; the bucket count
     scales the figure height like the other figures do.
 
-    With ``comparison`` (the prior period's counts), the axis extends over
-    the union of both periods' buckets in one chart: the previous period
-    renders muted (the charts module's washed-out convention) over its own
-    buckets, the current period in full hue over its buckets. The two
-    periods' buckets never overlap (the prior window ends before the current
-    one starts), so every category carries exactly one bar; the legend names
-    the two series.
+    With ``comparison`` (the comparison period's counts), the axis extends
+    over the union of both periods' buckets in one chart: the comparison
+    period renders muted (the charts module's washed-out convention) over
+    its own buckets, the current period in full hue over its buckets. The
+    default comparison period never overlaps the current one, so every
+    category carries exactly one bar; a custom period that overlaps gets
+    grouped bars (``barmode: group`` is set explicitly for that case).
+    ``comparison_label`` names the series in legend and hover. The caller
+    owns what the period is called.
     """
     if not points:
         return {"data": [], "layout": {"height": 160}, "config": {"responsive": True}}
@@ -150,9 +153,9 @@ def timeline_figure(
                 "type": "bar",
                 "x": x,
                 "y": [comparison_by_bucket.get(bucket, 0) for bucket in buckets],
-                "name": "previous period",
+                "name": comparison_label,
                 "marker": {"color": "#0072B266"},
-                "hovertemplate": "%{x}: %{y} request(s)<extra>previous period</extra>",
+                "hovertemplate": f"%{{x}}: %{{y}} request(s)<extra>{comparison_label}</extra>",
                 "showlegend": True,
             },
             {
@@ -179,6 +182,10 @@ def timeline_figure(
                 "rangemode": "nonnegative",
                 "range": [0, max_count * 1.15] if max_count else [0, 1],
             },
+            # Explicit group mode: the comparison series shares the categorical
+            # x axis, and a custom comparison period may overlap the current
+            # one, so the default must never be left to plotly.
+            "barmode": "group",
             "bargap": 0.15,
             # Legend above the plot area, right-aligned into the free side.
             "showlegend": True,
