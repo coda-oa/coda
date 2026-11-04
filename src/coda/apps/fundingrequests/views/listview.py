@@ -11,12 +11,13 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
+from coda.apps.fundingrequests.filters import build_filter_summary
 from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
-from coda.apps.fundingrequests.filters import build_filter_summary
 from coda.apps.listfilters import ListRegionMixin, params_without
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 
 
@@ -32,9 +33,26 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         """Labels attached to at least one request — the only filterable set."""
         return list(Label.objects.filter(requests__isnull=False).distinct().order_by("name"))
 
+    @cached_property
+    def _contracts(self) -> list[Contract]:
+        """The contract choice list, fetched once per request and shared by
+        the filter form and the filter-summary chip fallback."""
+        return list(Contract.objects.all())
+
+    @cached_property
+    def _filter_form(self) -> FundingRequestListFilterForm:
+        """The request's filter form, built once: ``get_entities`` validates
+        it for the query and ``get_context_data`` renders it. One provider
+        construction and one choice-list evaluation per request."""
+        return FundingRequestListFilterForm(
+            self.request.GET,
+            contracts=self._contracts,
+            labels=self._used_labels,
+            vocabularies=GlobalPreferences.preloaded(),
+        )
+
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
-        filter_form = FundingRequestListFilterForm(request.GET, labels=self._used_labels)
-        criteria, sort_order = filter_form.search_criteria()
+        criteria, sort_order = self._filter_form.search_criteria()
         django_queryset = fq.search(*criteria, sort_order=fq.SortOrder[sort_order.name])
         return LazyBulkQuerySet(
             queryset=django_queryset,
@@ -43,25 +61,20 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx.update(get_contract_list_context())
         ctx["query"] = self.request.GET.get("search_term", "")
         if self.request.GET:
             ctx["no_results_message"] = "No funding requests match the selected filters."
             ctx["no_results_clear_url"] = reverse("fundingrequests:list")
 
         labels = self._used_labels
-        filter_form = FundingRequestListFilterForm(
-            self.request.GET,
-            contracts=ctx["contract_list"],
-            labels=labels,
-        )
+        filter_form = self._filter_form
         filter_form.is_valid()
         date_errors = filter_form.errors.get("date_range")
         date_range_error = str(date_errors[0]) if date_errors else None
         summary = build_filter_summary(
             self.request,
             labels,
-            ctx["contract_list"],
+            self._contracts,
             included=filter_form.selected_label_ids,
             excluded=filter_form.excluded_label_ids,
             list_url_name=_LISTVIEW_URL,
@@ -94,10 +107,6 @@ class FundingRequestListRegionView(ListRegionMixin, FundingRequestListView):
 
 fundingrequest_list = FundingRequestListView.as_view()
 fundingrequest_list_region = FundingRequestListRegionView.as_view()
-
-
-def get_contract_list_context() -> dict[str, Any]:
-    return {"contract_list": Contract.objects.all()}
 
 
 @dataclass(frozen=True)

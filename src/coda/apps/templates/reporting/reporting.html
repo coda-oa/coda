@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
 {% block body_class %}filter-always-drawer{% endblock %}
+{% block page_title %}Funding Request Statistics{% endblock page_title %}
 {% block content %}
-    <h1 class="my-2">Funding Request Statistics</h1>
     {% url 'reporting:stats_fundingrequests' as reporting_url %}
     {% comment %}
         Sticky band (2.7 + 2.1): the search bar, the active-filter chips, the

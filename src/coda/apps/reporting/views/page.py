@@ -33,8 +33,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Invoice
 from coda.apps.listfilters import ListRegionMixin, build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.reporting import queries
-from coda.apps.reporting.dataset import build_facts
+from coda.apps.reporting import dataset, factcache, queries
 from coda.apps.reporting.drilldown import DrilldownLinks, list_view_url
 from coda.apps.reporting.treemap import institution_treemap
 from coda.contexts.statistics import aggregation, charts
@@ -174,11 +173,21 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     filter_form = FundingRequestListFilterForm(
         request.GET, contracts=contracts, labels=labels, vocabularies=vocabularies
     )
+    filter_form.is_valid()  # fills cleaned_data for the comparison resolution below
     criteria, _sort_order = filter_form.search_criteria()
     # The home currency is page-wide (both periods convert into it); one
-    # lookup serves both build_facts calls.
+    # lookup serves both facts_for calls.
     home_currency = GlobalPreferences.get_home_currency()
-    facts = build_facts(queries.fetch_requests(criteria), home_currency)
+
+    def build_facts(comparison: DateRange | None) -> tuple[RequestFact, ...]:
+        if comparison is None:
+            return dataset.build_facts(queries.fetch_requests(criteria), home_currency)
+        comparison_criteria = filter_form.search_criteria(
+            date_override=(comparison.start, comparison.end)
+        )[0]
+        return dataset.build_facts(queries.fetch_requests(comparison_criteria), home_currency)
+
+    facts = factcache.facts_for(request.GET, home_currency, build_facts)
     # The comparison period is resolved before anything else consumes it: the
     # pipeline below takes it as given and never assumes WHICH period it is.
     # Today the only strategy is "the same length immediately before"; a
@@ -194,10 +203,12 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         comparison_period = date_range.prior_window()
     comparison_facts: tuple[RequestFact, ...] = ()
     if comparison_period:
-        comparison_criteria = filter_form.search_criteria(
-            date_override=(comparison_period.start, comparison_period.end)
-        )[0]
-        comparison_facts = build_facts(queries.fetch_requests(comparison_criteria), home_currency)
+        comparison_facts = factcache.facts_for(
+            request.GET,
+            home_currency,
+            build_facts,
+            comparison_period=comparison_period,
+        )
     # QueryDict.get returns the LAST value of a repeated key — exactly the
     # submitter-wins semantics the tab/resolution submit buttons rely on.
     tab = request.GET.get("tab", "overview")
