@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.core.cache import cache
 from django.test import Client
 from pytest_django import DjangoAssertNumQueries
 
@@ -76,11 +77,16 @@ def test__reporting_page__render__fits_a_fixed_query_budget(
     form and the drill-down share the page's one pre-loaded provider) and the
     institution treemap's one hierarchy query. The drill-down lookup tables
     are scoped to the active tab's dimensions, so the default (overview) page
-    pays for none of them; the venue tab's two tables are the worst case."""
+    pays for none of them; the venue tab's two tables are the worst case.
+    The fact cache answers a repeat request without the fact graph (covered
+    in test_factcache); these budgets measure the cold path, so the cache
+    is cleared first."""
     seed()
 
+    cache.clear()
     with django_assert_num_queries(43):
         assert goto(client).status_code == 200
 
+    cache.clear()
     with django_assert_num_queries(40):
         assert goto(client, tab="venues").status_code == 200

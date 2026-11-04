@@ -3,7 +3,7 @@
            name="search_term"
            value="{{ request.GET.search_term }}"
            placeholder="{{ filter_toolbar_search_placeholder }}"
-           aria-label="{{ filter_toolbar_search_placeholder }}"
+           aria-label="{% if filter_toolbar_search_aria_label %}{{ filter_toolbar_search_aria_label }}{% else %}{{ filter_toolbar_search_placeholder }}{% endif %}"
            class="filter-search">
     {% if not filter_toolbar_hide_sort %}
         <label class="filter-sort-label" for="sort_by">
