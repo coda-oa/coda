@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 from typing import Any, Protocol, TypeVar, cast
 
-
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
 from coda.domain.author import InstitutionId
@@ -83,18 +82,25 @@ def get_by_name(name: str) -> FundingSource:
 
 
 def create(source: FundingSource) -> FundingSourceId:
-    if isinstance(source, Budget):
-        type = "budget"
-        institution_id = None
-    elif isinstance(source, SplitSource):
-        type = "institution"
-        institution_id = source.institution
+    if isinstance(source, SplitSource):
         existing = FundingSourceModel.objects.filter(institution_id=source.institution).first()
         if existing:
             return FundingSourceId(existing.pk)
 
+        model = FundingSourceModel.objects.create(
+            type="institution", name=source.name, institution_id=source.institution
+        )
+        return FundingSourceId(model.pk)
+
     model = FundingSourceModel.objects.create(
-        type=type, name=source.name, institution_id=institution_id
+        type="budget",
+        name=source.name,
+        budget_amount=source.amount.amount,
+        budget_currency=source.amount.currency.code,
+        period_start=source.period.start,
+        period_end=source.period.end,
+        allow_over=source.allow_over,
+        allowance_amount=source.allowance.amount if source.allowance else None,
     )
     return FundingSourceId(model.pk)
 
@@ -118,7 +124,16 @@ class BudgetStrategy:
     @staticmethod
     def build_model(source: Budget) -> FundingSourceModel:
         """Build a FundingSourceModel instance for a Budget."""
-        return FundingSourceModel(type="budget", name=source.name)
+        return FundingSourceModel(
+            type="budget",
+            name=source.name,
+            budget_amount=source.amount.amount,
+            budget_currency=source.amount.currency.code,
+            period_start=source.period.start,
+            period_end=source.period.end,
+            allow_over=source.allow_over,
+            allowance_amount=source.allowance.amount if source.allowance else None,
+        )
 
 
 class InstitutionStrategy:
@@ -135,9 +150,7 @@ class InstitutionStrategy:
     @staticmethod
     def extract_model_key(model: FundingSourceModel) -> InstitutionId:
         """Extract the lookup key (institution_id) from a FundingSourceModel."""
-        return cast(
-            InstitutionId, model.institution_id
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        return cast(InstitutionId, model.institution_id)  # pyright: ignore[reportAttributeAccessIssue]
 
     @staticmethod
     def build_model(source: SplitSource) -> FundingSourceModel:

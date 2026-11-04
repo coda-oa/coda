@@ -5,7 +5,7 @@ from typing import Any, ClassVar, cast
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.db import models
-from django.forms import ModelChoiceField
+from django.forms import ModelChoiceField, formset_factory
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -23,6 +23,7 @@ from coda.apps.fundingrequests.models import (
 )
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+from coda.apps.invoices.models import FundingSource
 from coda.apps.listfilters import (
     DateRangeField,
     ListSortOrder,
@@ -39,6 +40,7 @@ from coda.apps.widgets import (
 from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     PaymentDto,
+    ReviewSplitDto,
     UpdateReviewDto,
 )
 from coda.domain.contract import ContractId, ContractYear
@@ -303,7 +305,7 @@ class ReviewForm(forms.Form):
     decided_funding_currency = fields.currency_field(label="Currency")
     reviewer_remarks = forms.CharField(widget=forms.Textarea, required=False)
 
-    def to_dto(self) -> UpdateReviewDto:
+    def to_dto(self, funding_splits: Iterable[ReviewSplitDto] = ()) -> UpdateReviewDto:
         result = (
             "" if self.cleaned_data["action"] == self.ACTION_RETURN else self.cleaned_data["action"]
         )
@@ -312,7 +314,35 @@ class ReviewForm(forms.Form):
             decided_funding_currency=self.cleaned_data["decided_funding_currency"],
             reviewer_remarks=self.cleaned_data["reviewer_remarks"],
             result=result,
+            funding_splits=funding_splits,
         )
+
+
+class ReviewSplitForm(forms.Form):
+    funding_source = forms.ModelChoiceField(
+        queryset=FundingSource.objects.filter(type="budget"),
+        label="Budget",
+        required=False,
+    )
+    amount = forms.DecimalField(max_digits=20, decimal_places=2, min_value=0, required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        source = cleaned.get("funding_source")
+        amount = cleaned.get("amount")
+        if (source is None) != (amount is None):
+            self.add_error(None, "A funding split needs both a budget and an amount.")
+        return cleaned
+
+    def to_dto(self) -> ReviewSplitDto:
+        source = self.cleaned_data["funding_source"]
+        amount = self.cleaned_data["amount"]
+        assert source is not None
+        assert amount is not None
+        return ReviewSplitDto(funding_source_id=source.pk, amount=amount)
+
+
+ReviewSplitFormSet = formset_factory(ReviewSplitForm, extra=1)
 
 
 class FundingOrganizationLinkForm(forms.Form):

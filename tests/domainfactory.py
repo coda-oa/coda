@@ -182,8 +182,11 @@ def free_position(
     )
 
 
-def budget(id: FundingSourceId | None = None) -> Budget:
-    return Budget(id, _faker.company())
+def budget(id: FundingSourceId | None = None, amount: Money | None = None) -> Budget:
+    budget = Budget(id, _faker.company())
+    if amount is not None:
+        budget.amount = amount
+    return budget
 
 
 def split_source(institution: InstitutionId | None = None, name: str = "") -> SplitSource:

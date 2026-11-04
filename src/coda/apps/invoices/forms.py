@@ -1,3 +1,4 @@
+import datetime
 from collections.abc import Callable, Iterable
 from typing import Any, ClassVar, Self, cast
 
@@ -74,9 +75,46 @@ class CreditorForm(forms.ModelForm[Creditor]):
 
 
 class FundingSourceForm(forms.ModelForm[FundingSource]):
+    budget_currency = currency_field(label="Currency")
+
     class Meta:
         model = FundingSource
-        fields: ClassVar[list[str]] = ["name"]
+        fields: ClassVar[list[str]] = [
+            "name",
+            "budget_amount",
+            "budget_currency",
+            "period_start",
+            "period_end",
+            "allow_over",
+            "allowance_amount",
+        ]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        instance = self.instance
+        if not instance.pk or instance.type == "budget":
+            # Budget rows must carry all accounting terms; the model's columns
+            # are nullable only because institution rows share the table.
+            for field_name in (
+                "budget_amount",
+                "budget_currency",
+                "period_start",
+                "period_end",
+            ):
+                self.fields[field_name].required = True
+
+        if instance.pk and instance.period_start and instance.period_start <= datetime.date.today():
+            # The amount is immutable once the period has started (spec §2):
+            # disabled fields fall back to the instance's value on POST.
+            self.fields["budget_amount"].disabled = True
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        start = cleaned.get("period_start")
+        end = cleaned.get("period_end")
+        if start and end and start > end:
+            self.add_error("period_end", "The period start must not be after its end.")
+        return cleaned
 
 
 payment_status_choices = [("", "-------"), *PaymentStatus.choices()]

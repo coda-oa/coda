@@ -7,7 +7,11 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import mapper as fundingrequest_mapper
 from coda.apps.fundingrequests.mappers import FundingRequestDomainMapper
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
-from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingRequestReview,
+    ReviewFundingSplit,
+)
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
@@ -107,10 +111,27 @@ class UnsavedFundingRequest(ValueError):
 
 
 @transaction.atomic
-def save_review(review: Review) -> None:
+def save_review(review: Review) -> list[ReviewFundingSplit]:
     review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
     fundingrequest_mapper._update_review_model(review, review_model)
     review_model.save()
+    return _synchronize_review_splits(review_model, review)
+
+
+def _synchronize_review_splits(
+    review_model: FundingRequestReview, review: Review
+) -> list[ReviewFundingSplit]:
+    review_model.funding_splits.all().delete()
+    return list(
+        ReviewFundingSplit.objects.bulk_create(
+            ReviewFundingSplit(
+                review=review_model,
+                funding_source_id=split.funding_source,
+                amount=split.amount.amount,
+            )
+            for split in review.funding_splits
+        )
+    )
 
 
 @transaction.atomic

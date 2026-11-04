@@ -16,6 +16,26 @@ class FundingSource(models.Model):
     type = models.CharField(max_length=255, default="budget", choices=TypeChoices)
     name = models.CharField(max_length=255, blank=True)
     institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
+    budget_amount = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
+    budget_currency = models.CharField(max_length=3, null=True, blank=True)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    allow_over = models.BooleanField(default=False)
+    allowance_amount = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(type="budget")
+                | models.Q(
+                    budget_amount__isnull=False,
+                    budget_currency__isnull=False,
+                    period_start__isnull=False,
+                    period_end__isnull=False,
+                ),
+                name="budget_type_has_amount_and_period",
+            )
+        ]
 
 
 class CreditorManager(models.Manager["Creditor"]):
@@ -100,6 +120,53 @@ class FundingAssignment(models.Model):
 
     class Meta:
         ordering = ("id",)
+
+
+class BudgetTransfer(models.Model):
+    """A movement of funds between budgets (budget-system.md §5).
+
+    Positive amounts transfer available funds: debit on the source, credited
+    on the target. Negative amounts transfer an exceeded budget's overrun as
+    debt: debit on the target, the source stays exceeded."""
+
+    source = models.ForeignKey(
+        FundingSource, on_delete=models.PROTECT, related_name="transfers_out"
+    )
+    target = models.ForeignKey(
+        FundingSource, on_delete=models.PROTECT, related_name="transfers_in"
+    )
+    amount = models.DecimalField(max_digits=20, decimal_places=4)
+    provenance_note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class BudgetLedgerEntry(models.Model):
+    """Append-only event history for a budget (budget-system.md §6.5).
+
+    One row per budget-relevant event; balances are never derived from these
+    rows. Amounts are in the event's original currency."""
+
+    class Event(models.TextChoices):
+        COMMITMENT = "commitment", "Commitment"
+        PAYMENT = "payment", "Payment"
+        TRANSFER = "transfer", "Transfer"
+
+    budget = models.ForeignKey(
+        FundingSource, on_delete=models.CASCADE, related_name="ledger_entries"
+    )
+    event = models.CharField(max_length=20, choices=Event.choices)
+    amount = models.DecimalField(max_digits=20, decimal_places=4)
+    currency = models.CharField(max_length=3)
+    review_split = models.ForeignKey(
+        "fundingrequests.ReviewFundingSplit", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    funding_assignment = models.ForeignKey(
+        FundingAssignment, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    transfer = models.ForeignKey(
+        BudgetTransfer, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class CurrencyConversion(models.Model):

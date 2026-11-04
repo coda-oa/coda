@@ -52,7 +52,7 @@ class PaymentDto(CodaBaseDto):
     @classmethod
     def empty(cls) -> "PaymentDto":
         return PaymentDto(
-            amount=Decimal("0"),
+            amount=Decimal(0),
             currency=Currency.EUR.code,
             method=PaymentMethod.Unknown.value,
         )
@@ -140,11 +140,17 @@ class ExtraInformationDto(CodaBaseDto):
     reviewer_remarks: str | None = None
 
 
+class ReviewSplitDto(CodaBaseDto):
+    funding_source_id: int
+    amount: Decimal
+
+
 class UpdateReviewDto(CodaBaseDto):
     decided_funding_amount: Decimal
     decided_funding_currency: str
     reviewer_remarks: str
     result: str
+    funding_splits: Iterable[ReviewSplitDto] = ()
 
 
 # Type alias for clarity when using UpdateReviewDto for creation

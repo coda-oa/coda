@@ -196,6 +196,22 @@ class FundingRequestReview(models.Model):
     remarks = models.TextField(blank=True)
 
 
+class ReviewFundingSplit(models.Model):
+    """A decided funding request's attribution to one budget.
+
+    Amounts are in the budget's currency. Created when a review is approved;
+    reservations derive from these rows until an invoice assignment for the
+    same request and budget exists (see budget_query)."""
+
+    review = models.ForeignKey(
+        FundingRequestReview, on_delete=models.CASCADE, related_name="funding_splits"
+    )
+    funding_source = models.ForeignKey(
+        "invoices.FundingSource", on_delete=models.PROTECT, related_name="review_splits"
+    )
+    amount = models.DecimalField(max_digits=20, decimal_places=4)
+
+
 class FundingRequest(models.Model):
     objects: FundingRequestManager = FundingRequestManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 

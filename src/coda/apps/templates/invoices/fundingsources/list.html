@@ -1,5 +1,15 @@
 <article class="flex justify-between align-center">
-    <p class="m-0">{{ entity.name }}</p>
+    <div>
+        <p class="m-0">{{ entity.name }}</p>
+        <small>
+            <span class="chip {{ entity.status.css_class }}">{{ entity.status.label }}</span>
+            available: {{ entity.balance.available }}
+            {% if entity.balance.pending %}
+                · pending conversion:
+                {% for amount in entity.balance.pending %}{{ amount }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% endif %}
+        </small>
+    </div>
     <a href="{% url "invoices:fundingsource_update" pk=entity.id %}"
        class="button secondary">Edit</a>
 </article>

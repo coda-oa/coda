@@ -11,6 +11,7 @@ from coda.apps.mappers import prefixed
 from coda.coda_itertools import LazyCachedIterable
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
+from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
@@ -71,7 +72,7 @@ class InvoiceDomainMapper:
 
 class PositionDomainMapper:
     @staticmethod
-    def prefetch[_T: Model](qs: QuerySet[_T], prefix: str = "") -> QuerySet[_T]:
+    def prefetch[T: Model](qs: QuerySet[T], prefix: str = "") -> QuerySet[T]:
         if prefix:
             qs = qs.prefetch_related(
                 Prefetch(prefix, PositionModel.objects.select_related("contract"))
@@ -107,13 +108,28 @@ class PositionDomainMapper:
 
 class FundingSourceDomainMapper:
     @staticmethod
-    def prefetch[_T: Model](qs: QuerySet[_T], prefix: str = "") -> QuerySet[_T]:
+    def prefetch[T: Model](qs: QuerySet[T], prefix: str = "") -> QuerySet[T]:
         return qs.select_related(prefixed(prefix, "institution"))
 
     @staticmethod
     def map(model: FundingSourceModel) -> FundingSource:
         if model.type == "budget":
-            return Budget(FundingSourceId(model.pk), model.name)
+            assert model.budget_amount is not None
+            assert model.budget_currency is not None
+            assert model.period_start is not None
+            assert model.period_end is not None
+            return Budget(
+                FundingSourceId(model.pk),
+                model.name,
+                amount=Money(model.budget_amount, Currency[model.budget_currency]),
+                period=DateRange(start=model.period_start, end=model.period_end),
+                allow_over=model.allow_over,
+                allowance=(
+                    Money(model.allowance_amount, Currency[model.budget_currency])
+                    if model.allowance_amount is not None
+                    else None
+                ),
+            )
         elif model.type == "institution":
             assert model.institution is not None
             return SplitSource(
