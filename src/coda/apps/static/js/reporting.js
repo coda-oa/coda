@@ -4,6 +4,63 @@
 // escaping work here: the template owns the payloads, this file only paints.
 // Runs on first load and after every htmx swap of the statistics region, so a
 // filter change re-paints the freshly swapped charts.
+
+// Commit-on-blur for the band form's date fields and search box. The band
+// form once carried this as `focusout changed[...]` in hx-trigger, but htmx
+// only reads a bracket filter directly after the event name — the filter sat
+// after `changed`, was dropped with a syntax error per token, and the bare
+// `focusout changed` fired on every first blur of every field in the form.
+// And htmx's `changed` seeds its last-value map with the *listener* element
+// (the form), so no hx-trigger spelling of "changed since focus" exists;
+// tracking the per-field value in JS is the only faithful form. The search
+// box has no input debounce on this page (the pipeline is too expensive for
+// search-as-you-type), so blur is its only commit besides Enter.
+//
+// focusout (unlike blur) bubbles, and the form is never htmx-swapped, so one
+// delegated listener on the form survives the period block's OOB re-renders.
+const COMMIT_ON_BLUR = ".filter-search, #id_start_date, #id_end_date";
+const bandForm = document.getElementById("filter-toolbar-form");
+if (bandForm) {
+    const lastCommitted = new WeakMap();
+    // Seed the baseline on focus: only a value that changed while the field
+    // was focused commits on its blur. Without the seed the first blur of an
+    // untouched field (lastCommitted undefined) would fire — exactly the
+    // search<->date tab-switch requests this listener exists to prevent.
+    bandForm.addEventListener("focusin", (event) => {
+        const field = event.target;
+        if (field.matches(COMMIT_ON_BLUR) && !lastCommitted.has(field)) {
+            lastCommitted.set(field, field.value);
+        }
+    });
+    // A submit serializes the fields' current values, so anything the submit
+    // carried is committed as far as the blur path is concerned. Without the
+    // re-seed, "type into search + Enter, then blur" fires a second, identical
+    // request: the blur dispatches change, the trigger's 300ms delay queues it
+    // behind the submit via hx-sync, and it still runs after the swap.
+    bandForm.addEventListener("submit", () => {
+        for (const field of bandForm.querySelectorAll(COMMIT_ON_BLUR)) {
+            lastCommitted.set(field, field.value);
+        }
+    });
+    bandForm.addEventListener("focusout", (event) => {
+        const field = event.target;
+        if (!field.matches(COMMIT_ON_BLUR)) {
+            return;
+        }
+        if (lastCommitted.get(field) === field.value) {
+            return;
+        }
+        lastCommitted.set(field, field.value);
+        // Dispatch change on the FORM, not the field: the band's change
+        // trigger excludes date inputs by design (segmented typing commits
+        // `change` mid-edit), so a change on the date field itself would be
+        // filtered out. On the form, event.target is the form — which
+        // matches neither excluded selector — and the trigger's 300ms
+        // debounce coalesces rapid blurs like an editor-committed value.
+        bandForm.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+}
+
 const renderChart = (element) => {
     const source = document.getElementById(element.dataset.chart);
     if (!source || element.dataset.plotlyRendered === "true") {

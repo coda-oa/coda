@@ -29,15 +29,13 @@
                   browsers commit `change` per valid segment mid-edit
                   (stackoverflow.com/a/60996719), and the search box is off
                   change entirely: the pipeline is too expensive for
-                  search-as-you-type. Both commit on `focusout changed`:
-                  blur does not bubble and `from:` resolves once at init, so
-                  an OOB swap of the period block would orphan blur
-                  listeners; the form is never swapped and hears the
-                  bubbling focusout. Enter still works via `submit`.
-                  filter_layout.html's toolbar copy has the same expression
-                  scoped to its own form. Keep the two in sync.
+                  search-as-you-type. Dates and the search box commit on
+                  blur through the reporting.js listener; see that file for
+                  why htmx cannot express it. Enter still works via
+                  `submit`. filter_layout.html's toolbar copy has the same
+                  expression scoped to its own form. Keep the two in sync.
               {% endcomment %}
-              hx-trigger="submit, change delay:300ms from:#filter-sidebar-form, change[!event.target.matches('.filter-search') && !event.target.matches('input[type=date]')] delay:300ms, focusout changed[event.target.matches('.filter-search, #id_start_date, #id_end_date')]">
+              hx-trigger="submit, change delay:300ms from:#filter-sidebar-form, change[!event.target.matches('.filter-search') && !event.target.matches('input[type=date]')] delay:300ms">
             {% comment %}
                 Default submit button: without it, pressing Enter in the search
                 box would implicitly click the first tab submit button and
