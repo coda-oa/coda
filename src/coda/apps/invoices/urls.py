@@ -19,6 +19,7 @@ from coda.apps.invoices.views.creditor import (
 )
 from coda.apps.invoices.views.finances_home import finances_home
 from coda.apps.invoices.views.fundingsources import (
+    budget_transfer,
     fundingsource_createview,
     fundingsource_detailview,
     fundingsource_listview,
@@ -115,6 +116,7 @@ urlpatterns = [
     path("fundingsources/<int:pk>/", fundingsource_detailview, name="fundingsource_detail"),
     path("fundingsources/create/", fundingsource_createview, name="fundingsource_create"),
     path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
+    path("fundingsources/<int:pk>/transfer", budget_transfer, name="budget_transfer"),
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
     path("import/", import_invoices_view, name="import"),

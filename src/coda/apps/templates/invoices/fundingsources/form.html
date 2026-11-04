@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block page_title %}{{ title }}{% endblock page_title %}
+{% block content %}
+    <section class="my-2">
+        <form method="post">
+            <article>
+                {% csrf_token %}
+                <div class="grid">
+                    <div>
+                        <h2>Identity &amp; period</h2>
+                        <label for="{{ form.name.id_for_label }}">Name</label>
+                        {{ form.name }}
+                        {% for error in form.name.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
+                        <label for="{{ form.period_start.id_for_label }}">Period start</label>
+                        {{ form.period_start }}
+                        <label for="{{ form.period_end.id_for_label }}">Period end</label>
+                        {{ form.period_end }}
+                        {% for error in form.period_start.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
+                        {% for error in form.period_end.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
+                        <p><small>Period edits never change balances — attribution is by link, not dates.</small></p>
+                    </div>
+                    <div>
+                        <h2>Money rules</h2>
+                        <label for="{{ form.budget_amount.id_for_label }}">Amount</label>
+                        {{ form.budget_amount }}
+                        {% for error in form.budget_amount.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
+                        <label for="{{ form.budget_currency.id_for_label }}">Currency</label>
+                        {{ form.budget_currency }}
+                        <label for="{{ form.allow_over.id_for_label }}">{{ form.allow_over }} Allow going over budget</label>
+                        <label for="{{ form.allowance_amount.id_for_label }}">Overage allowance</label>
+                        {{ form.allowance_amount }}
+                        <p><small>Empty = unbounded when going over is allowed. The amount is immutable once the period has started — move funds via a transfer.</small></p>
+                        {% if balance %}
+                            <h2 class="mt-2">Live state</h2>
+                            <p>
+                                Reserved: {{ balance.reserved }} · Spent: {{ balance.spent }}
+                                <br>
+                                <strong>Available: {{ balance.available }}</strong>
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+                <button type="submit">Save</button>
+            </article>
+        </form>
+    </section>
+{% endblock content %}

@@ -1,3 +1,4 @@
+import datetime
 import random
 
 import faker
@@ -16,6 +17,7 @@ from coda.apps.publishers.models import Publisher
 from coda.domain import issn
 from coda.domain.contract import PublicationBilling
 from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.domain.money import Currency, Money
 from coda.domain.publication import Authors, JournalId
 from tests import domainfactory
 
@@ -117,5 +119,12 @@ def creditor(name: str = "") -> Creditor:
     return Creditor.objects.create(name=name or _faker.company())
 
 
-def budget(name: str = "") -> FundingSource:
-    return FundingSource.objects.create(name=name or _faker.company())
+def budget(name: str = "", amount: Money | None = None) -> FundingSource:
+    amount = amount or Money("10000", Currency.EUR)
+    return FundingSource.objects.create(
+        name=name or _faker.company(),
+        budget_amount=amount.amount,
+        budget_currency=amount.currency.code,
+        period_start=datetime.date(2026, 1, 1),
+        period_end=datetime.date(2026, 12, 31),
+    )

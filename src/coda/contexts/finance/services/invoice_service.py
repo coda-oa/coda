@@ -1,13 +1,20 @@
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
+from coda.contexts.finance.services.budget_service import (
+    ensure_assignment_capacity,
+    record_assignment_commitments,
+    record_payments,
+)
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 
 
 def save(invoice: Invoice) -> InvoiceId:
+    ensure_assignment_capacity(invoice)
     _unpay_deleted_publication_positions(invoice)
     id = _save_invoice(invoice)
+    record_assignment_commitments(id)
 
     if invoice.is_paid():
         _pay_publications(invoice)
@@ -42,6 +49,7 @@ def pay_invoice(invoice_id: InvoiceId) -> None:
     invoice = repository.get_by_id(invoice_id)
     invoice.pay()
     repository.update(invoice)
+    record_payments(invoice_id)
     _pay_publications(invoice)
 
 

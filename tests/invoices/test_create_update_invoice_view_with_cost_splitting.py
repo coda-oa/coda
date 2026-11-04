@@ -10,6 +10,7 @@ from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto, P
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.author import InstitutionId
+from coda.domain.money import Money
 from coda.domain.finance.funding_sources import SplitSource
 from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.money import Currency
@@ -21,7 +22,7 @@ from tests.invoices.test_invoice_repository import assert_invoice_eq
 @pytest.mark.usefixtures("logged_in")
 def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Client) -> None:
     institution = modelfactory.institution()
-    funding_source_1 = domainfactory.budget()
+    funding_source_1 = domainfactory.budget(amount=Money("1000000", Currency.EUR))
     funding_source_2 = SplitSource.new(InstitutionId(institution.pk), institution.name)
     funding_source_1.id = funding_source_repository.create(funding_source_1)
     funding_source_2.id = funding_source_repository.create(funding_source_2)
@@ -54,7 +55,7 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__invalid_split_amount__create_invoice__shows_error(client: Client) -> None:
-    budget = domainfactory.budget()
+    budget = domainfactory.budget(amount=Money("1000000", Currency.EUR))
     budget.id = funding_source_repository.create(budget)
 
     creditor = CreditorId(modelfactory.creditor().pk)
@@ -82,7 +83,7 @@ def test__invalid_split_amount__create_invoice__shows_error(client: Client) -> N
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__invalid_split_amount__update_invoice__shows_error(client: Client) -> None:
-    budget = domainfactory.budget()
+    budget = domainfactory.budget(amount=Money("1000000", Currency.EUR))
     budget.id = funding_source_repository.create(budget)
     position = domainfactory.free_position()
 
@@ -114,7 +115,7 @@ def test__existing_invoice__update_with_positions_with_split_costs__saves_to_db(
     client: Client,
 ) -> None:
     institution = modelfactory.institution()
-    funding_source_1 = domainfactory.budget()
+    funding_source_1 = domainfactory.budget(amount=Money("1000000", Currency.EUR))
     funding_source_2 = domainfactory.split_source(InstitutionId(institution.pk), institution.name)
     funding_source_1.id = funding_source_repository.create(funding_source_1)
     funding_source_2.id = funding_source_repository.create(funding_source_2)

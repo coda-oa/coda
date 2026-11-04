@@ -62,12 +62,10 @@ def build_funding_source_lookup(
     funding_sources = set(_funding_sources(invoice_dtos))
     existing = FundingSourceModel.objects.filter(name__in=funding_sources)
     existing_map = {fs.name: FundingSourceId(fs.pk) for fs in existing}
-    to_create = [
-        FundingSourceModel(name=name) for name in funding_sources if name not in existing_map
-    ]
-    if to_create:
-        created = FundingSourceModel.objects.bulk_create(to_create)
-        existing_map.update({fs.name: FundingSourceId(fs.pk) for fs in created})
+    missing = [name for name in funding_sources if name not in existing_map]
+    if missing:
+        created_ids = funding_source_repository.create_many([Budget.new(name) for name in missing])
+        existing_map.update(zip(missing, created_ids))
 
     return existing_map
 

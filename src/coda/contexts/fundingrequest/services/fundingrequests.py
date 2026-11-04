@@ -11,6 +11,7 @@ from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import ContractYearDto, parse_publication_state
 from coda.checks.checkfactory import CheckFactory
+from coda.contexts.finance.services import budget_service
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     CreateReviewDto,
@@ -27,10 +28,12 @@ from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import GetContractById, PublisherId
+from coda.domain.errors import DomainError
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.fundingrequest.review import Review, ReviewResult, ReviewSplit
 from coda.domain.money import Currency, Money
 from coda.domain.publication import Authors, JournalId, License, OpenAccessType
 from coda.domain.publication.publication import Monograph, Publication
@@ -355,16 +358,57 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     if not review.result:
         review = _keep_result(fundingrequest_id, review)
 
+    result = ReviewResult.of(review.result)
+    decided_funding = Money(
+        review.decided_funding_amount,
+        Currency.from_code(review.decided_funding_currency),
+    )
+    splits = _review_splits(review, decided_funding)
+    if result == ReviewResult.Approved:
+        _validate_splits(decided_funding, splits)
+        for split in splits:
+            budget_service.ensure_capacity(split.funding_source, split.amount)
+
     review_ = Review(
         fundingrequest_id,
-        Money(
-            review.decided_funding_amount,
-            Currency.from_code(review.decided_funding_currency),
-        ),
+        decided_funding,
         remarks=review.reviewer_remarks,
-        result=ReviewResult.of(review.result),
+        result=result,
+        funding_splits=splits if result == ReviewResult.Approved else (),
     )
-    repository.save_review(review_)
+    persisted_splits = repository.save_review(review_)
+    for split in persisted_splits:
+        budget_service.record_commitment(
+            split.funding_source_id,
+            Money(split.amount, decided_funding.currency),
+            review_split=split.pk,
+        )
+
+
+def _review_splits(review: UpdateReviewDto, decided_funding: Money) -> tuple[ReviewSplit, ...]:
+    return tuple(
+        ReviewSplit(
+            FundingSourceId(split.funding_source_id),
+            Money(split.amount, decided_funding.currency),
+        )
+        for split in review.funding_splits
+    )
+
+
+def _validate_splits(decided_funding: Money, splits: tuple[ReviewSplit, ...]) -> None:
+    if not splits:
+        return
+
+    total = sum((split.amount for split in splits), start=Money(0, decided_funding.currency))
+    if total != decided_funding:
+        raise InvalidFundingSplit(
+            f"funding splits sum to {total.amount} {total.currency.code} "
+            f"but the decided funding is {decided_funding.amount} {decided_funding.currency.code}"
+        )
+
+
+class InvalidFundingSplit(DomainError):
+    pass
 
 
 def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -> UpdateReviewDto:

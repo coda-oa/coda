@@ -1,8 +1,8 @@
-from typing import TypedDict, cast
-
+from typing import TypedDict
 
 from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.invoices import models as invoice_models
+from coda.apps.invoices.mappers._domain import FundingSourceDomainMapper
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
@@ -113,16 +113,7 @@ def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.In
 
 
 def as_domain_funding_source(model: invoice_models.FundingSource) -> FundingSource:
-    if model.type == "budget":
-        return Budget(FundingSourceId(model.pk), model.name)
-    elif model.type == "institution":
-        assert model.institution is not None
-        return SplitSource(
-            FundingSourceId(model.pk),
-            cast(InstitutionId, model.institution.pk),
-            model.institution.name,
-        )
-    raise ValueError("Invalid model type")
+    return FundingSourceDomainMapper.map(model)
 
 
 def _resolve_institution_funding_sources(

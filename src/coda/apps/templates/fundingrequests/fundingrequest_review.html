@@ -19,6 +19,27 @@
             {% if form.decided_funding_currency.errors %}
                 <small class="mt-1">{{ form.decided_funding_currency.errors.0 }}</small>
             {% endif %}
+            <h2 class="mt-2">Funding attribution</h2>
+            {{ funding_splits.management_form }}
+            {% for split_form in funding_splits %}
+                <div class="flex">
+                    {{ split_form.funding_source }}
+                    {{ split_form.amount }}
+                </div>
+                {% for error in split_form.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
+            {% endfor %}
+            {% if funding_splits.non_form_errors %}
+                <small class="mt-1">{{ funding_splits.non_form_errors.0 }}</small>
+            {% endif %}
+            <p class="mt-1"><small>Available per budget:</small></p>
+            <ul class="mt-0">
+                {% for budget in budgets %}
+                    <li><small>{{ budget.name }}: {{ budget.available }}</small></li>
+                {% endfor %}
+            </ul>
+            {% if form.non_field_errors %}
+                <small class="mt-1">{{ form.non_field_errors.0 }}</small>
+            {% endif %}
             <label for="{{ form.reviewer_remarks.id_for_label }}" class="my-2">
                 Reviewer Remarks
                 {{ form.reviewer_remarks }}
