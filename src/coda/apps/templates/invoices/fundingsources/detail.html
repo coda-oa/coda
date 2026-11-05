@@ -58,24 +58,13 @@
                 <a href="{% url "invoices:list" %}?funding_source={{ fundingsource.id }}">All invoices for this funding source →</a>
             </p>
             <h2>Transfer funds</h2>
-            <form method="post"
-                  action="{% url "invoices:budget_transfer" pk=fundingsource.id %}">
-                {% csrf_token %}
-                <div class="flex">
-                    <select name="target" aria-label="Target budget">
-                        {% for target in transfer_targets %}
-                            <option value="{{ target.id }}">{{ target.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="number"
-                           name="amount"
-                           step="0.01"
-                           placeholder="Amount (negative = debt transfer)">
-                    <input type="text" name="provenance_note" placeholder="Provenance note">
-                    <button type="submit">Transfer</button>
-                </div>
-                {% if transfer_error %}<small class="mt-1">{{ transfer_error }}</small>{% endif %}
-            </form>
+            {# Transfer dialog (§8.4): the GET fragment opens the htmx dialog (transfer or add-funds mode); the existing budget_transfer POST URL submits it. #}
+            <button class="outline"
+                    hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}"
+                    hx-target="body">Transfer…</button>
+            <button class="outline"
+                    hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}?mode=add_funds"
+                    hx-target="body">Add funds…</button>
             <h2>Booking ledger</h2>
             <ul>
                 {% for entry in ledger %}

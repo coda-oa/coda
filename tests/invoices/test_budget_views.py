@@ -128,6 +128,108 @@ def test__budget_detail__shows_full_state_and_ledger(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__transfer_dialog__opens_as_fragment(client: Client) -> None:
+    """The GET fragment endpoint renders the htmx `<dialog open>` partial
+    with the transfer form posting to the existing budget_transfer URL."""
+    budget, budget_id = budget_setup.a_budget(name="Source", amount=Money("5000", EUR))
+
+    response = client.get(
+        reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id})
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "<dialog open>" in content
+    assert f'hx-post="{reverse("invoices:budget_transfer", kwargs={"pk": budget_id})}"' in content
+    assert 'name="mode"' in content
+    assert 'name="target"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__transfer_dialog__add_funds_mode__renders_add_funds_form(client: Client) -> None:
+    """The add-funds mode (?mode=add_funds) renders the add-funds copy and no
+    target select — credited-only, per the add-funds money rule."""
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("1000", EUR))
+
+    response = client.get(
+        reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id}),
+        {"mode": "add_funds"},
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "<dialog open>" in content
+    assert 'value="add_funds"' in content
+    assert "Adds funds from outside CODA" in content
+    assert 'name="target"' not in content
+    # an unknown mode falls back to the transfer dialog
+    fallback = client.get(
+        reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id}),
+        {"mode": "bogus"},
+    )
+    assert 'name="target"' in fallback.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__transfer_dialog__add_funds_mode__books_credited_row(client: Client) -> None:
+    """Add-funds (no target — credited-only, §8.4/ticket 06) books one
+    credited ledger row and raises available by the added amount."""
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("1000", EUR))
+
+    response = client.post(
+        reverse("invoices:budget_transfer", kwargs={"pk": budget_id}),
+        {
+            "mode": "add_funds",
+            "amount": "500",
+            "provenance_note": "received from an untracked budget",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse(
+        "invoices:fundingsource_detail", kwargs={"pk": budget_id}
+    )
+    from coda.apps.invoices.models import BudgetLedgerEntry, BudgetTransfer
+
+    transfer = BudgetTransfer.objects.get()
+    assert transfer.source is None
+    assert transfer.target_id == budget_id
+    assert transfer.amount == Decimal(500)
+    row = BudgetLedgerEntry.objects.get(budget_id=budget_id, event="transfer")
+    assert row.amount == Decimal(500)
+    balance = budget_query.budget_balances(budget_id)
+    assert balance.credited == Money("500", EUR)
+    assert balance.available == Money("1500", EUR)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__transfer_dialog__add_funds__rejects_nonpositive_and_blank_provenance(
+    client: Client,
+) -> None:
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("1000", EUR))
+
+    for amount, provenance in (("0", "note"), ("-5", "note"), ("500", "")):
+        response = client.post(
+            reverse("invoices:budget_transfer", kwargs={"pk": budget_id}),
+            {
+                "mode": "add_funds",
+                "amount": amount,
+                "provenance_note": provenance,
+            },
+        )
+        assert "<dialog open>" in response.content.decode()  # the fragment re-renders
+        assert "Error" in response.content.decode()
+
+    from coda.apps.invoices.models import BudgetTransfer
+
+    assert BudgetTransfer.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__budget_transfer__books_transfer_and_shows_in_balances(client: Client) -> None:
     _source, source_id = budget_setup.a_budget(name="Source", amount=Money("5000", EUR))
     _target, _target_id = budget_setup.a_budget(name="Target", amount=Money("10000", EUR))
@@ -137,7 +239,12 @@ def test__budget_transfer__books_transfer_and_shows_in_balances(client: Client) 
         {"target": str(_target.id), "amount": "2000", "provenance_note": "top-up"},
     )
 
-    assert response.status_code == 302
+    # The dialog submit responds with an htmx client redirect (HX-Redirect)
+    # — the full page reloads with the updated balances (§8.4).
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse(
+        "invoices:fundingsource_detail", kwargs={"pk": source_id}
+    )
     from coda.apps.invoices.models import BudgetTransfer
 
     assert BudgetTransfer.objects.count() == 1

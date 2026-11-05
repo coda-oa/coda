@@ -210,7 +210,10 @@ def budget_transfer_dialog(request: HttpRequest, pk: int) -> HttpResponse:
     carrying both the transfer and the add-funds mode (§8.4, Budget Review &
     Transfers Polish map)."""
     source = get_object_or_404(FundingSource, pk=pk)
-    context = _transfer_dialog_context(source)
+    mode = request.GET.get("mode", "transfer")
+    if mode not in {"transfer", "add_funds"}:
+        mode = "transfer"
+    context = _transfer_dialog_context(source, mode=mode)
     return render(request, "invoices/fundingsources/transfer_modal.html", context)
 
 
