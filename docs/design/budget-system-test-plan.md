@@ -115,6 +115,21 @@ Each cycle: write the failing test with a literal expected outcome (worked examp
 
 Budget-suite literals (0% fixtures); capacity domain tests (basis-agnostic); review-split tests (budget-currency amounts, gross as-is); export/CSV assertions (display stays net); `test_invoice_import.py` (assertions never observe the budget subsystem); the 0029 backfill migration tests (the new constraint migration gets its own `migrationtests` milestone).
 
+## Amendment — budget UI completion (2026-11-05)
+
+Companion to the §8 amendments (`docs/design/budget-system.md`); decisions in the [Budget UI Completion map](../../.wayfinder/map.md). All cycles use the Django test client with targeted HTML-fragment assertions, per the plan's conventions. **Seams under test**: the funding-source list/detail views (rendered HTML), the funding-source form rendering (selects show names — `__str__`), the review POST path (`review.py` `form_valid` — `form_action_add` round-trip, `ReviewSplitFormSet`, `_validate_splits`), and `budget_transfer` (unchanged; only navigation around it changes).
+
+### New cycles
+
+1. **Funding-source rendering** — `test__funding_source__renders_as_name_in_selects` (review-split select and invoice filter sidebar show the name, not "FundingSource object (N)"); institution row shows the institution's label; `test__budget_with_blank_name__renders_pk_label` (budget row, blank name, no institution → pk label, no crash).
+2. **Detail page: balance overview** — `test__budget_detail__shows_available_figure_and_balance_bar` (big available figure, slim spent/reserved bar segments, gross-of-tax qualifiers, amount (+allowance) secondary line); `test__budget_detail__exceeded__shows_red_available` (bar capped, red figure); `test__budget_detail__shows_pending_conversion_annotation` (annotation line, not a segment).
+3. **Detail page: invoice reference list** — `test__budget_detail__lists_invoices_referencing_the_source` (invoice number links to the invoice detail; 10 most recent; "All invoices" link carries the funding-source filter); `test__budget_detail__ignores_deleted_assignments` (re-saved invoices don't double-list).
+4. **List navigation** — `test__budget_list__name_links_to_detail` (row name links to `invoices:fundingsource_detail`).
+5. **Institution routes** — `test__institution_source__detail_redirects_to_institution_page`; `test__institution_source__update_redirects_to_institution_page` (both with the soft-deleted-institution case still resolving).
+6. **Review screen: split table** — `test__review_page__renders_split_table_with_add_button`; `test__review_page__add_row_round_trips` (POST with `form_action_add` before `action` re-renders with one more row and preserves entered data); `test__review_page__capacity_feedback_is_gross_of_tax_qualified` ("exceeds: only X gross-of-tax available" for an exhausted budget, sibling-aggregated); `test__review_page__sum_verdict_shows_difference` (splits not summing to decided funding show the live difference).
+7. **Attribution mandatory on approval (defect fix)** — `test__approving_review_without_splits__rejected` (decided funding > 0, zero splits → `InvalidFundingSplit`; today silently accepted — the cycle is red until `_validate_splits` drops its `if not splits: return`); zero decided funding with zero splits stays valid.
+8. **Changed behavior — blast radius of 7**: the `_validate_splits` rule change is **Approved-only** — reject/close/waive/return paths are untouched. **Gate**: a full `pdm run unittests` + `pdm run integrationtests` re-run after implementing is mandatory to surface any fixture that approves with an empty `funding_splits` formset — checked 2026-11-05: `tests/fundingrequests/test_review_splits.py` approval cases all post splits, and the wizard tests post no `funding_splits` keys, so expected fallout is small; re-run and confirm rather than assume. A newly-failing fixture **gains splits** — the rule does not relax.
+
 ## Conventions
 
 - DB tests: `@pytest.mark.django_db`; run `docker exec -w /app coda_local_django pdm run pytest tests/invoices tests/fundingrequests -q`; `--create-db` after schema changes; parallel-safe (no shared module state, own rows per test).
