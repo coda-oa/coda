@@ -6,9 +6,11 @@ from django.urls import reverse
 
 from coda.apps.invoices import budget_query
 from coda.domain.money import Currency, Money
+from tests import modelfactory
 from tests.invoices import budget_setup
 
 EUR = Currency.EUR
+USD = Currency.USD
 
 
 @pytest.mark.django_db
@@ -28,6 +30,47 @@ def test__budget_list__shows_status_chip_and_available(client: Client) -> None:
     assert "within budget" in content
     assert "exceeded" in content
     assert "7500" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_list__shows_pending_conversion_chip(client: Client) -> None:
+    budget, _ = budget_setup.a_budget(name="Rate Pending", amount=Money("10000", EUR))
+    budget_setup.an_invoice_with_assignment(
+        Money("3000", USD), budget, paid=True
+    )  # no bank rate entered: pending conversion
+
+    response = client.get(reverse("invoices:fundingsource_list"))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Rate Pending" in content
+    assert "pending conversion" in content
+    assert "3000" in content  # pending amount in original currency
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__institution_source__name_matching_a_budget__update_passes(client: Client) -> None:
+    """The uniqueness rule covers budget-type sources only; an institution
+    row sharing a budget's name must not fail form validation (the partial
+    index doesn't constrain it either)."""
+    from coda.apps.invoices.models import FundingSource
+
+    budget_setup.a_budget(name="DARK 2026")
+    institution = modelfactory.institution()
+    source = FundingSource.objects.create(
+        type="institution", name="DARK 2026", institution_id=institution.pk
+    )
+
+    response = client.post(
+        reverse("invoices:fundingsource_update", kwargs={"pk": source.pk}),
+        {"name": "DARK 2026"},
+    )
+
+    assert response.status_code == 302
+    source.refresh_from_db()
+    assert source.name == "DARK 2026"
 
 
 @pytest.mark.django_db
@@ -100,6 +143,42 @@ def test__budget_transfer__garbage_amount__renders_error_and_books_nothing(clien
     from coda.apps.invoices.models import BudgetTransfer
 
     assert BudgetTransfer.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_create__duplicate_name__renders_error_and_persists_nothing(
+    client: Client,
+) -> None:
+    budget_setup.a_budget(name="DARK 2026")
+
+    response = client.post(
+        reverse("invoices:fundingsource_create"),
+        {
+            "name": "DARK 2026",
+            "budget_amount": "10000",
+            "budget_currency": "EUR",
+            "period_start": "2026-01-01",
+            "period_end": "2026-12-31",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "already exists" in response.content.decode()
+    from coda.apps.invoices.models import FundingSource
+
+    assert FundingSource.objects.filter(name="DARK 2026").count() == 1
+
+
+@pytest.mark.django_db
+def test__budget_names_are_unique_among_budgets() -> None:
+    from coda.apps.invoices import funding_source_repository
+    from coda.domain.finance.funding_sources import Budget
+
+    budget_setup.a_budget(name="DARK 2026")
+
+    with pytest.raises(funding_source_repository.BudgetNameNotUnique):
+        funding_source_repository.create(Budget.new("DARK 2026", amount=Money("1000", EUR)))
 
 
 @pytest.mark.django_db

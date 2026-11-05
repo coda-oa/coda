@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -24,7 +26,7 @@ class FundingSource(models.Model):
     allowance_amount = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list[models.BaseConstraint]] = [
             models.CheckConstraint(
                 condition=~models.Q(type="budget")
                 | models.Q(
@@ -34,7 +36,12 @@ class FundingSource(models.Model):
                     period_end__isnull=False,
                 ),
                 name="budget_type_has_amount_and_period",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=models.Q(type="budget"),
+                name="unique_name_among_budgets",
+            ),
         ]
 
 
@@ -76,7 +83,7 @@ class Invoice(models.Model):
     external_invoice_id = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list[models.BaseConstraint]] = [
             models.CheckConstraint(
                 condition=models.Q(status__in=[s.value for s in PaymentStatus]),
                 name="invoice_status_valid",
@@ -132,9 +139,7 @@ class BudgetTransfer(models.Model):
     source = models.ForeignKey(
         FundingSource, on_delete=models.PROTECT, related_name="transfers_out"
     )
-    target = models.ForeignKey(
-        FundingSource, on_delete=models.PROTECT, related_name="transfers_in"
-    )
+    target = models.ForeignKey(FundingSource, on_delete=models.PROTECT, related_name="transfers_in")
     amount = models.DecimalField(max_digits=20, decimal_places=4)
     provenance_note = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -163,9 +168,7 @@ class BudgetLedgerEntry(models.Model):
     funding_assignment = models.ForeignKey(
         FundingAssignment, on_delete=models.SET_NULL, null=True, blank=True
     )
-    transfer = models.ForeignKey(
-        BudgetTransfer, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    transfer = models.ForeignKey(BudgetTransfer, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
