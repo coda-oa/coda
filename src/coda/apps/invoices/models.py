@@ -144,7 +144,11 @@ class BudgetTransfer(models.Model):
     debt: debit on the target, the source stays exceeded."""
 
     source = models.ForeignKey(
-        FundingSource, on_delete=models.PROTECT, related_name="transfers_out"
+        FundingSource,
+        on_delete=models.PROTECT,
+        related_name="transfers_out",
+        null=True,
+        blank=True,
     )
     target = models.ForeignKey(FundingSource, on_delete=models.PROTECT, related_name="transfers_in")
     amount = models.DecimalField(max_digits=20, decimal_places=4)
