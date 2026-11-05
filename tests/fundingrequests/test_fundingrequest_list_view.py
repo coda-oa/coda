@@ -128,6 +128,23 @@ def pill_state(dom: Element, name: str) -> str:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__list_page__renders_no_include_labels_widget(client: Client) -> None:
+    """The pills are the single labels writer on the list page; the shared
+    sidebar's visible widget is flag-gated (`filter_include_labels`) and must
+    stay off here — a second writer would mask label removals."""
+    label_create("Guard Label", Color.from_rgb(5, 5, 5))
+    response = goto_list_page(client)
+    dom = parse_html(response.content.decode())
+    widgets = [
+        el
+        for el in walk(dom)
+        if el.name == "search-select-multi" and dict(el.attributes).get("name") == "labels"
+    ]
+    assert widgets == []
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__label_pill__link_points_at_filtered_list(client: Client) -> None:
     label = label_create("Pill A", Color())
     label_attach(modelfactory.fundingrequest(), label)

@@ -24,10 +24,7 @@ from django.views.generic import TemplateView
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.filters import build_filter_summary
-from coda.apps.fundingrequests.forms import (
-    FundingRequestListFilterForm,
-    parse_label_ids,
-)
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Invoice
@@ -179,7 +176,10 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     the nav shows) stays data-driven and tab-independent: a group whose
     dimensions the fact set never populates vanishes from the nav on every
     tab, exactly as before."""
-    labels = list(Label.objects.all().order_by("name"))
+    # The used-label set everywhere: a label attached to no request can never
+    # match a criterion, so offering it only ever produces zero-result
+    # filters (same set the list page's pills offer).
+    labels = list(Label.used_labels())
     contracts = list(Contract.objects.all())
     vocabularies = GlobalPreferences.preloaded()
     # When compare is switched on with empty inputs, prefill them with the
@@ -209,7 +209,15 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             # its push_params override instead of a mutated request.GET.
             push_params = compare_data
     filter_form = FundingRequestListFilterForm(
-        compare_data, contracts=contracts, labels=labels, vocabularies=vocabularies
+        compare_data,
+        contracts=contracts,
+        labels=labels,
+        vocabularies=vocabularies,
+        # No pill row on this page: the sidebar's visible include-labels
+        # widget is the single writer of the `labels` param (labels is
+        # set-valued and read as a union — a second writer would mask
+        # removals).
+        include_labels_widget=True,
     )
     # Disable the compare inputs server-side while compare is off, because
     # JS-only disabling leaves operable content invisible to screen readers
@@ -334,7 +342,7 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         "push_params": push_params,
         "labels": labels,
         "contract_list": contracts,
-        "label_state": sorted(parse_label_ids(request.GET.getlist("labels"))),
+        "filter_include_labels": filter_form.include_labels_widget,
         "active_filters": summary.chips,
         # The band's chip row: without the date chips. The two date inputs sit
         # in the toolbar right there — a removable duplicate's close action

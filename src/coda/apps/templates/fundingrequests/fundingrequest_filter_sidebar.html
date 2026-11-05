@@ -105,6 +105,18 @@
 </div>
 <div class="filter-group">
     <h3 class="filter-group-title">Labels</h3>
+    {% if filter_include_labels %}
+        {% comment %}
+            Visible include-labels widget for pages whose only labels writer
+            is the sidebar (statistics, export creation). Pages with a pill
+            row keep the pills as the single writer: labels is set-valued and
+            read as a union, so a second writer would mask removals.
+        {% endcomment %}
+        <div class="form-row">
+            {{ filter_form.labels.label_tag }}
+            {{ filter_form.labels }}
+        </div>
+    {% endif %}
     <div class="form-row">
         {{ filter_form.exclude_labels.label_tag }}
         {{ filter_form.exclude_labels }}
