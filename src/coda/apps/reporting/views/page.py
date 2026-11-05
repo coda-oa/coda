@@ -226,6 +226,76 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         for subwidget in filter_form.fields["compare_range"].widget.widgets:
             subwidget.attrs["disabled"] = True
     filter_form.is_valid()  # fills cleaned_data for the comparison resolution below
+    # QueryDict.get returns the LAST value of a repeated key — exactly the
+    # submitter-wins semantics the tab/resolution submit buttons rely on.
+    tab = request.GET.get("tab", "overview")
+    if tab not in ("overview", *(group.id for group in DIMENSION_GROUPS)):
+        tab = "overview"
+    try:
+        resolution = TemporalResolution(request.GET.get("resolution", "weekly"))
+    except ValueError:
+        resolution = TemporalResolution.WEEKLY
+
+    # The band/region state that does not depend on the fact pipeline. Built
+    # once, before the invalid-period branch, so the skip and the full report
+    # cannot drift.
+    date_errors = filter_form.errors.get("date_range")
+    summary = build_filter_summary(
+        request,
+        labels,
+        contracts,
+        list_url_name=_PAGE_URL,
+        region_url_name=_REGION_URL,
+        included=filter_form.selected_label_ids,
+        excluded=filter_form.excluded_label_ids,
+        date_range=filter_form.cleaned_data.get("date_range"),
+        date_range_error=str(date_errors[0]) if date_errors else None,
+    )
+    band_context: dict[str, Any] = {
+        "filter_form": filter_form,
+        # The compare params the region view should push; None pushes the
+        # request's own GET.
+        "push_params": push_params,
+        "labels": labels,
+        "contract_list": contracts,
+        "filter_include_labels": filter_form.include_labels_widget,
+        "active_filters": summary.chips,
+        # The band's chip row: without the date chips. The two date inputs sit
+        # in the toolbar right there — a removable duplicate's close action
+        # cannot win against the inputs' own serialization, so it only
+        # confuses. The drawer's rail keeps its chips.
+        "band_active_filters": [chip for chip in summary.chips if chip.kind != "date"],
+        "filter_count": summary.count,
+        "filter_clear_url": reverse(_PAGE_URL),
+        "filter_list_id": _REGION_ELEMENT_ID,
+        "list_view_url": list_view_url(request),
+        "resolution": resolution,
+        "resolutions": list(TemporalResolution),
+        "compare_on": compare_requested,
+        "tab": tab,
+    }
+
+    # An invalid main period renders no report: the sidebar contract drops a
+    # rejected value, so running the pipeline anyway would show the
+    # *unfiltered* numbers next to the date error. Skipping also keeps the
+    # junk-keyed unfiltered result out of the fact cache. The region shows
+    # the same generic empty state as a valid-but-empty selection; the
+    # specific validation error stays in the band's inline date slot.
+    # One-sided ranges are valid input (sentinels) and still compute.
+    if date_errors:
+        return {
+            **band_context,
+            "groups": [],
+            "report_empty": True,
+            "compare": False,
+            "comparison_error": (
+                str(filter_form.errors["compare_range"][0])
+                if "compare_range" in filter_form.errors
+                else None
+            ),
+            "comparison_period": None,
+        }
+
     criteria, _sort_order = filter_form.search_criteria()
     # The home currency is page-wide (both periods convert into it); one
     # lookup serves both facts_for calls.
@@ -272,16 +342,6 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             build_facts,
             comparison_period=comparison_period,
         )
-    # QueryDict.get returns the LAST value of a repeated key — exactly the
-    # submitter-wins semantics the tab/resolution submit buttons rely on.
-    tab = request.GET.get("tab", "overview")
-    if tab not in ("overview", *(group.id for group in DIMENSION_GROUPS)):
-        tab = "overview"
-    try:
-        resolution = TemporalResolution(request.GET.get("resolution", "weekly"))
-    except ValueError:
-        resolution = TemporalResolution.WEEKLY
-
     active_group = next((group for group in DIMENSION_GROUPS if group.id == tab), None)
     active_dimensions = (
         tuple(by_id(section_id) for section_id in active_group.section_ids) if active_group else ()
@@ -290,19 +350,6 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         charts.report(comparison_facts, active_dimensions) if comparison_period else None
     )
     report = charts.report(facts, active_dimensions)
-
-    date_errors = filter_form.errors.get("date_range")
-    summary = build_filter_summary(
-        request,
-        labels,
-        contracts,
-        list_url_name=_PAGE_URL,
-        region_url_name=_REGION_URL,
-        included=filter_form.selected_label_ids,
-        excluded=filter_form.excluded_label_ids,
-        date_range=filter_form.cleaned_data.get("date_range"),
-        date_range_error=str(date_errors[0]) if date_errors else None,
-    )
 
     sections = _sections(
         report,
@@ -335,63 +382,56 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     # The compare inputs re-render from the form's bound data, so a rejected
     # value stays visible in its input — the same contract as the sidebar's
     # date inputs.
+    report_empty = not facts
     return {
-        "filter_form": filter_form,
-        # The compare params the region view should push; None pushes the
-        # request's own GET.
-        "push_params": push_params,
-        "labels": labels,
-        "contract_list": contracts,
-        "filter_include_labels": filter_form.include_labels_widget,
-        "active_filters": summary.chips,
-        # The band's chip row: without the date chips. The two date inputs sit
-        # in the toolbar right there — a removable duplicate's close action
-        # cannot win against the inputs' own serialization, so it only
-        # confuses. The drawer's rail keeps its chips.
-        "band_active_filters": [chip for chip in summary.chips if chip.kind != "date"],
-        "filter_count": summary.count,
-        "filter_clear_url": reverse(_PAGE_URL),
-        "filter_list_id": _REGION_ELEMENT_ID,
-        "list_view_url": list_view_url(request),
+        **band_context,
         "headline": (
             replace(report.headline, comparison=comparison_report.headline)
             if comparison_report
             else report.headline
         ),
+        # Zero publications selected (over-narrow filters): the region renders
+        # an empty-state notice instead of zeroed charts. The invalid-period
+        # skip above is the unknowable variant of the same condition. The tab
+        # nav collapses too — the attribution group's treemap is built from
+        # all institutions and would otherwise keep its tab alive on zero
+        # facts, advertising a tab whose content is the notice.
+        "report_empty": report_empty,
         "timeline": timeline_figure(
             temporal_counts(facts, resolution),
             temporal_counts(comparison_facts, resolution) if comparison_facts else None,
             resolution=resolution,
         ),
-        "resolution": resolution,
-        "resolutions": list(TemporalResolution),
         "comparison": comparison_report,
         # The switch state follows the user's toggle, not the resolved window:
         # an invalid compare period keeps the inputs and error visible with
         # the switch still on. `compare` stays "a comparison actually
         # rendered", because the tables' delta and "new" badges annotate real
         # comparison values.
-        "compare_on": compare_requested,
         "compare": bool(comparison_report),
         "comparison_period": (
             (comparison_period.start, comparison_period.end) if comparison_period else None
         ),
         "comparison_error": comparison_error,
-        "tab": tab,
         "incomplete_invoices": _incomplete_invoices(facts),
         # The tab nav needs every surviving group; only the active one renders
         # its sections (the template loops groups and filters on the tab).
         # Membership is the cheap has_rows pass. Figures and link tables are
-        # built only for the active group above.
-        "groups": [
-            {
-                "group": group,
-                "treemap": treemap if group.has_treemap else None,
-                "sections": nav_sections[group] if tab == group.id else (),
-            }
-            for group in DIMENSION_GROUPS
-            if nav_sections[group] or (group.has_treemap and treemap) or _has_rows(group, facts)
-        ],
+        # built only for the active group above. Empty on report_empty, same
+        # as the invalid-period skip path.
+        "groups": (
+            []
+            if report_empty
+            else [
+                {
+                    "group": group,
+                    "treemap": treemap if group.has_treemap else None,
+                    "sections": nav_sections[group] if tab == group.id else (),
+                }
+                for group in DIMENSION_GROUPS
+                if nav_sections[group] or (group.has_treemap and treemap) or _has_rows(group, facts)
+            ]
+        ),
         "active_group": tab,
     }
 

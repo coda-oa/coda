@@ -1,21 +1,34 @@
 {% load mathfilters %}
-{% if incomplete_invoices %}
-    <details class="statistics-notice" role="note">
-        <summary>
-            {{ headline.requests_unconvertible }}
-            {{ headline.requests_unconvertible|pluralize:"request,requests" }}
-            with excluded amounts — no conversion rate in the report currency
-            , the amounts are not in spend
-        </summary>
-        <ul>
-            {% for invoice in incomplete_invoices %}
-                <li><a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.number }}</a></li>
-            {% endfor %}
-        </ul>
-    </details>
-{% endif %}
-{% if tab == "overview" %}
-    {% include "reporting/partials/reporting_overview.html" %}
+{% if report_empty %}
+    {% comment %}
+        Zero publications selected — an over-narrow filter set, or an invalid
+        period (the sidebar contract drops a rejected date range, and running
+        the pipeline anyway would show the unfiltered numbers next to the
+        date error). The specific validation error stays in the band's inline
+        date slot; this notice survives the scroll to the (usually tall)
+        region.
+    {% endcomment %}
+    <div class="statistics-notice"
+         role="alert">No publications match the selected filters. Adjust the filters above.</div>
 {% else %}
-    {% include "reporting/partials/reporting_groups.html" %}
+    {% if incomplete_invoices %}
+        <details class="statistics-notice" role="note">
+            <summary>
+                {{ headline.requests_unconvertible }}
+                {{ headline.requests_unconvertible|pluralize:"request,requests" }}
+                with excluded amounts — no conversion rate in the report currency
+                , the amounts are not in spend
+            </summary>
+            <ul>
+                {% for invoice in incomplete_invoices %}
+                    <li><a href="{% url 'invoices:detail' invoice.pk %}">{{ invoice.number }}</a></li>
+                {% endfor %}
+            </ul>
+        </details>
+    {% endif %}
+    {% if tab == "overview" %}
+        {% include "reporting/partials/reporting_overview.html" %}
+    {% else %}
+        {% include "reporting/partials/reporting_groups.html" %}
+    {% endif %}
 {% endif %}
