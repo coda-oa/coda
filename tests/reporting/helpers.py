@@ -4,6 +4,9 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+from django.test import Client
+from django.urls import reverse
+
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import funding_source_repository
@@ -126,3 +129,25 @@ def invoice(
         saved.add_conversion(rate, currency)
     saved.id = invoice_service.save(saved)
     return saved.id
+
+
+def fact_pipeline_query_count(client: Client, **query: str) -> int:
+    """Fact-pipeline queries of one more region request: the DISTINCT
+    funding-request fetch plus its prefetch graph. Form choice lists (whose
+    DISTINCT queries may *join* the funding-request table — the used-labels
+    list does) and the treemap's hierarchy query are not part of the pipeline
+    and stay uncached, so they must not count."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as ctx:
+        client.get(
+            reverse("reporting:stats_fundingrequests_region"),
+            data={"start_date": "2026-01-01", "end_date": "2026-12-31", **query},
+            headers={"hx-request": "true"},
+        )
+    return sum(
+        1
+        for q in ctx.captured_queries
+        if "DISTINCT" in q["sql"] and ' FROM "fundingrequests_fundingrequest"' in q["sql"]
+    )
