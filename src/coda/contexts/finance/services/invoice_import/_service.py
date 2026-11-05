@@ -18,6 +18,7 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.invoices import repository
 from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
+from coda.contexts.finance.services import budget_service
 from coda.domain.finance.invoice import Invoice, InvoiceId
 
 from ._entity_creation import (
@@ -103,6 +104,14 @@ def _process_invoices(
     invoice_ids = repository.create_many(invoices)
     _assign_invoice_ids(invoices, invoice_ids)
     update_publication_payment_statuses(invoices)
+    # Import bypasses the capacity check by design (spec §7) but books ledger
+    # rows: commitments for every created invoice, payments for imports
+    # arriving paid — so its balance movements stay auditable.
+    for invoice in invoices:
+        assert invoice.id is not None
+        budget_service.record_assignment_commitments(invoice.id)
+        if invoice.is_paid():
+            budget_service.record_payments(invoice.id)
 
     all_errors = (
         invoice_processing_errors

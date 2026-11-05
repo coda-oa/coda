@@ -1,0 +1,59 @@
+<dialog open>
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">
+                {% if mode == "add_funds" %}Add Funds{% else %}Transfer Funds{% endif %}
+            </h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').remove()"></button>
+        </header>
+        <form class="mb-0">
+            {% csrf_token %}
+            <input type="hidden" name="mode" value="{{ mode }}">
+            {% if mode == "add_funds" %}
+                <p class="small mt-1">
+                    Adds funds from outside CODA (e.g. received from a budget
+                    not tracked here). The budget's amount stays unchanged —
+                    the added funds count as <em>credited</em>.
+                </p>
+            {% endif %}
+            {% if mode != "add_funds" %}
+                <label for="transfer-target">Target budget</label>
+                <select id="transfer-target" name="target">
+                    {% for target in transfer_targets %}
+                        <option value="{{ target.id }}">{{ target.name }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+            <label for="transfer-amount">Amount {% if mode == "add_funds" %}(positive){% else %}(negative = debt transfer){% endif %}</label>
+            <input id="transfer-amount" required
+                   name="amount"
+                   step="0.01"
+                   placeholder="Amount">
+            <label for="transfer-provenance">Provenance note {% if mode == "add_funds" %}(required){% endif %}</label>
+            <input id="transfer-provenance" required
+                   name="provenance_note"
+                   placeholder="Provenance note">
+            {% if transfer_error %}
+                <div class="messages error undecorated mt-2">
+                    <p class="error">
+                        <strong>Error:</strong> {{ transfer_error }}
+                    </p>
+                </div>
+            {% endif %}
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').remove()">Cancel</button>
+                <button type="button"
+                        class="primary"
+                        hx-post="{{ transfer_url }}"
+                        hx-include="closest form"
+                        hx-target="closest dialog">
+                    {% if mode == "add_funds" %}Add funds{% else %}Transfer{% endif %}
+                </button>
+            </footer>
+        </form>
+    </article>
+</dialog>

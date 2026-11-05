@@ -97,6 +97,54 @@ Each cycle: write the failing test with a literal expected outcome (worked examp
 5. `test_transfer_dialog_books_a_transfer`.
 6. `test_budget_amount_field_is_disabled_after_period_start`.
 
+## Amendment — cost basis (2026-11-05)
+
+**Status: implemented 2026-11-05.** Budgets commit **gross-of-tax** amounts (ADR [`0001`](../adr/0001-budget-cost-basis.md); decisions in the [Budget Cost Basis map](../../.wayfinder/map.md)). Positions state net-of-tax; gross is derived as `amount × (1 + tax_rate)` in the budget subsystem's consumers. Every budget-suite fixture uses `TaxRate.from_percentage(0)` (`budget_setup.py:54`), so **no existing test literal changes** — the amendment is additions plus the gap-disposition items.
+
+### New cycles
+
+1. **Read model (S3)** — `test__assignment_with_tax__reserved_is_gross_of_tax_amount` (worked example: net 1680.6723 @ 19% → gross 2000.00); `test__vat_type_position__books_exactly_its_cost` (stored rate 0 self-handling); `test__pending_conversion__grosses_in_original_currency_then_converts` (one rounding); `test__per_row_rounding__sums_rows_individually` (two rows whose unrounded gross sum ≠ per-row-rounded sum — capacity consumes the per-row figures).
+2. **Ledger (C)** — commitment and payment rows book gross in the original currency with a nonzero rate; a VAT row books its cost as-is.
+3. **Capacity (C)** — `test__re_saving_taxed_assignment__delta_is_gross_of_tax` (snapshot and delta switch basis together); existing delta tests stay (0% fixtures).
+4. **Domain** — `funding_assignments(CostBasis.gross)` returns 2000.00 for the net-stored 1680.6723 (next to the existing net-storage pin; the domain contract is pinned, not flipped).
+5. **Gap dispositions (closed tickets)** — uniqueness milestone: partial `UniqueConstraint` (`condition=Q(type="budget")`) with a loud pre-check migration + `migrationtests` milestone, typed service error rendered as a form error, institution sources unaffected; pending-conversion chip list-view test; reinstated B4 `test__waived_review__reserves_nothing` (waived review *with split data attached* reserves nothing, persists no rows).
+6. **Import ledger rows** — imported invoice with budget assignment books a commitment row; a paid import books the payment row (import keeps bypassing the capacity check, §7).
+7. **Run the export suites after the flip** — `tests/exports/fundingrequest_csv/helpers.py` creates invoices through the capacity-checked path at 19%; "gross still fits the 10000 fixture budget" is an empirical claim, verified by running, not reasoning.
+
+### Explicitly unchanged
+
+Budget-suite literals (0% fixtures); capacity domain tests (basis-agnostic); review-split tests (budget-currency amounts, gross as-is); export/CSV assertions (display stays net); `test_invoice_import.py` (assertions never observe the budget subsystem); the 0029 backfill migration tests (the new constraint migration gets its own `migrationtests` milestone).
+
+## Amendment — budget UI completion (2026-11-05)
+
+Companion to the §8 amendments (`docs/design/budget-system.md`); decisions in the [Budget UI Completion map](../../.wayfinder/map.md). All cycles use the Django test client with targeted HTML-fragment assertions, per the plan's conventions. **Seams under test**: the funding-source list/detail views (rendered HTML), the funding-source form rendering (selects show names — `__str__`), the review POST path (`review.py` `form_valid` — `form_action_add` round-trip, `ReviewSplitFormSet`, `_validate_splits`), and `budget_transfer` (unchanged; only navigation around it changes).
+
+### New cycles
+
+1. **Funding-source rendering** — `test__funding_source__renders_as_name_in_selects` (review-split select and invoice filter sidebar show the name, not "FundingSource object (N)"); institution row shows the institution's label; `test__budget_with_blank_name__renders_pk_label` (budget row, blank name, no institution → pk label, no crash).
+2. **Detail page: balance overview** — `test__budget_detail__shows_available_figure_and_balance_bar` (big available figure, slim spent/reserved bar segments, gross-of-tax qualifiers, amount (+allowance) secondary line); `test__budget_detail__exceeded__shows_red_available` (bar capped, red figure); `test__budget_detail__shows_pending_conversion_annotation` (annotation line, not a segment).
+3. **Detail page: invoice reference list** — `test__budget_detail__lists_invoices_referencing_the_source` (invoice number links to the invoice detail; 10 most recent; "All invoices" link carries the funding-source filter); `test__budget_detail__ignores_deleted_assignments` (re-saved invoices don't double-list).
+4. **List navigation** — `test__budget_list__name_links_to_detail` (row name links to `invoices:fundingsource_detail`).
+5. **Institution routes** — `test__institution_source__detail_redirects_to_institution_page`; `test__institution_source__update_redirects_to_institution_page` (both with the soft-deleted-institution case still resolving).
+6. **Review screen: split table** — `test__review_page__renders_split_table_with_add_button`; `test__review_page__add_row_round_trips` (POST with `form_action_add` before `action` re-renders with one more row and preserves entered data); `test__review_page__capacity_feedback_is_gross_of_tax_qualified` ("exceeds: only X gross-of-tax available" for an exhausted budget, sibling-aggregated); `test__review_page__sum_verdict_shows_difference` (splits not summing to decided funding show the live difference). **Feedback is server-rendered**: the view/template composes the message from `CapacityVerdict(allowed, available_after)` (no message field on the verdict — the plan's standing rule) on every page render and re-POST, so the Django test client can assert the HTML; client-side on-change updating is an optional enhancement on top, never the thing the tests pin.
+7. **Attribution mandatory on approval (defect fix)** — `test__approving_review_without_splits__rejected` (decided funding > 0, zero splits → `InvalidFundingSplit`; today silently accepted — the cycle is red until `_validate_splits` drops its `if not splits: return`); zero decided funding with zero splits stays valid.
+8. **Changed behavior — blast radius of 7**: the `_validate_splits` rule change is **Approved-only** — reject/close/waive/return paths are untouched. **Gate**: a full `pdm run unittests` + `pdm run integrationtests` re-run after implementing is mandatory to surface any fixture that approves with an empty `funding_splits` formset — checked 2026-11-05: `tests/fundingrequests/test_review_splits.py` approval cases all post splits, and the wizard tests post no `funding_splits` keys, so expected fallout is small; re-run and confirm rather than assume. A newly-failing fixture **gains splits** — the rule does not relax.
+
+## Amendment — budget review & transfers polish (2026-11-05)
+
+Companion to the §8 amendments (Budget Review & Transfers Polish map). **Seams under test**: the review GET (split prefill) and review POST markers (`form_action_add`/`form_action_remove`/`form_action_refresh` on the **existing review URL** — there is **no new fragment endpoint for live fit**), the review page's per-budget available excluding the review's own splits (opt-in read-model parameter), the re-approval capacity/ledger path in the funding-request service, the FR-detail **read model** (attribution field) plus its rendered HTML, the transfer dialog's **GET fragment endpoint** and its POST fragment error re-render (the existing POST URL), and the balance bar rendering (re-pinned literals). Good tests assert rendered HTML/DTO fields, not internals; prior art: the existing budget view tests and review-split tests.
+
+### New cycles
+
+1. **Review split prefill** — `test__review_page__prefills_persisted_splits` (re-opened approved review renders the persisted budget selected + amount + gross-left figure + sum verdict, not blank; `TOTAL_FORMS` = persisted-row-count + 1); waived/rejected reviews render empty.
+2. **Re-approval delta (defect fix)** — `test__re_approval__does_not_double_count_own_splits` (tight-capacity literal: budget 1 000, own split 600, re-submit unchanged → accepted; raise beyond remaining → rejected); `test__re_approval__ledger_dedupes_unchanged_splits` (approve 600, re-approve 600 → ledger net stays 600; re-approve 800 → one further row — re-scopes the old append-only test).
+3. **Display exclusion** — `test__review_page__available_excludes_own_persisted_splits` (the review page's per-budget available excludes the review's own split rows; the budget detail page still counts them — default semantics unchanged).
+4. **Live fit** — `test__review_page__refresh_round_trips` (POST with `form_action_refresh` before `action` re-renders the page with recomputed feedback and entered data); `test__review_page__refresh_aggregates_sibling_rows` (two rows on one budget → one aggregated "gross left" figure on the live path); the "Available per budget" list is gone from the rendered page.
+5. **FR detail attribution** — `test__fundingrequest_detail__shows_funding_attributions` (read model: attribution field carries budget id/name + gross-of-tax amount; HTML: the block lists budget name + amount for an approved review with splits; renders nothing without splits).
+6. **Balance bar** — re-pinned literals: zero bookings → full-width available segment (no empty bar); partial → available 55 % + spent 25 % + reserved 20 % inside the pill; exceeded (amount 1 000 / allowance 500 / spent 1 600) → spent 93.75 % + hatched over 6.25 %, red available figure. This **re-pins** `test__budget_detail__exceeded__shows_red_available` (its docstring and width assertions previously pinned the reversed "no overfull segment" wording) and `test__budget_detail__shows_available_figure_and_balance_bar`.
+7. **Transfer dialog** — `test__transfer_dialog__opens_as_fragment` (GET fragment endpoint renders the `<dialog open>` form); `test__transfer_dialog__error_renders_in_fragment` (a capacity/transfer error re-renders the dialog fragment with the message — the old full-page `transfer_error` assertions migrate); `test__transfer_dialog__add_funds_mode__books_credited_row` (add-funds: no target, positive amount, provenance mandatory → one credited ledger row, available rises; zero/negative rejected); budget-to-budget transfers book two rows as before (the nullable source must not alter them).
+8. **Unaffected** — balance read-model, ledger, and capacity suites (the polish renders their figures); invoice reference list; rendering/`__str__` cycles; export suites.
+
 ## Conventions
 
 - DB tests: `@pytest.mark.django_db`; run `docker exec -w /app coda_local_django pdm run pytest tests/invoices tests/fundingrequests -q`; `--create-db` after schema changes; parallel-safe (no shared module state, own rows per test).

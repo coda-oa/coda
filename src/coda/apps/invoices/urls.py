@@ -18,8 +18,16 @@ from coda.apps.invoices.views.creditor import (
     restore_creditor,
 )
 from coda.apps.invoices.views.finances_home import finances_home
+from coda.apps.invoices.views.funding_assignment_views import (
+    add_funding_assignment,
+    refresh_unassigned_costs,
+    remove_funding_assignment,
+    switch_cost_basis_mode,
+    switch_funding_source_type,
+)
 from coda.apps.invoices.views.fundingsources import (
     budget_transfer,
+    budget_transfer_dialog,
     fundingsource_createview,
     fundingsource_detailview,
     fundingsource_listview,
@@ -39,13 +47,6 @@ from coda.apps.invoices.views.position_views import (
     invoice_total,
     remove_position,
     switch_position_tab,
-)
-from coda.apps.invoices.views.funding_assignment_views import (
-    add_funding_assignment,
-    refresh_unassigned_costs,
-    remove_funding_assignment,
-    switch_cost_basis_mode,
-    switch_funding_source_type,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
 from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
@@ -117,6 +118,11 @@ urlpatterns = [
     path("fundingsources/create/", fundingsource_createview, name="fundingsource_create"),
     path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
     path("fundingsources/<int:pk>/transfer", budget_transfer, name="budget_transfer"),
+    path(
+        "fundingsources/<int:pk>/transfer-dialog",
+        budget_transfer_dialog,
+        name="budget_transfer_dialog",
+    ),
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
     path("import/", import_invoices_view, name="import"),

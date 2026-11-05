@@ -1,15 +1,17 @@
 from collections.abc import Iterable
 from typing import Any, Protocol, TypeVar, cast
 
+from django.db import IntegrityError
+
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
 from coda.domain.author import InstitutionId
+from coda.domain.errors import DomainError
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.string import NonEmptyStr
 
 K = TypeVar("K")  # Lookup key type
-T = TypeVar("T", Budget, SplitSource)  # Source type
 
 
 class FundingSourceStrategy(Protocol):
@@ -81,6 +83,12 @@ def get_by_name(name: str) -> FundingSource:
     return invoice_mapper.as_domain_funding_source(model)
 
 
+class BudgetNameNotUnique(DomainError):
+    """Another budget-type funding source already uses the name (the partial
+    unique constraint ``unique_name_among_budgets``). Institution sources are
+    unaffected."""
+
+
 def create(source: FundingSource) -> FundingSourceId:
     if isinstance(source, SplitSource):
         existing = FundingSourceModel.objects.filter(institution_id=source.institution).first()
@@ -92,16 +100,19 @@ def create(source: FundingSource) -> FundingSourceId:
         )
         return FundingSourceId(model.pk)
 
-    model = FundingSourceModel.objects.create(
-        type="budget",
-        name=source.name,
-        budget_amount=source.amount.amount,
-        budget_currency=source.amount.currency.code,
-        period_start=source.period.start,
-        period_end=source.period.end,
-        allow_over=source.allow_over,
-        allowance_amount=source.allowance.amount if source.allowance else None,
-    )
+    try:
+        model = FundingSourceModel.objects.create(
+            type="budget",
+            name=source.name,
+            budget_amount=source.amount.amount,
+            budget_currency=source.amount.currency.code,
+            period_start=source.period.start,
+            period_end=source.period.end,
+            allow_over=source.allow_over,
+            allowance_amount=source.allowance.amount if source.allowance else None,
+        )
+    except IntegrityError as e:
+        raise BudgetNameNotUnique(f"a budget named '{source.name}' already exists") from e
     return FundingSourceId(model.pk)
 
 
@@ -162,7 +173,7 @@ class InstitutionStrategy:
         )
 
 
-def _bulk_create_deduplicated(
+def _bulk_create_deduplicated[T: (Budget, SplitSource)](
     indexed_items: list[tuple[int, T]],
     result: list[FundingSourceId | None],
     strategy: type[FundingSourceStrategy],

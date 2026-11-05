@@ -64,7 +64,7 @@ def build_filter_summary(
     chips.single("payment_status")
     chips.single(
         "funding_source",
-        labels={str(source.pk): source.name for source in funding_sources},
+        labels={str(source.pk): str(source) for source in funding_sources},
     )
     chips.single(
         "contract_name",

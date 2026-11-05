@@ -17,6 +17,7 @@ from coda.contexts.fundingrequest.dto.commands import (
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
+    ReviewSplitDto,
     UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
@@ -45,6 +46,7 @@ from coda.domain.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
+from tests.invoices import budget_setup
 from tests.publications.test_publication_repository import assert_publication_eq
 
 _faker = domainfactory._faker
@@ -331,15 +333,17 @@ def test__update_fundingrequest_review__updates_the_review() -> None:
 
     review = Review(
         new_id,
-        Money(100, Currency.GBP),
+        Money(100, Currency.EUR),
         remarks="Something interesing",
         result=ReviewResult.Approved,
     )
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", Currency.EUR))
     dto = UpdateReviewDto(
         decided_funding_amount=float(review.decided_funding.amount),
         decided_funding_currency=review.decided_funding.currency.code,
         reviewer_remarks=review.remarks,
         result=review.result.value,
+        funding_splits=[ReviewSplitDto(funding_source_id=budget_id, amount=100)],
     )
 
     services.fundingrequests.update_review(new_id, dto)

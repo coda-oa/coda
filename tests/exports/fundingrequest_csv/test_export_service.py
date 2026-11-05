@@ -329,8 +329,8 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    budget_1 = Budget.new("Budget 1")
-    budget_2 = Budget.new("Budget 2")
+    budget_1 = Budget.new("Budget 1", amount=Money("10000", Currency.EUR))
+    budget_2 = Budget.new("Budget 2", amount=Money("10000", Currency.EUR))
     budget_1.id = funding_source_repository.create(budget_1)
     budget_2.id = funding_source_repository.create(budget_2)
 
@@ -621,9 +621,9 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
         )
     )
 
-    budget_1 = Budget.new("Budget 1")
+    budget_1 = Budget.new("Budget 1", amount=Money("10000", Currency.EUR))
     budget_1.id = funding_source_repository.create(budget_1)
-    budget_2 = Budget.new("Budget 2")
+    budget_2 = Budget.new("Budget 2", amount=Money("10000", Currency.EUR))
     budget_2.id = funding_source_repository.create(budget_2)
     creditor_id = CreditorId(modelfactory.creditor(name="Test Creditor").pk)
 

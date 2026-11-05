@@ -66,6 +66,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
         "labels": detail.labels,
         "label_form": ChooseLabelForm(),
         "checks": checkrun,
+        "funding_attributions": detail.funding_attributions,
         "edit_submitter_url": detail.edit_submitter_url,
         "edit_funding_url": detail.edit_funding_url,
     }

@@ -1,4 +1,8 @@
+from collections import Counter
+from decimal import Decimal
+
 from coda.apps.invoices import repository
+from coda.apps.invoices.models import FundingAssignment as FundingAssignmentModel
 from coda.apps.publications.services import publications
 from coda.contexts.finance.services.budget_service import (
     ensure_assignment_capacity,
@@ -12,9 +16,10 @@ from coda.domain.publication.publication import PublicationId
 
 def save(invoice: Invoice) -> InvoiceId:
     ensure_assignment_capacity(invoice)
+    previous = _assignment_snapshots(invoice.id)
     _unpay_deleted_publication_positions(invoice)
     id = _save_invoice(invoice)
-    record_assignment_commitments(id)
+    record_assignment_commitments(id, previous)
 
     if invoice.is_paid():
         _pay_publications(invoice)
@@ -22,6 +27,18 @@ def save(invoice: Invoice) -> InvoiceId:
         _invoice_received(invoice)
 
     return id
+
+
+def _assignment_snapshots(invoice_id: InvoiceId | None) -> Counter[tuple[int, str, Decimal]]:
+    """Budget assignments of a saved invoice, as persisted before the save:
+    multiset of (funding source id, cost currency, amount)."""
+    if invoice_id is None:
+        return Counter()
+
+    rows = FundingAssignmentModel.objects.filter(
+        position__invoice_id=invoice_id, funding_source__type="budget"
+    ).values_list("funding_source_id", "position__cost_currency", "amount")
+    return Counter(rows)
 
 
 def _unpay_deleted_publication_positions(invoice: Invoice) -> None:

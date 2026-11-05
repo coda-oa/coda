@@ -6,17 +6,18 @@ bookings from persisted rows and decides how rejections surface. Enforcement
 applies to review decisions and manual/UI funding assignments — invoice
 import is a recorded fact and does not run these checks."""
 
+from collections import Counter
+from collections.abc import Iterable
+from decimal import Decimal
+
+from django.db.models import DecimalField, F, Sum
+from django.db.models.functions import Round
+
 from coda.apps.invoices import budget_query
 from coda.apps.invoices.funding_source_repository import get_by_id
-from coda.apps.invoices.models import (
-    BudgetLedgerEntry as BudgetLedgerEntryModel,
-)
-from coda.apps.invoices.models import (
-    BudgetTransfer as BudgetTransferModel,
-)
-from coda.apps.invoices.models import (
-    FundingAssignment as FundingAssignmentModel,
-)
+from coda.apps.invoices.models import BudgetLedgerEntry as BudgetLedgerEntryModel
+from coda.apps.invoices.models import BudgetTransfer as BudgetTransferModel
+from coda.apps.invoices.models import FundingAssignment as FundingAssignmentModel
 from coda.domain.errors import DomainError
 from coda.domain.finance.budget_capacity import (
     BudgetBookings,
@@ -26,11 +27,23 @@ from coda.domain.finance.budget_capacity import (
 )
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import FundingSourceId, Invoice, InvoiceId
+from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.money import Currency, Money
 
 
 class BudgetCapacityExceededError(DomainError):
     pass
+
+
+def committed_per_funding_source(
+    commitments: Iterable[tuple[FundingSourceId, Money]],
+) -> dict[FundingSourceId, Money]:
+    """Sums commitments per funding source — a source's capacity must be
+    checked against the total committed to it, not against each commitment."""
+    totals: dict[FundingSourceId, Money] = {}
+    for funding_source, amount in commitments:
+        totals[funding_source] = totals.get(funding_source, Money(0, amount.currency)) + amount
+    return totals
 
 
 def capacity_verdict(funding_source_id: FundingSourceId, new: Money) -> CapacityVerdict:
@@ -57,14 +70,65 @@ def ensure_assignment_capacity(invoice: Invoice) -> None:
 
     Only budget-type funding sources are checked; institution sources are
     cost-sharing and carry no budget. Foreign-currency assignments are
-    rate-pending and invisible to the check (enforced in ensure_capacity)."""
+    rate-pending and invisible to the check (enforced in ensure_capacity).
+
+    Only the *change* over the invoice's own persisted assignments is a new
+    commitment: existing commitments are never re-checked (spec §4), so
+    re-saving an invoice never counts its existing commitment against itself —
+    even if other invoices consumed the budget in the meantime. Both sides of
+    the delta are gross-of-tax: the new amounts read via
+    ``funding_assignments(CostBasis.gross)``, the persisted totals via the
+    same gross expression the read model uses."""
+    previous = _persisted_assignment_totals(invoice.id)
     for position in invoice.positions:
-        for assignment in position.funding_assignments():
+        for assignment in position.funding_assignments(CostBasis.gross):
             source = assignment.funding_source
             if not isinstance(source, Budget) or source.id is None:
                 continue
 
-            ensure_capacity(source.id, assignment.amount)
+            key = (source.id, assignment.amount.currency.code)
+            already_committed = Money(previous.get(key, Decimal(0)), assignment.amount.currency)
+            delta = assignment.amount - already_committed
+            if delta.amount > 0:
+                ensure_capacity(source.id, delta)
+
+
+def _persisted_assignment_totals(
+    invoice_id: InvoiceId | None,
+) -> dict[tuple[int, str], Decimal]:
+    """Per (budget, cost currency) gross-of-tax totals of a saved invoice's
+    assignments — the same rounded gross expression the read model uses, so
+    the delta never compares a net snapshot against a gross commitment."""
+    if invoice_id is None:
+        return {}
+
+    totals: dict[tuple[int, str], Decimal] = {}
+    cost_currencies = (
+        FundingAssignmentModel.objects.filter(position__invoice_id=invoice_id)
+        .values_list("position__cost_currency", flat=True)
+        .order_by()
+        .distinct()
+    )
+    for code in cost_currencies:
+        precision = Currency[code].minor_units
+        gross = Round(
+            F("amount") * (1 + F("position__tax_rate")),
+            precision=precision,
+            output_field=DecimalField(max_digits=24, decimal_places=precision),
+        )
+        rows = (
+            FundingAssignmentModel.objects.filter(
+                position__invoice_id=invoice_id, position__cost_currency=code
+            )
+            .order_by()
+            .values("funding_source_id")
+            .annotate(
+                total=Sum(gross, output_field=DecimalField(max_digits=24, decimal_places=precision))
+            )
+        )
+        for row in rows:
+            totals[(row["funding_source_id"], code)] = row["total"] or Decimal(0)
+    return totals
 
 
 def transfer_out_verdict(funding_source_id: FundingSourceId, amount: Money) -> CapacityVerdict:
@@ -107,6 +171,29 @@ def create_transfer(
     record_transfer(target_id, amount, transfer.pk)
 
 
+def add_funds(target_id: FundingSourceId, amount: Money, provenance_note: str) -> None:
+    """Adds funds from outside CODA (§5, Budget Review & Transfers Polish
+    map): a nullable-source transfer variant that books ``credited`` on the
+    target with no debit — the pseudo-mutability of an immutable budget
+    amount lives entirely in ``credited``. No capacity check runs (incoming
+    transfers are exempt, §5). Amounts must be strictly positive (a negative
+    add-funds would be a withdrawal without a debit leg) and the provenance
+    note is mandatory — with no source row it is the only audit trail."""
+    _transfer_endpoint(target_id)  # validates that the target exists
+    if amount.amount <= 0:
+        raise InvalidTransfer("add-funds amounts must be positive")
+    if not provenance_note.strip():
+        raise InvalidTransfer("a provenance note is required to audit added funds")
+
+    transfer = BudgetTransferModel.objects.create(
+        source=None,
+        target_id=target_id,
+        amount=amount.amount,
+        provenance_note=provenance_note,
+    )
+    record_transfer(target_id, amount, transfer.pk)
+
+
 class InvalidTransfer(DomainError):
     pass
 
@@ -127,15 +214,37 @@ def record_commitment(
     )
 
 
-def record_assignment_commitments(invoice_id: InvoiceId) -> None:
+def _booked_amount(row: FundingAssignmentModel) -> Money:
+    """The assignment's gross-of-tax amount in the original currency:
+    net amount × (1 + the position's tax rate); ``Money`` rounds to the
+    currency's minor units. VAT rows self-handle (stored rate 0)."""
+    gross = row.amount * (1 + row.position.tax_rate)
+    return Money(gross, Currency[row.position.cost_currency])
+
+
+def record_assignment_commitments(
+    invoice_id: InvoiceId, previous: Counter[tuple[int, str, Decimal]] | None = None
+) -> None:
+    """Book one commitment ledger row per assignment (spec §4).
+
+    ``previous`` carries the invoice's budget assignments as persisted before
+    the save (multiset of funding-source id, cost currency, amount).
+    (source, currency, amount) triples already present in ``previous`` are
+    skipped, so re-saving an invoice does not book duplicate commitment rows;
+    only genuinely new or changed assignments book an event."""
+    previous = previous or Counter()
     for row in FundingAssignmentModel.objects.filter(position__invoice_id=invoice_id):
         if row.funding_source is None or row.funding_source.type != "budget":
             continue
         assert row.funding_source_id is not None
+        key = (row.funding_source_id, row.position.cost_currency, row.amount)
+        if previous[key] > 0:
+            previous[key] -= 1
+            continue
         _append_ledger_entry(
             FundingSourceId(row.funding_source_id),
             BudgetLedgerEntryModel.Event.COMMITMENT,
-            Money(row.amount, Currency[row.position.cost_currency]),
+            _booked_amount(row),
             funding_assignment=row.pk,
         )
 
@@ -148,7 +257,7 @@ def record_payments(invoice_id: InvoiceId) -> None:
         _append_ledger_entry(
             FundingSourceId(row.funding_source_id),
             BudgetLedgerEntryModel.Event.PAYMENT,
-            Money(row.amount, Currency[row.position.cost_currency]),
+            _booked_amount(row),
             funding_assignment=row.pk,
         )
 

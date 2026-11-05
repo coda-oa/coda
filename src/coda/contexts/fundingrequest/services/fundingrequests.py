@@ -2,8 +2,10 @@ import datetime
 import itertools
 import logging
 import random
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
+from decimal import Decimal
 from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
@@ -366,8 +368,25 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     splits = _review_splits(review, decided_funding)
     if result == ReviewResult.Approved:
         _validate_splits(decided_funding, splits)
-        for split in splits:
-            budget_service.ensure_capacity(split.funding_source, split.amount)
+        # Re-approval must not double-count its own previously persisted
+        # splits (they sit in the balance until save_review replaces them):
+        # only the positive delta over the review's own totals is a new
+        # commitment, and unchanged splits book no further ledger row.
+        own = repository.persisted_review_splits(fundingrequest_id)
+        own_totals: dict[int, Decimal] = {}
+        previous: Counter[tuple[int, str, Decimal]] = Counter()
+        for funding_source_id, amount in own:
+            own_totals[funding_source_id] = own_totals.get(funding_source_id, Decimal(0)) + amount
+            previous[(funding_source_id, decided_funding.currency.code, amount)] += 1
+        aggregated = budget_service.committed_per_funding_source(
+            (split.funding_source, split.amount) for split in splits
+        )
+        for funding_source, committed_amount in aggregated.items():
+            delta: Money = committed_amount - Money(
+                own_totals.get(funding_source, Decimal(0)), decided_funding.currency
+            )
+            if delta.amount > 0:
+                budget_service.ensure_capacity(funding_source, delta)
 
     review_ = Review(
         fundingrequest_id,
@@ -378,6 +397,14 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     )
     persisted_splits = repository.save_review(review_)
     for persisted_split in persisted_splits:
+        key = (
+            persisted_split.funding_source_id,
+            decided_funding.currency.code,
+            persisted_split.amount,
+        )
+        if previous[key] > 0:
+            previous[key] -= 1
+            continue
         budget_service.record_commitment(
             FundingSourceId(persisted_split.funding_source_id),
             Money(persisted_split.amount, decided_funding.currency),
@@ -396,9 +423,6 @@ def _review_splits(review: UpdateReviewDto, decided_funding: Money) -> tuple[Rev
 
 
 def _validate_splits(decided_funding: Money, splits: tuple[ReviewSplit, ...]) -> None:
-    if not splits:
-        return
-
     total = sum((split.amount for split in splits), start=Money(0, decided_funding.currency))
     if total != decided_funding:
         raise InvalidFundingSplit(
