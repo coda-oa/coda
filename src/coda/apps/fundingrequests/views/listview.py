@@ -16,7 +16,7 @@ from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
-from coda.apps.listfilters import ListRegionMixin, params_without
+from coda.apps.listfilters import ListRegionMixin, build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 
@@ -62,6 +62,14 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx["query"] = self.request.GET.get("search_term", "")
+        # Link to the statistics page with the same filter vocabulary: both
+        # pages bind FundingRequestListFilterForm to GET, so the querystring
+        # transfers verbatim. The statistics page re-derives a default period
+        # when the list had no dates (reporting.views.page._default_period_url).
+        ctx["statistics_url"] = build_url(
+            "reporting:stats_fundingrequests",
+            params_without(self.request.GET, "page", "sort_by"),
+        )
         if self.request.GET:
             ctx["no_results_message"] = "No funding requests match the selected filters."
             ctx["no_results_clear_url"] = reverse("fundingrequests:list")

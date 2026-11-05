@@ -36,6 +36,68 @@ def get_list_region(
     return cast(TemplateResponse, client.get(reverse("fundingrequests:list_region"), data=query))
 
 
+def statistics_url(query: dict[str, Any] | None = None) -> str:
+    from coda.apps.listfilters import build_url, params_without
+
+    return build_url(
+        "reporting:stats_fundingrequests",
+        params_without(client_params(query), "page", "sort_by"),
+    )
+
+
+def client_params(query: dict[str, Any] | None) -> Any:
+    from django.http import QueryDict
+
+    qd = QueryDict(mutable=True)
+    for key, value in (query or {}).items():
+        values = value if isinstance(value, list) else [value]
+        qd.setlist(key, [str(v) for v in values])
+    return qd
+
+
+def statistics_anchor(dom: Element) -> Element:
+    for element in walk(dom):
+        if element.name == "a" and dict(element.attributes).get("id") == "statistics-link":
+            return element
+    raise AssertionError("no statistics link in page")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__statistics_link__carries_filters_on_full_page(client: Client) -> None:
+    query = {"processing_status": ["approved"], "search_term": "crispr"}
+    response = goto_list_page(client, query)
+
+    anchor = statistics_anchor(parse_html(response.content.decode()))
+    assert dict(anchor.attributes).get("href") == statistics_url(query)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__statistics_link__strips_page_and_sort(client: Client) -> None:
+    query = {"page": "2", "sort_by": "alphabetical", "search_term": "crispr"}
+    response = goto_list_page(client, query)
+
+    anchor = statistics_anchor(parse_html(response.content.decode()))
+    href = dict(anchor.attributes).get("href") or ""
+    assert "page=" not in href
+    assert "sort_by=" not in href
+    assert "search_term=crispr" in href
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_region__re_renders_statistics_link_oob_with_current_filters(
+    client: Client,
+) -> None:
+    query = {"processing_status": ["approved"], "search_term": "crispr"}
+    response = get_list_region(client, query)
+
+    anchor = statistics_anchor(parse_html(response.content.decode()))
+    assert dict(anchor.attributes).get("hx-swap-oob") == "true"
+    assert dict(anchor.attributes).get("href") == statistics_url(query)
+
+
 def pill_elements(dom: Element) -> list[Element]:
     return [
         element
