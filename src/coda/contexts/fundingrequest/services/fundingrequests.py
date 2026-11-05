@@ -366,8 +366,8 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     splits = _review_splits(review, decided_funding)
     if result == ReviewResult.Approved:
         _validate_splits(decided_funding, splits)
-        for split in splits:
-            budget_service.ensure_capacity(split.funding_source, split.amount)
+        for funding_source, amount in _splits_per_funding_source(splits, decided_funding.currency):
+            budget_service.ensure_capacity(funding_source, amount)
 
     review_ = Review(
         fundingrequest_id,
@@ -395,10 +395,18 @@ def _review_splits(review: UpdateReviewDto, decided_funding: Money) -> tuple[Rev
     )
 
 
-def _validate_splits(decided_funding: Money, splits: tuple[ReviewSplit, ...]) -> None:
-    if not splits:
-        return
+def _splits_per_funding_source(
+    splits: tuple[ReviewSplit, ...], currency: Currency
+) -> Iterable[tuple[FundingSourceId, Money]]:
+    """Sums the review's splits per funding source — a budget's capacity must
+    be checked against the total committed to it, not against each split."""
+    totals: dict[FundingSourceId, Money] = {}
+    for split in splits:
+        totals[split.funding_source] = totals.get(split.funding_source, Money(0, currency)) + split.amount
+    return totals.items()
 
+
+def _validate_splits(decided_funding: Money, splits: tuple[ReviewSplit, ...]) -> None:
     total = sum((split.amount for split in splits), start=Money(0, decided_funding.currency))
     if total != decided_funding:
         raise InvalidFundingSplit(

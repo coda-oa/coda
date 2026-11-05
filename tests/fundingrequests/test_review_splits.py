@@ -89,6 +89,74 @@ def test__review_splits_not_summing_to_decided_funding__rejected() -> None:
 
 
 @pytest.mark.django_db
+def test__approving_review_without_splits__rejected() -> None:
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    with pytest.raises(services.InvalidFundingSplit):
+        services.update_review(
+            FundingRequestId(funding_request.pk),
+            UpdateReviewDto(
+                decided_funding_amount=Decimal(2000),
+                decided_funding_currency="EUR",
+                reviewer_remarks="",
+                result="approved",
+                funding_splits=[],
+            ),
+        )
+
+    funding_request.refresh_from_db()
+    assert funding_request.review.funding_splits.count() == 0
+    assert budget_query.budget_balances(budget_id).reserved == Money("0", EUR)
+
+
+@pytest.mark.django_db
+def test__approving_review_zero_decided_funding_without_splits__valid() -> None:
+    funding_request = modelfactory.fundingrequest()
+
+    services.update_review(
+        FundingRequestId(funding_request.pk),
+        UpdateReviewDto(
+            decided_funding_amount=Decimal(0),
+            decided_funding_currency="EUR",
+            reviewer_remarks="",
+            result="approved",
+            funding_splits=[],
+        ),
+    )
+
+    funding_request.refresh_from_db()
+    assert funding_request.review.funding_splits.count() == 0
+
+
+@pytest.mark.django_db
+def test__review_splits_on_same_budget_aggregated_for_capacity__rejected() -> None:
+    """Two splits on the same budget must be capacity-checked against their
+    sum, not individually — two 600 EUR splits do not fit a 1000 EUR budget."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    with pytest.raises(budget_service.BudgetCapacityExceededError):
+        services.update_review(
+            FundingRequestId(funding_request.pk),
+            UpdateReviewDto(
+                decided_funding_amount=Decimal(1200),
+                decided_funding_currency="EUR",
+                reviewer_remarks="",
+                result="approved",
+                funding_splits=[
+                    ReviewSplitDto(funding_source_id=budget_id, amount=Decimal(600)),
+                    ReviewSplitDto(funding_source_id=budget_id, amount=Decimal(600)),
+                ],
+            ),
+        )
+
+    funding_request.refresh_from_db()
+    assert funding_request.review.funding_splits.count() == 0
+    assert budget_query.budget_balances(budget_id).reserved == Money("0", EUR)
+
+
+@pytest.mark.django_db
 def test__review_split_exceeding_budget_capacity__rejected() -> None:
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
