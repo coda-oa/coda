@@ -500,16 +500,16 @@ def test__institution_source__detail_redirects_to_institution_page(client: Clien
 
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": source.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
 
     deleted.archive()
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": deleted_source.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:detail", kwargs={"pk": deleted.pk})
+    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": deleted.pk})
 
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": orphan.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:list")
+    assert response.headers["Location"] == reverse("institutions:list")
 
 
 @pytest.mark.django_db
@@ -526,13 +526,13 @@ def test__institution_source__update_redirects_to_institution_page(client: Clien
 
     response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": source.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
 
     deleted.archive()
     response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": deleted_source.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:detail", kwargs={"pk": deleted.pk})
+    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": deleted.pk})
 
     response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": orphan.pk}))
     assert response.status_code == 302
-    assert response.url == reverse("institutions:list")
+    assert response.headers["Location"] == reverse("institutions:list")
