@@ -1,6 +1,7 @@
 from dataclasses import asdict
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -23,6 +24,7 @@ from coda.apps.invoices.views.position_views import safe_invoice_total
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.domain.errors import DomainError
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 
@@ -57,8 +59,12 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
     if parsed_invoice:
         parsed_invoice.id = invoice.id
-        invoice_service.save(parsed_invoice)
-        return redirect("invoices:detail", pk=invoice.id)
+        try:
+            invoice_service.save(parsed_invoice)
+        except DomainError as e:
+            messages.error(request, str(e))
+        else:
+            return redirect("invoices:detail", pk=invoice.id)
 
     if errors:
         position_list = build_position_errors(errors, position_list)
@@ -119,7 +125,7 @@ def render_edit_view(
     exchange_rate = Decimal(0)
     if invoice.conversions():
         conversion_currency, exchange_rate = next(iter(invoice.conversions().items()))
-        exchange_rate = invoice.conversions().get(home_currency, Decimal("0"))
+        exchange_rate = invoice.conversions().get(home_currency, Decimal(0))
 
     return render(
         request,

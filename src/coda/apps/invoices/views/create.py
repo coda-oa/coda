@@ -15,6 +15,7 @@ from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.domain.errors import DomainError
 from coda.domain.finance.invoice import Invoice, UnassignedCosts
 from coda.domain.money import Currency
 
@@ -38,8 +39,12 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
     if request.POST.get("action") == "create":
         invoice, errors = try_parse_invoice(request, position_list, conversions=conversion)
         if invoice:
-            new_id = invoice_service.save(invoice)
-            return redirect("invoices:detail", pk=new_id)
+            try:
+                new_id = invoice_service.save(invoice)
+            except DomainError as e:
+                messages.error(request, str(e))
+            else:
+                return redirect("invoices:detail", pk=new_id)
 
         if errors:
             position_list = build_position_errors(errors, position_list)
