@@ -46,7 +46,9 @@ class FundingOrganization(models.Model):
     name = models.CharField()
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
-    objects: FundingOrganizationManager = FundingOrganizationManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationManager = (
+        FundingOrganizationManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
     all_objects = models.Manager()
 
     def __str__(self) -> str:
@@ -110,7 +112,9 @@ class FundingOrganizationLinkTypeManager(models.Manager["FundingOrganizationLink
 class FundingOrganizationLinkType(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
-    objects: FundingOrganizationLinkTypeManager = FundingOrganizationLinkTypeManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationLinkTypeManager = (
+        FundingOrganizationLinkTypeManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __str__(self) -> str:
         return self.name
@@ -132,7 +136,9 @@ class FundingOrganizationLink(models.Model):
         FundingOrganization, on_delete=models.CASCADE, related_name="links"
     )
 
-    objects: FundingOrganizationLinkManager = FundingOrganizationLinkManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingOrganizationLinkManager = (
+        FundingOrganizationLinkManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class ExternalFundingManager(models.Manager["ExternalFunding"]):
@@ -177,7 +183,9 @@ class ExternalFunding(models.Model):
     project_id = models.CharField()
     project_name = models.CharField()
 
-    objects: ExternalFundingManager = ExternalFundingManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: ExternalFundingManager = (
+        ExternalFundingManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class Label(models.Model):
@@ -186,6 +194,13 @@ class Label(models.Model):
         regex=r"^#[a-fA-F0-9]{6}$", message="Color must be in the format #RRGGBB"
     )
     hexcolor = models.CharField(max_length=7, validators=[color_validator])
+
+    @classmethod
+    def used_labels(cls) -> models.QuerySet["Label"]:
+        """Labels attached to at least one funding request — the only
+        filterable set: a label with no request can never match a criterion,
+        so offering it only ever produces zero-result filters."""
+        return cls.objects.filter(requests__isnull=False).distinct().order_by("name")
 
     def __str__(self) -> str:
         return self.name
@@ -199,15 +214,17 @@ class FundingRequestReview(models.Model):
 
 
 class FundingRequest(models.Model):
-    objects: FundingRequestManager = FundingRequestManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: FundingRequestManager = (
+        FundingRequestManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
-    PROCESSING_CHOICES = [
+    PROCESSING_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (ReviewResult.Approved.value, "Approved"),
         (ReviewResult.Open.value, "In Progress"),
         (ReviewResult.Rejected.value, "Rejected"),
     ]
 
-    PAYMENT_METHOD_CHOICES = [
+    PAYMENT_METHOD_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (PaymentMethod.Direct.value, "Direct"),
         (PaymentMethod.Reimbursement.value, "Reimbursement"),
         (PaymentMethod.Unknown.value, "Unknown"),

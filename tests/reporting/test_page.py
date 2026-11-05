@@ -26,13 +26,15 @@ from coda.apps.reporting.views.page import (
     DimensionSection,
     MeasureColumn,
 )
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.contexts.statistics import charts
 from coda.contexts.statistics.dimensions import DIMENSIONS
 from coda.contexts.statistics.dto import Measure, RowKind
+from coda.domain.color import Color
 from coda.domain.money import Currency
 from coda.domain.publication import License, OpenAccessType
 from tests import modelfactory
-from tests.filterdom import _attrs, walk
+from tests.filterdom import _attrs, selected_values, walk
 from tests.reporting import helpers
 
 if TYPE_CHECKING:
@@ -219,6 +221,43 @@ def test__reporting_page__renders_a_section_per_registered_dimension(client: Cli
     seed()
 
     assert set(sections_by_id(client)) == {dimension.id for dimension in DIMENSIONS}
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__sidebar__renders_include_labels_widget_with_selection(client: Client) -> None:
+    # The widget offers the used-label set (attached to ≥1 request).
+    request = helpers.request("Label carrier paper")
+    label = label_create("Reported Label", Color.from_rgb(10, 20, 30))
+    other = label_create("Other Label", Color.from_rgb(40, 50, 60))
+    label_attach(request, label)
+    label_attach(request, other)
+
+    response = goto(client, labels=str(label.pk))
+    dom = parse_html(response.content.decode())
+
+    # The sidebar widget is the single writer: selected value present, no
+    # hidden `labels` inputs anywhere beside it.
+    assert selected_values(dom, "labels") == [str(label.pk)]
+    hidden = [el for el in walk(dom) if el.name == "input" and _attrs(el).get("name") == "labels"]
+    assert hidden == [], "no second labels writer beside the sidebar widget"
+
+    widget = next(
+        el
+        for el in walk(dom)
+        if el.name == "search-select-multi" and _attrs(el).get("name") == "labels"
+    )
+    option_values = {_attrs(el).get("value") for el in walk(widget) if el.name == "option"}
+    assert option_values == {str(label.pk), str(other.pk)}
+
+    # The htmx path: the region response's OOB sidebar re-render carries the
+    # same selection — labels used to ride the deleted hidden inputs here.
+    region = client.get(
+        reverse("reporting:stats_fundingrequests_region"),
+        data={"labels": [str(label.pk)], **PERIOD},
+        headers={"hx-request": "true"},
+    )
+    assert selected_values(parse_html(region.content.decode()), "labels") == [str(label.pk)]
 
 
 @pytest.mark.django_db

@@ -36,7 +36,6 @@ from coda.apps.listfilters import (
     named_model_choices,
     valid_fields,
 )
-from coda.domain.date import DateRange
 from coda.apps.preferences.models import GlobalPreferences, PreloadedVocabularyProvider
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers.models import Publisher
@@ -53,6 +52,7 @@ from coda.contexts.fundingrequest.dto.commands import (
 )
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.date import DateRange
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -192,9 +192,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(
-                ModelChoiceField[FundingOrganization], self.fields["organization"]
-            ).queryset = organization_queryset
+            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
+                organization_queryset
+            )
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -451,6 +451,7 @@ class FundingRequestListFilterForm(forms.Form):
         contracts: Iterable[Contract] = (),
         labels: Iterable[Label] = (),
         vocabularies: PreloadedVocabularyProvider | None = None,
+        include_labels_widget: bool = False,
         **kwargs: Any,
     ) -> None:
         kwargs.setdefault("label_suffix", "")
@@ -469,10 +470,24 @@ class FundingRequestListFilterForm(forms.Form):
         )
         label_widget = cast(SearchSelectMultiWidget, self.fields["exclude_labels"].widget)
         label_options = list(labels)
-        label_widget.choices = [(label.pk, label.name) for label in label_options]
-        label_widget.option_attrs = {
-            str(label.pk): {"data-color": label.hexcolor} for label in label_options
-        }
+        label_choices = [(label.pk, label.name) for label in label_options]
+        label_colors = {str(label.pk): {"data-color": label.hexcolor} for label in label_options}
+        label_widget.choices = label_choices
+        label_widget.option_attrs = label_colors
+        # Pages without a pill row (statistics, export creation) render
+        # ``labels`` as a visible widget — the single writer of the set-valued
+        # ``labels`` param there. The list page keeps its pills as the writer
+        # and renders the field only via the pills' hidden inputs, so the
+        # widget swap is opt-in; the sidebar template gates the rendering on
+        # ``filter_include_labels``, which views derive from this attribute.
+        self.include_labels_widget = include_labels_widget
+        if include_labels_widget:
+            include_widget = SearchSelectMultiWidget(
+                attrs={"id": "labels", "class": "w-100", "placeholder": "Select labels"},
+                choices=label_choices,
+            )
+            include_widget.option_attrs = label_colors
+            self.fields["labels"].widget = include_widget
         self.selected_label_ids: set[int] = set()
         self.excluded_label_ids: set[int] = set()
         if data is not None:

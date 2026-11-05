@@ -31,7 +31,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     @cached_property
     def _used_labels(self) -> list[Label]:
         """Labels attached to at least one request — the only filterable set."""
-        return list(Label.objects.filter(requests__isnull=False).distinct().order_by("name"))
+        return list(Label.used_labels())
 
     @cached_property
     def _contracts(self) -> list[Contract]:
