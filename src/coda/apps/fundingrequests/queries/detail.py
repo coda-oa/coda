@@ -42,6 +42,15 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """
     fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
 
+    funding_attributions = [
+        {
+            "budget_id": split.funding_source_id,
+            "budget_name": split.funding_source.name,
+            "amount": split.amount,
+        }
+        for split in fr_model.review.funding_splits.select_related("funding_source")
+    ]
+
     affiliation_names = _fetch_affiliation_names(fr_model.publication.relevant_authors.all())
     # Contracts are already loaded by the mapper prefetch; passing them
     # avoids a second (cursor-based) fetch in the payment service.
@@ -66,6 +75,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
         "labels": detail.labels,
         "label_form": ChooseLabelForm(),
         "checks": checkrun,
+        "funding_attributions": funding_attributions,
         "edit_submitter_url": detail.edit_submitter_url,
         "edit_funding_url": detail.edit_funding_url,
     }

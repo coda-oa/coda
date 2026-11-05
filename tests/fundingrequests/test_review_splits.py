@@ -156,6 +156,43 @@ def test__review_page__no_available_per_budget_list(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_detail__shows_funding_attributions(client: Client) -> None:
+    """The funding-request detail page lists the persisted splits — budget
+    name (linking to the budget detail) + gross-of-tax amount — via the read
+    path, not the template walking the reverse manager."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+
+    from coda.apps.fundingrequests.queries import detail as detail_queries
+
+    context = detail_queries.get_detail_context(FundingRequestId(funding_request.pk))
+    assert context["funding_attributions"] == [
+        {"budget_id": budget_id, "budget_name": _budget.name, "amount": Decimal("600")}
+    ]
+
+    response = client.get(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+    content = response.content.decode()
+    assert "Funding Attribution" in content
+    assert _budget.name in content
+    assert "600.00" in content
+    assert f'href="{reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id})}"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_detail__without_splits__renders_no_attribution_block(
+    client: Client,
+) -> None:
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.get(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+
+    assert "Funding Attribution" not in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__review_page__prefills_persisted_splits(client: Client) -> None:
     """Re-opening an approved review renders the persisted splits as filled
     rows (plus the extra blank row) with their gross-left figures and the sum
