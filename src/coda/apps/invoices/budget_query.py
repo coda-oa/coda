@@ -11,8 +11,10 @@ the pending-conversion bucket until their bank rate is entered."""
 
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import Any, cast
 
-from django.db.models import Sum
+from django.db.models import DecimalField, F, Sum
+from django.db.models.functions import Round
 
 from coda.apps.fundingrequests.models import ReviewFundingSplit as ReviewFundingSplitModel
 from coda.apps.invoices.models import BudgetTransfer as BudgetTransferModel
@@ -50,22 +52,57 @@ def _transfer_sum(
     return result or Decimal(0)
 
 
+def _gross_assignment_rows(funding_source_id: FundingSourceId) -> list[dict[str, Any]]:
+    """Assignment rows aggregated per invoice, gross-of-tax: each row's amount
+    × (1 + the position's tax rate), rounded per row to its cost currency's
+    minor units (ROUND_HALF_UP — Postgres ROUND(numeric, n) matches
+    ``Money``'s quantize). VAT-type rows self-handle: they persist rate 0 with
+    the full cost in ``amount``. One query per cost currency because the
+    rounding precision is the currency's, and one aggregate spans several."""
+    cost_currencies = (
+        FundingAssignmentModel.objects.filter(funding_source_id=funding_source_id)
+        .values_list("position__cost_currency", flat=True)
+        .order_by()  # default Meta ordering would leak `id` into DISTINCT
+        .distinct()
+    )
+    rows: list[dict[str, object]] = []
+    for code in cost_currencies:
+        precision = Currency[code].minor_units
+        gross = Round(
+            F("amount") * (1 + F("position__tax_rate")),
+            precision=precision,
+            output_field=DecimalField(max_digits=24, decimal_places=precision),
+        )
+        rows += cast(
+            "list[dict[str, Any]]",
+            list(
+                FundingAssignmentModel.objects.filter(
+                    funding_source_id=funding_source_id, position__cost_currency=code
+                )
+                .order_by()  # default Meta ordering would leak `id` into GROUP BY and duplicate rows
+                .values(
+                    "position__invoice_id",
+                    "position__invoice__status",
+                    "position__cost_currency",
+                    "position__publication__fundingrequest",
+                )
+                .annotate(
+                    total=Sum(
+                        gross, output_field=DecimalField(max_digits=24, decimal_places=precision)
+                    )
+                ),
+            ),
+        )
+    return rows
+
+
 def budget_balances(funding_source_id: FundingSourceId) -> BudgetBalance:
     budget = FundingSourceModel.objects.get(pk=funding_source_id)
     assert budget.budget_amount is not None
     assert budget.budget_currency is not None
     currency = Currency[budget.budget_currency]
 
-    rows = list(
-        FundingAssignmentModel.objects.filter(funding_source_id=funding_source_id)
-        .values(
-            "position__invoice_id",
-            "position__invoice__status",
-            "position__cost_currency",
-            "position__publication__fundingrequest",
-        )
-        .annotate(total=Sum("amount"))
-    )
+    rows = _gross_assignment_rows(funding_source_id)
     invoice_ids = {row["position__invoice_id"] for row in rows}
     rates_to_budget_currency: dict[int, Decimal] = {
         row["invoice_id"]: row["exchange_rate"]
@@ -107,6 +144,7 @@ def budget_balances(funding_source_id: FundingSourceId) -> BudgetBalance:
     # Splits count only for requests without any assignment on this budget.
     split_totals = (
         ReviewFundingSplitModel.objects.filter(funding_source_id=funding_source_id)
+        .order_by()  # defensive: default Meta ordering would leak into GROUP BY
         .values("review__fundingrequest")
         .annotate(total=Sum("amount"))
     )

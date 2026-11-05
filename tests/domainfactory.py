@@ -1,7 +1,7 @@
 import random
 from datetime import date
 from decimal import Decimal
-from typing import cast
+from typing import Self, cast
 
 import faker
 
@@ -58,7 +58,7 @@ class _NoRole:
     __slots__ = ()
     __instance: "_NoRole | None" = None
 
-    def __new__(cls) -> "_NoRole":
+    def __new__(cls) -> "Self":
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
 
@@ -183,9 +183,10 @@ def free_position(
 
 
 def budget(id: FundingSourceId | None = None, amount: Money | None = None) -> Budget:
-    budget = Budget(id, _faker.company())
-    if amount is not None:
-        budget.amount = amount
+    # Generous default so invoices saved against factory budgets don't trip
+    # the capacity check (mirrors modelfactory.budget); tests needing exact
+    # balances pass an explicit amount.
+    budget = Budget(id, _faker.company(), amount=amount or Money("10000", Currency.EUR))
     return budget
 
 

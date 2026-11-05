@@ -20,6 +20,8 @@ from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
 from tests import domainfactory, modelfactory
 
+_NO_TAX = TaxRate.from_percentage(0)
+
 
 def a_budget(
     *, name: str = "DARK 2026", amount: Money | None = None
@@ -38,20 +40,22 @@ def an_unsaved_invoice_with_assignment(
     *,
     conversion_rate: Decimal | None = None,
     publication: PublicationId | None = None,
+    tax_rate: TaxRate = _NO_TAX,
+    cost_type: PublicationCostType = PublicationCostType.Gold_OA,
 ) -> Invoice:
     """A domain invoice with one position whose full cost is assigned to the
     given budget — not persisted; callers decide how to save it."""
     assert budget.id is not None
     if publication is not None:
         item: invoice_positions.PositionItemType = invoice_positions.PublicationItem(
-            publication, cost_type=PublicationCostType.Gold_OA
+            publication, cost_type=cost_type
         )
     else:
-        item = FreeItem("APC", cost_type=PublicationCostType.Gold_OA)
+        item = FreeItem("APC", cost_type=cost_type)
     position = invoice_positions.create(
         item=item,
         cost=cost,
-        tax_rate=TaxRate.from_percentage(0),
+        tax_rate=tax_rate,
         external_position_id="POS-1",
     )
     position.assign_funding(budget, cost.amount)
@@ -72,12 +76,19 @@ def an_invoice_with_assignment(
     paid: bool = False,
     conversion_rate: Decimal | None = None,
     publication: PublicationId | None = None,
+    tax_rate: TaxRate = _NO_TAX,
+    cost_type: PublicationCostType = PublicationCostType.Gold_OA,
 ) -> None:
     """Seed a persisted invoice with one position whose full cost is assigned
     to the given budget, through the domain layer. Pass a publication id to
     link the position (and thus the assignment) to a funding request."""
     invoice = an_unsaved_invoice_with_assignment(
-        cost, budget, conversion_rate=conversion_rate, publication=publication
+        cost,
+        budget,
+        conversion_rate=conversion_rate,
+        publication=publication,
+        tax_rate=tax_rate,
+        cost_type=cost_type,
     )
     if paid:
         invoice.pay()

@@ -17,6 +17,29 @@ EUR = Currency.EUR
 
 
 @pytest.mark.django_db
+def test__waived_review__reserves_nothing() -> None:
+    """A waived review persists no funding splits even when split data is
+    submitted — the guard is a single conditional in update_review; this pins
+    it against silent budget reservation."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    services.update_review(
+        FundingRequestId(funding_request.pk),
+        UpdateReviewDto(
+            decided_funding_amount=Decimal(2000),
+            decided_funding_currency="EUR",
+            reviewer_remarks="",
+            result="waived",
+            funding_splits=[ReviewSplitDto(funding_source_id=budget_id, amount=Decimal(2000))],
+        ),
+    )
+
+    assert funding_request.review.funding_splits.count() == 0
+    assert budget_query.budget_balances(budget_id).reserved == Money("0", EUR)
+
+
+@pytest.mark.django_db
 def test__approving_review_with_valid_split__persists_split_and_reserves_budget() -> None:
     _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
     funding_request = modelfactory.fundingrequest()
