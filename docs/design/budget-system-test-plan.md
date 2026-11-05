@@ -97,6 +97,24 @@ Each cycle: write the failing test with a literal expected outcome (worked examp
 5. `test_transfer_dialog_books_a_transfer`.
 6. `test_budget_amount_field_is_disabled_after_period_start`.
 
+## Amendment — cost basis (2026-11-05)
+
+**Status: implemented 2026-11-05.** Budgets commit **gross-of-tax** amounts (ADR [`0001`](../adr/0001-budget-cost-basis.md); decisions in the [Budget Cost Basis map](../../.wayfinder/map.md)). Positions state net-of-tax; gross is derived as `amount × (1 + tax_rate)` in the budget subsystem's consumers. Every budget-suite fixture uses `TaxRate.from_percentage(0)` (`budget_setup.py:54`), so **no existing test literal changes** — the amendment is additions plus the gap-disposition items.
+
+### New cycles
+
+1. **Read model (S3)** — `test__assignment_with_tax__reserved_is_gross_of_tax_amount` (worked example: net 1680.6723 @ 19% → gross 2000.00); `test__vat_type_position__books_exactly_its_cost` (stored rate 0 self-handling); `test__pending_conversion__grosses_in_original_currency_then_converts` (one rounding); `test__per_row_rounding__sums_rows_individually` (two rows whose unrounded gross sum ≠ per-row-rounded sum — capacity consumes the per-row figures).
+2. **Ledger (C)** — commitment and payment rows book gross in the original currency with a nonzero rate; a VAT row books its cost as-is.
+3. **Capacity (C)** — `test__re_saving_taxed_assignment__delta_is_gross_of_tax` (snapshot and delta switch basis together); existing delta tests stay (0% fixtures).
+4. **Domain** — `funding_assignments(CostBasis.gross)` returns 2000.00 for the net-stored 1680.6723 (next to the existing net-storage pin; the domain contract is pinned, not flipped).
+5. **Gap dispositions (closed tickets)** — uniqueness milestone: partial `UniqueConstraint` (`condition=Q(type="budget")`) with a loud pre-check migration + `migrationtests` milestone, typed service error rendered as a form error, institution sources unaffected; pending-conversion chip list-view test; reinstated B4 `test__waived_review__reserves_nothing` (waived review *with split data attached* reserves nothing, persists no rows).
+6. **Import ledger rows** — imported invoice with budget assignment books a commitment row; a paid import books the payment row (import keeps bypassing the capacity check, §7).
+7. **Run the export suites after the flip** — `tests/exports/fundingrequest_csv/helpers.py` creates invoices through the capacity-checked path at 19%; "gross still fits the 10000 fixture budget" is an empirical claim, verified by running, not reasoning.
+
+### Explicitly unchanged
+
+Budget-suite literals (0% fixtures); capacity domain tests (basis-agnostic); review-split tests (budget-currency amounts, gross as-is); export/CSV assertions (display stays net); `test_invoice_import.py` (assertions never observe the budget subsystem); the 0029 backfill migration tests (the new constraint migration gets its own `migrationtests` milestone).
+
 ## Conventions
 
 - DB tests: `@pytest.mark.django_db`; run `docker exec -w /app coda_local_django pdm run pytest tests/invoices tests/fundingrequests -q`; `--create-db` after schema changes; parallel-safe (no shared module state, own rows per test).
