@@ -7,6 +7,7 @@ from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId, serialize_role
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
+from coda.apps.reporting import factcache
 from coda.domain.author import Author, AuthorId, InstitutionId
 from coda.domain.orcid import Orcid
 from coda.domain.publication import PublicationId
@@ -69,6 +70,9 @@ def create_many(authors: list[Author], publication: PublicationId | None = None)
         for a, pid, aff in zip(authors, person_ids, affiliations)
     ]
     created = AuthorModel.objects.bulk_create(author_models)
+    # bulk_create bypasses post_save; the statistics fact cache needs the
+    # explicit bump (see factcache_signals).
+    factcache.bump_generation()
     return [AuthorId(a.pk) for a in created]
 
 
@@ -132,6 +136,7 @@ def create_many_with_publications(
 
     # Single bulk create for all authors across all publications
     created = AuthorModel.objects.bulk_create(author_models)
+    factcache.bump_generation()
     return [AuthorId(a.pk) for a in created]
 
 

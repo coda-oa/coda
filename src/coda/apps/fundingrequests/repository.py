@@ -11,6 +11,7 @@ from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
+from coda.apps.reporting import factcache
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -90,6 +91,10 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
         frs_to_update = [fr for fr in created_frs if fr.pk in contact_map]
         if frs_to_update:
             FundingRequestModel.objects.bulk_update(frs_to_update, fields=["extra_contact"])
+
+    # bulk_create/bulk_update bypass post_save/post_delete, so the statistics
+    # fact cache needs this explicit bump (see factcache_signals).
+    factcache.bump_generation()
 
     return tuple(FundingRequestId(fr.pk) for fr in created_frs)
 

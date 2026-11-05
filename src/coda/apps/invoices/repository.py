@@ -7,6 +7,7 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.reporting import factcache
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication import PublicationId
 
@@ -71,6 +72,11 @@ def create_many(invoices: Iterable[Invoice]) -> list[InvoiceId]:
 
     # Use optimized bulk relationship synchronization (3 queries instead of 5N)
     invoice_mapper.synchronize_relationships_bulk(invoices_list, models)
+
+    # bulk_create bypasses post_save, so the statistics fact cache learns
+    # about the new invoices only through this explicit bump (see
+    # factcache_signals).
+    factcache.bump_generation()
 
     return [InvoiceId(m.pk) for m in models]
 
