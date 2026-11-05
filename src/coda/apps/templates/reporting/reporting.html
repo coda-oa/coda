@@ -3,12 +3,20 @@
 {% block body_class %}filter-always-drawer{% endblock %}
 {% block page_title %}Funding Request Statistics{% endblock page_title %}
 {% partialdef list_link %}
+    {% comment %}
+        hidden, not omitted, when the period is invalid: the region response
+        re-renders this OOB by id, and omitting it would leave the previous
+        anchor in place with a stale count. The count is uncomputable without
+        facts, so the button disappears until the period is valid.
+    {% endcomment %}
     <a href="{{ list_view_url }}"
        id="statistics-list-link"
        class="button secondary"
        title="View the funding requests matching the active filters"
-       {% if list_link_oob %}hx-swap-oob="true"{% endif %}>View {{ headline.publications }}
-        request{{ headline.publications|pluralize }}</a>
+       {% if list_link_oob %}hx-swap-oob="true"{% endif %}
+       {% if report_empty %}hidden{% endif %}>
+        {% if not report_empty %}View {{ headline.publications }}
+        request{{ headline.publications|pluralize }}{% endif %}</a>
 {% endpartialdef %}
 {% block page_actions %}
     {% partial list_link %}
@@ -24,10 +32,17 @@
     {% with filter_toolbar_search_placeholder="Search requests by title, author, journal, publisher or ID" filter_list_id="reporting-region" %}
         <div class="statistics-header-band">
             {% url 'reporting:stats_fundingrequests_region' as filter_region_url %}
-            <form id="filter-toolbar-form" method="get" action="{{ filter_region_url }}"
-                  hx-get="{{ filter_region_url }}" hx-target="#{{ filter_list_id }}" hx-swap="innerHTML"
-                  hx-include="#filter-sidebar-form, #filter-toolbar-form" hx-sync="this:replace"
-                  hx-indicator="#{{ filter_list_id }}-loading" {% comment %} Trigger notes: the sidebar change is debounced (one date edit fires one change per input; each undebounced change ran the whole pipeline). Dates are excluded from change browsers commit `change` per valid segment mid-edit (stackoverflow.com/a/60996719), and the search box is off change entirely: the pipeline is too expensive for search-as-you-type. Dates and the search box commit on blur through the reporting.js listener; see that file for why htmx cannot express it. Enter still works via `submit`. filter_layout.html's toolbar copy has the same expression scoped to its own form. Keep the two in sync. {% endcomment %}
+            {% comment %} Trigger notes: the sidebar change is debounced (one date edit fires one change per input; each undebounced change ran the whole pipeline). Dates are excluded from change browsers commit `change` per valid segment mid-edit (stackoverflow.com/a/60996719), and the search box is off change entirely: the pipeline is too expensive for search-as-you-type. Dates and the search box commit on blur through the reporting.js listener; see that file for why htmx cannot express it. Enter still works via `submit`. filter_layout.html's toolbar copy has the same expression scoped to its own form. Keep the two in sync.
+            {% endcomment %}
+            <form id="filter-toolbar-form"
+                  method="get"
+                  action="{{ filter_region_url }}"
+                  hx-get="{{ filter_region_url }}"
+                  hx-target="#{{ filter_list_id }}"
+                  hx-swap="innerHTML"
+                  hx-include="#filter-sidebar-form, #filter-toolbar-form"
+                  hx-sync="this:replace"
+                  hx-indicator="#{{ filter_list_id }}-loading"
                   hx-trigger="submit, change delay:300ms from:#filter-sidebar-form, change[!event.target.matches('.filter-search') && !event.target.matches('input[type=date]')] delay:300ms">
                 {% comment %}
                 Default submit button: without it, pressing Enter in the search

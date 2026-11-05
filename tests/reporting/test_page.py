@@ -262,6 +262,146 @@ def test__sidebar__renders_include_labels_widget_with_selection(client: Client) 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__empty_selection__renders_no_report(client: Client) -> None:
+    seed()
+    response = goto(client, search_term="definitely-no-such-publication-xyz")
+    html = response.content.decode()
+    dom = parse_html(html)
+
+    assert "No publications match the selected filters" in html
+    assert response.context["report_empty"] is True
+    # A valid selection has no date error — the band's inline slot stays empty.
+    assert 'id="date-range-error"' not in html
+    # The tab nav collapses with the content — the attribution group's
+    # treemap would otherwise keep its tab alive on zero facts.
+    assert response.context["groups"] == []
+    assert [el for el in walk(dom) if "data-chart" in (_attrs(el) or {})] == []
+    link = next(
+        el for el in walk(dom) if el.name == "a" and _attrs(el).get("id") == "statistics-list-link"
+    )
+    assert "hidden" in _attrs(link)
+
+    # The region path: same empty state for a valid-but-empty selection.
+    region = client.get(
+        reverse("reporting:stats_fundingrequests_region"),
+        data={**PERIOD, "search_term": "definitely-no-such-publication-xyz"},
+        headers={"hx-request": "true"},
+    )
+    region_html = region.content.decode()
+    assert "No publications match the selected filters" in region_html
+    region_link = next(
+        el
+        for el in walk(parse_html(region_html))
+        if el.name == "a" and _attrs(el).get("id") == "statistics-list-link"
+    )
+    assert "hidden" in _attrs(region_link)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_period__renders_no_report(client: Client) -> None:
+    seed()
+    response = goto(client, start_date="2026-12-31", end_date="2026-01-01")
+    html = response.content.decode()
+    dom = parse_html(html)
+
+    assert "No publications match the selected filters" in html
+    # The generic empty state; the specific validation error stays on the
+    # form (the band's inline date slot renders it).
+    assert response.context["report_empty"] is True
+    # The band's inline date slot is the only place the specific validation
+    # error appears — the unified region notice is generic.
+    assert 'id="date-range-error"' in html
+    assert response.context["filter_form"].errors.get("date_range")
+    assert response.context["groups"] == []
+    # The skip keeps the server-owned band surfaces…
+    assert response.context["filter_count"] is not None
+    # …and drops everything fact-derived: no chart mounts, no json payloads,
+    # no list-link count.
+    assert [el for el in walk(dom) if el.name == "div" and "data-chart" in (_attrs(el) or {})] == []
+    assert [
+        el
+        for el in walk(dom)
+        if el.name == "script" and _attrs(el).get("type") == "application/json"
+    ] == []
+    link = next(
+        el for el in walk(dom) if el.name == "a" and _attrs(el).get("id") == "statistics-list-link"
+    )
+    assert "hidden" in _attrs(link)
+
+    # The region path skips identically (the OOB blocks stay, the content is
+    # the notice).
+    region = client.get(
+        reverse("reporting:stats_fundingrequests_region"),
+        data={"start_date": "2026-12-31", "end_date": "2026-01-01"},
+        headers={"hx-request": "true"},
+    )
+    region_html = region.content.decode()
+    assert "No publications match the selected filters" in region_html
+    assert 'name="labels"' in region_html  # OOB sidebar still re-rendered
+
+    # The skip also keeps the fact pipeline from running on junk input —
+    # and the junk-keyed unfiltered result out of the cache.
+    assert (
+        helpers.fact_pipeline_query_count(client, start_date="2026-12-31", end_date="2026-01-01")
+        == 0
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__one_sided_period__still_renders_the_report(client: Client) -> None:
+    seed()
+    # Requested directly: goto() merges PERIOD, which would silently turn
+    # this into a bounded range. Only the end bound is sent — no redirect,
+    # reporting_page redirects only when both bounds are absent.
+    response = client.get(
+        reverse("reporting:stats_fundingrequests"), data={"end_date": "2026-12-31"}
+    )
+
+    assert response.context["filter_form"].errors == {}
+    charts = [
+        el
+        for el in walk(parse_html(response.content.decode()))
+        if "data-chart" in (_attrs(el) or {})
+    ]
+    assert charts, "a one-sided period is valid input and must compute"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_compare_period__keeps_the_main_report(client: Client) -> None:
+    seed()
+    response = goto(
+        client,
+        compare="1",
+        compare_start_date="2026-12-31",
+        compare_end_date="2026-01-01",
+    )
+    html = response.content.decode()
+
+    assert "No publications match the selected filters" not in html
+    assert "Both comparison dates are required." not in html  # bounds are present, just reversed
+    assert [el for el in walk(parse_html(html)) if "data-chart" in (_attrs(el) or {})]
+    assert response.context["comparison_error"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__valid_period__renders_the_report(client: Client) -> None:
+    seed()
+    response = goto(client)
+
+    assert [
+        el
+        for el in walk(parse_html(response.content.decode()))
+        if "data-chart" in (_attrs(el) or {})
+    ]
+    assert "No publications match the selected filters" not in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__reporting_page__every_chart_renders_a_plotly_mount_and_json_script(
     client: Client,
 ) -> None:
