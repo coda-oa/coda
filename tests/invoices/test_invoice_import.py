@@ -10,7 +10,7 @@ import pytest
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import funding_source_repository, invoice_query, repository
-from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.invoices.models import BudgetLedgerEntry, Creditor, FundingSource
 from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
@@ -743,3 +743,29 @@ def create_contract_from(contract_position: ContractPositionImportDto) -> Contra
 
 def complete_year(year: int) -> DateRange:
     return DateRange.create(start=datetime.date(year, 1, 1), end=datetime.date(year, 12, 31))
+
+
+@pytest.mark.django_db
+def test__imported_invoice_with_budget_assignment__books_commitment_ledger_row() -> None:
+    import_dto = invoice_import_list_dto([free_position_import_dto()])
+    _ = import_invoices_from_dto_json(import_dto)
+
+    budget = FundingSource.objects.get(name="free-position-funding-source")
+    row = BudgetLedgerEntry.objects.get(budget_id=budget.pk, event="commitment")
+
+    assert row.amount == Decimal("59.50")  # 50.00 net @ 19% — gross, original currency
+    assert row.currency == "BBD"
+
+
+@pytest.mark.django_db
+def test__paid_imported_invoice__books_payment_ledger_row() -> None:
+    import_dto = InvoiceListImportDto(
+        invoices=[paid_invoice_dto(positions=[free_position_import_dto()])]
+    )
+    _ = import_invoices_from_dto_json(import_dto)
+
+    budget = FundingSource.objects.get(name="free-position-funding-source")
+    row = BudgetLedgerEntry.objects.get(budget_id=budget.pk, event="payment")
+
+    assert row.amount == Decimal("59.50")
+    assert row.currency == "BBD"
