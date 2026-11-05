@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import random
 
 import faker
@@ -22,6 +23,7 @@ from coda.domain.publication import Authors, JournalId
 from tests import domainfactory
 
 _faker = faker.Faker()
+_budget_name_counter = itertools.count()
 
 
 def _issn() -> str:
@@ -122,7 +124,7 @@ def creditor(name: str = "") -> Creditor:
 def budget(name: str = "", amount: Money | None = None) -> FundingSource:
     amount = amount or Money("10000", Currency.EUR)
     return FundingSource.objects.create(
-        name=name or _faker.company(),
+        name=name or f"{_faker.company()} #{next(_budget_name_counter)}",
         budget_amount=amount.amount,
         budget_currency=amount.currency.code,
         period_start=datetime.date(2026, 1, 1),

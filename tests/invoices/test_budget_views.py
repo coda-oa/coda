@@ -79,6 +79,36 @@ def test__institution_source__name_matching_a_budget__update_passes(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__budget_detail__still_counts_own_review_splits_as_reserved(client: Client) -> None:
+    """The display exclusion is opt-in to the review page: the budget detail
+    page's default semantics keep counting a review's committed splits as
+    reserved."""
+    budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    from coda.contexts.fundingrequest.dto.commands import ReviewSplitDto, UpdateReviewDto
+    from coda.contexts.fundingrequest.services import fundingrequests as fr_services
+    from coda.domain.fundingrequest import FundingRequestId
+
+    fr_services.update_review(
+        FundingRequestId(funding_request.pk),
+        UpdateReviewDto(
+            decided_funding_amount=Decimal(600),
+            decided_funding_currency="EUR",
+            reviewer_remarks="",
+            result="approved",
+            funding_splits=[ReviewSplitDto(funding_source_id=budget_id, amount=Decimal(600))],
+        ),
+    )
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    assert b"600.00" in response.content  # reserved figure on the detail page
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__budget_detail__shows_full_state_and_ledger(client: Client) -> None:
     budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("10000", EUR))
     budget_setup.an_invoice_with_assignment(Money("2500", EUR), budget, paid=True)
