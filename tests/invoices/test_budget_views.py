@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -6,6 +7,7 @@ from django.urls import reverse
 
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices import budget_query
+from coda.apps.invoices import repository as invoice_repository
 from coda.apps.invoices.models import FundingSource
 from coda.domain.money import Currency, Money
 from tests import modelfactory
@@ -379,6 +381,38 @@ def test__budget_detail__shows_pending_conversion_annotation(client: Client) -> 
     assert "3000.00 USD" in content
     assert "excluded from available" in content
     assert "budget-balance-bar__pending" not in content
+
+
+# --- Amendment — budget UI completion: cycle 3 (invoice reference list) ---
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__lists_invoices_referencing_the_source(client: Client) -> None:
+    """The detail page lists the invoices whose current funding assignments
+    reference the source — the 10 most recent as invoice-number links to the
+    invoice detail page, plus a deep link to the invoice list pre-filtered by
+    this funding source. No date filtering: purely assignment-based."""
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("100000", EUR))
+    recent: list[tuple[str, int]] = []
+    for i in range(10):
+        invoice = budget_setup.an_unsaved_invoice_with_assignment(Money("10", EUR), budget)
+        invoice.number = f"INV-RECENT-{i:02}"
+        invoice.date = date(2026, 11, 1) - timedelta(days=i)
+        recent.append((invoice.number, invoice_repository.create(invoice)))
+    older = budget_setup.an_unsaved_invoice_with_assignment(Money("10", EUR), budget)
+    older.number = "INV-OLDEST"
+    older.date = date(2025, 1, 1)
+    invoice_repository.create(older)
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    for number, pk in recent:
+        assert f'<a href="{reverse("invoices:detail", kwargs={"pk": pk})}">{number}</a>' in content
+    assert "INV-OLDEST" not in content  # 11th invoice, beyond the cap of 10
+    assert f'href="{reverse("invoices:list")}?funding_source={budget_id}"' in content
 
 
 # --- Amendment — budget UI completion: cycle 4 (list navigation) ---

@@ -44,6 +44,17 @@
                     {% endif %}
                 </div>
             </div>
+            <h2>Invoices for this funding source</h2>
+            <ul class="budget-invoice-list">
+                {% for invoice in recent_invoices %}
+                    <li><a href="{% url "invoices:detail" pk=invoice.pk %}">{{ invoice.number }}</a></li>
+                {% empty %}
+                    <li>No invoices reference this funding source yet</li>
+                {% endfor %}
+            </ul>
+            <p>
+                <a href="{% url "invoices:list" %}?funding_source={{ fundingsource.id }}">All invoices for this funding source →</a>
+            </p>
             <h2>Transfer funds</h2>
             <form method="post"
                   action="{% url "invoices:budget_transfer" pk=fundingsource.id %}">

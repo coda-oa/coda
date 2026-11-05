@@ -14,9 +14,10 @@ from django.views.generic import CreateView, DetailView, UpdateView
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.institutions.models import Institution
-from coda.apps.invoices import budget_query
+from coda.apps.invoices import budget_query, invoice_query
 from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
+from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.search import words_icontains
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.finance.services import budget_service
@@ -150,6 +151,14 @@ class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
         context["bar_spent_width"], context["bar_reserved_width"] = _balance_bar_widths(
             context["balance"]
         )
+        # The invoices whose current funding assignments reference this
+        # source (spec §8.1.2) — same Q the invoice list filters by.
+        source_criterion = invoice_query.FundingSourceCriterion(
+            FundingSourceId(self.object.pk)
+        )
+        context["recent_invoices"] = InvoiceModel.objects.filter(
+            invoice_query.to_query(source_criterion)
+        ).order_by("-date")[:10]
         return context
 
 
