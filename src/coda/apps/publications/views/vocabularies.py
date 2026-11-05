@@ -79,7 +79,7 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
         "publications/vocabulary.html",
         _tree_context(limited),
     )
-    return trigger_client_event(response, "concept-ui-init")
+    return trigger_client_event(response, "concept-ui-init", after="swap")
 
 
 @login_required
@@ -120,7 +120,7 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
         "publications/vocabulary.html",
         _tree_context(vocabulary) | {"form": form},
     )
-    return trigger_client_event(response, "concept-ui-init")
+    return trigger_client_event(response, "concept-ui-init", after="swap")
 
 
 def _invalid_vocabulary_response(
@@ -172,7 +172,7 @@ def _move_concepts_between_lists(
             vocabulary.allow(concept_id)
 
     response = render(request, "publications/vocabulary_table.html", _tree_context(vocabulary))
-    return trigger_client_event(response, "concept-ui-init")
+    return trigger_client_event(response, "concept-ui-init", after="swap")
 
 
 @login_required
