@@ -44,7 +44,9 @@ def test__filter_forms__values_are_sent_with_region_updates(
         coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), monograph_title
     )
 
+    list_page.open_filter_drawer()
     list_page.select_publication_type("article")
+    list_page.close_filter_drawer()
     filter_ui_expectations.expect_no_text(
         coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), monograph_title
     )
@@ -150,7 +152,9 @@ def test__filter_forms__keep_label_filter_set_by_pills(
         coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), unlabeled_title
     )
 
+    list_page.open_filter_drawer()
     list_page.select_publication_type("article")
+    list_page.close_filter_drawer()
     filter_ui_expectations.expect_url_query(coda_page, "publication_type=article")
 
     filter_ui_expectations.expect_text(
@@ -176,6 +180,7 @@ def test__active_filter_chips__summary_shows_and_removes_in_place(
     list_page.navigate()
     list_page.click_label_pill("Alpha chip")
     list_page.click_label_pill("Beta chip")
+    list_page.open_filter_drawer()
 
     filter_ui_expectations.expect_active_filter(coda_page, "Alpha chip")
     filter_ui_expectations.expect_active_filter(coda_page, "Beta chip")
@@ -185,6 +190,7 @@ def test__active_filter_chips__summary_shows_and_removes_in_place(
     )
 
     list_page.remove_active_filter("Alpha chip")
+    list_page.close_filter_drawer()
     filter_ui_expectations.expect_no_text(
         coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Alpha chip paper"
     )
@@ -209,6 +215,7 @@ def test__chip_removal__resets_sidebar_controls(
 
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
+    list_page.open_filter_drawer()
     list_page.filter_by_processing_status("approved")
     list_page.filter_by_payment_status("paid")
     list_page.select_publication_type("article")
@@ -247,6 +254,7 @@ def test__contract_select__enter_updates_filter_chip_and_count(
     contract = modelfactory.contract()
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
+    list_page.open_filter_drawer()
 
     search_box = coda_page.locator(filter_ui_selectors.CONTRACT_NAME).locator(
         filter_ui_selectors.SEARCH_SELECT_BOX
@@ -258,6 +266,7 @@ def test__contract_select__enter_updates_filter_chip_and_count(
     filter_ui_expectations.expect_url_query(coda_page, f"contract_name={contract.pk}")
     filter_ui_expectations.expect_active_filter(coda_page, contract.name)
     filter_ui_expectations.expect_active_filter_count(coda_page, 1)
+    list_page.close_filter_drawer()
 
 
 @pytest.mark.ui_test
@@ -323,6 +332,7 @@ def test__chip_removal__keeps_other_values_of_a_multi_value_filter(
 ) -> None:
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
+    list_page.open_filter_drawer()
     list_page.filter_by_processing_status("approved")
     list_page.filter_by_processing_status("rejected")
     filter_ui_expectations.expect_active_filter(coda_page, "approved")
@@ -345,11 +355,13 @@ def test__deep_linked_selection__survives_the_next_filter_change(
 ) -> None:
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate("processing_status=approved")
+    list_page.open_filter_drawer()
     filter_ui_expectations.expect_selected_options(
         coda_page, filter_ui_selectors.PROCESSING_STATUS, ["approved"]
     )
 
     list_page.select_publication_type("article")
+    list_page.close_filter_drawer()
 
     filter_ui_expectations.expect_url_query(coda_page, "processing_status=approved")
 
@@ -404,6 +416,7 @@ def test__sidebar_rerender__keeps_hydrated_selection_in_the_next_request(
     """A re-rendered widget must still contribute its server-rendered value."""
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate("processing_status=approved")
+    list_page.open_filter_drawer()
 
     list_page.select_publication_type("article")
 
@@ -451,6 +464,7 @@ def test__fundingrequest_form_sidebar__rebinds_all_filter_inputs(
         f"&contract_name={contract.pk}&publication_states=Published"
     )
     list_page.navigate(query)
+    list_page.open_filter_drawer()
 
     filter_ui_expectations.expect_checked_control(
         coda_page, filter_ui_selectors.PUBLICATION_TYPE_ALL

@@ -16,6 +16,7 @@ from coda.apps.invoices.models import FundingAssignment, Invoice, Position
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import AttachedContract, Publication
 from coda.apps.publications.models._links import Link
+from coda.domain.author import Role
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 
@@ -356,7 +357,7 @@ def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -
     institution_ids: set[int] = set()
     for publication in publications:
         for author in publication.relevant_authors.all():
-            if author.roles and "CORRESPONDING_AUTHOR" in author.roles:
+            if author.roles and any(r in author.roles for r in Role.corresponding_role_names()):
                 if author.affiliation_id:
                     institution_ids.add(author.affiliation_id)
                 break
@@ -545,7 +546,7 @@ def get_institution_data(
         (
             author
             for author in publication.relevant_authors.all()
-            if author.roles and "CORRESPONDING_AUTHOR" in author.roles
+            if author.roles and any(r in author.roles for r in Role.corresponding_role_names())
         ),
         None,
     )

@@ -39,7 +39,7 @@ FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
 CSV_ENCODING = "utf-8-sig"
 
 
-@breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
+@breadcrumb("Funding Request CSV Export", parent_url_name="reporting:home")
 class FundingRequestCSVExportListView(
     LoginRequiredMixin, SimpleSearchEntityListView[FundingRequestCSVExport]
 ):

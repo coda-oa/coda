@@ -28,7 +28,7 @@ Contracts help you:
 - **Track coverage**: Know which journals are included in your agreements
 - **Link publications**: Associate published articles with the contracts that cover them
 - **Manage billing**: Understand how publications are invoiced (individually or as part of a consolidated agreement)
-- **Report data**: Include contract information in [OpenCost exports](reporting.md) for transparency reporting
+- **Report data**: Include contract information in [OpenCost exports](opencost.md) for transparency reporting
 
 ## Creating a New Contract
 
@@ -71,7 +71,7 @@ CODA supports several types of contract identifiers used in scholarly publishing
 
 The [ESAC Registry](https://esac-initiative.org/about/transformative-agreements/agreement-registry/) maintains a database of transformative agreements. If your contract is listed in the ESAC Registry, add its ID here.
 
-**Why use it**: ESAC IDs are required for many [openCost exports](reporting.md) and transparency initiatives
+**Why use it**: ESAC IDs are required for many [openCost exports](opencost.md) and transparency initiatives
 
 ### OAI (Open Archives Initiative Identifier)
 
@@ -164,7 +164,7 @@ When creating a [funding request](fundingrequests.md) you can associate a public
 
 ### In openCost Reports
 
-When generating [openCost export reports](reporting.md):
+When generating [openCost export reports](opencost.md):
 
 - Publications linked to contracts appear with contract information in the XML output
 - Contract identifiers (ESAC, OAI, EZB) are included in the export
@@ -178,5 +178,5 @@ ESAC IDs are required for generating a valid openCost report.
 Contract information helps organize invoices:
 
 - Contract positions in invoices are used to represent costs for consolidated contracts
-- Contract positions in invoices are used to generate the costs for contracts in [openCost reports](reporting.md).
+- Contract positions in invoices are used to generate the costs for contracts in [openCost reports](opencost.md).
 

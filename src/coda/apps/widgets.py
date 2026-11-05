@@ -8,13 +8,22 @@ from coda.domain.date import DateRange
 
 
 class DateRangeWidget(forms.MultiWidget):
-    def __init__(self, *, input_names: tuple[str, str], input_ids: tuple[str, str]) -> None:
+    def __init__(
+        self,
+        *,
+        input_names: tuple[str, str],
+        input_ids: tuple[str, str],
+        error_id: str = "date-range-error",
+        input_attrs: tuple[Mapping[str, str], Mapping[str, str]] = ({}, {})
+    ) -> None:
         self.input_names = input_names
         self.input_ids = input_ids
+        self.error_id = error_id
+        self.input_attrs = input_attrs
         super().__init__(
             [
-                forms.DateInput(attrs={"type": "date"}),
-                forms.DateInput(attrs={"type": "date"}),
+                forms.DateInput(attrs={"type": "date", **input_attrs[0]}),
+                forms.DateInput(attrs={"type": "date", **input_attrs[1]}),
             ]
         )
 
@@ -53,12 +62,23 @@ class DateRangeWidget(forms.MultiWidget):
         return list(value) if isinstance(value, (list, tuple)) else ["", ""]
 
     def mark_invalid(self) -> None:
-        self.attrs.update({"aria-invalid": "true", "aria-describedby": "date-range-error"})
+        self.attrs.update({"aria-invalid": "true", "aria-describedby": self.error_id})
 
     def _input_name(self, field_name: str, index: int) -> str:
         prefix, separator, _ = field_name.rpartition("-")
         name = self.input_names[index]
         return f"{prefix}-{name}" if separator else name
+
+
+def remote_query_key(name: str) -> str:
+    """The hidden input that round-trips a remote-search select's term.
+
+    The format is part of the widget's interface: the template renders it,
+    the form reads it from the POST/GET data, and
+    ``static/js/search-select-multi.js`` mirrors it when syncing the term
+    client-side. Change all three together.
+    """
+    return f"{name}_q"
 
 
 class SearchSelectWidget(forms.Select):
@@ -71,6 +91,25 @@ class SearchSelectMultiWidget(forms.SelectMultiple):
     option_template_name = "forms/search-select-multi-option-widget.html"
 
     option_attrs: Mapping[str, Mapping[str, str]]
+
+    #: Registry-scale facets cannot enumerate every choice server-side: the
+    #: form narrows ``choices`` to the matches of ``remote_query`` (plus the
+    #: selected values) and the component round-trips the search term through
+    #: a hidden input named ``remote_query_key(name)``. The component fetches
+    #: option fragments from ``remote_endpoint`` (a reverse() result the
+    #: owner app sets; the widget app owns no URL).
+    remote_search = False
+    remote_query = ""
+    remote_endpoint = ""
+
+    def get_context(self, name: str, value: Any, attrs: Any) -> dict[str, Any]:
+        context = super().get_context(name, value, attrs)
+        if self.remote_search:
+            context["widget"]["remote_search"] = True
+            context["widget"]["remote_query"] = self.remote_query
+            context["widget"]["remote_query_key"] = remote_query_key(name)
+            context["widget"]["remote_endpoint"] = self.remote_endpoint
+        return context
 
     def create_option(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         option = super().create_option(*args, **kwargs)

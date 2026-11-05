@@ -3,6 +3,7 @@ from typing import Final
 from django.db import transaction
 
 from coda.apps.publications.models import PublicationPayment as PublicationPaymentModel
+from coda.apps.reporting import factcache
 from coda.domain.finance.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
@@ -137,6 +138,11 @@ def bulk_save_payments(payment_updates: list[tuple[PublicationId, PaymentEvent]]
 
         if received_updates:
             _bulk_update_payment_status(received_updates, "invoice_received")
+
+        # bulk_create/bulk_update bypass post_save/post_delete, and the
+        # payment status is a statistics filter criterion, so the fact cache
+        # needs this explicit bump (see factcache_signals).
+        factcache.bump_generation()
 
 
 def _bulk_update_payment_status(

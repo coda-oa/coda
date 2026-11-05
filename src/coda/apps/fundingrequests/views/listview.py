@@ -11,27 +11,14 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
-from coda.apps.fundingrequests.forms import (
-    FundingRequestListFilterForm,
-    payment_status_choices,
-    publication_state_choices,
-)
+from coda.apps.fundingrequests.filters import build_filter_summary
+from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
-from coda.apps.listfilters import (
-    ChipBuilder,
-    FilterSummary,
-    ListRegionMixin,
-)
+from coda.apps.listfilters import ListRegionMixin, build_url, params_without
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
-from coda.domain.date import DateRange
-
-_DEFAULT_PUBLICATION_TYPE = "all"
-
-
-_DATE_START_KEY = "start_date"
-_DATE_END_KEY = "end_date"
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
@@ -44,11 +31,28 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     @cached_property
     def _used_labels(self) -> list[Label]:
         """Labels attached to at least one request — the only filterable set."""
-        return list(Label.objects.filter(requests__isnull=False).distinct().order_by("name"))
+        return list(Label.used_labels())
+
+    @cached_property
+    def _contracts(self) -> list[Contract]:
+        """The contract choice list, fetched once per request and shared by
+        the filter form and the filter-summary chip fallback."""
+        return list(Contract.objects.all())
+
+    @cached_property
+    def _filter_form(self) -> FundingRequestListFilterForm:
+        """The request's filter form, built once: ``get_entities`` validates
+        it for the query and ``get_context_data`` renders it. One provider
+        construction and one choice-list evaluation per request."""
+        return FundingRequestListFilterForm(
+            self.request.GET,
+            contracts=self._contracts,
+            labels=self._used_labels,
+            vocabularies=GlobalPreferences.preloaded(),
+        )
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
-        filter_form = FundingRequestListFilterForm(request.GET, labels=self._used_labels)
-        criteria, sort_order = filter_form.search_criteria()
+        criteria, sort_order = self._filter_form.search_criteria()
         django_queryset = fq.search(*criteria, sort_order=fq.SortOrder[sort_order.name])
         return LazyBulkQuerySet(
             queryset=django_queryset,
@@ -57,27 +61,32 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx.update(get_contract_list_context())
         ctx["query"] = self.request.GET.get("search_term", "")
+        # Link to the statistics page with the same filter vocabulary: both
+        # pages bind FundingRequestListFilterForm to GET, so the querystring
+        # transfers verbatim. The statistics page re-derives a default period
+        # when the list had no dates (reporting.views.page._default_period_url).
+        ctx["statistics_url"] = build_url(
+            "reporting:stats_fundingrequests",
+            params_without(self.request.GET, "page", "sort_by"),
+        )
         if self.request.GET:
             ctx["no_results_message"] = "No funding requests match the selected filters."
             ctx["no_results_clear_url"] = reverse("fundingrequests:list")
 
         labels = self._used_labels
-        filter_form = FundingRequestListFilterForm(
-            self.request.GET,
-            contracts=ctx["contract_list"],
-            labels=labels,
-        )
+        filter_form = self._filter_form
         filter_form.is_valid()
         date_errors = filter_form.errors.get("date_range")
         date_range_error = str(date_errors[0]) if date_errors else None
         summary = build_filter_summary(
             self.request,
             labels,
-            ctx["contract_list"],
+            self._contracts,
             included=filter_form.selected_label_ids,
             excluded=filter_form.excluded_label_ids,
+            list_url_name=_LISTVIEW_URL,
+            region_url_name=_LIST_REGION_URL,
             date_range=filter_form.cleaned_data.get("date_range"),
             date_range_error=date_range_error,
         )
@@ -108,10 +117,6 @@ fundingrequest_list = FundingRequestListView.as_view()
 fundingrequest_list_region = FundingRequestListRegionView.as_view()
 
 
-def get_contract_list_context() -> dict[str, Any]:
-    return {"contract_list": Contract.objects.all()}
-
-
 @dataclass(frozen=True)
 class LabelPill:
     name: str
@@ -122,9 +127,7 @@ class LabelPill:
 
 
 def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
-    params = request.GET.copy()
-    params.pop("labels", None)
-    params.pop("page", None)
+    params = params_without(request.GET, "labels", "page")
     if labels:
         params.setlist("labels", [str(x) for x in sorted(labels)])
     return reverse(url_name, query=params or None)
@@ -163,64 +166,3 @@ def build_label_pills(
         )
         for label in labels
     ]
-
-
-def build_filter_summary(
-    request: HttpRequest,
-    labels: Sequence[Label],
-    contracts: Sequence[Contract],
-    *,
-    included: set[int],
-    excluded: set[int],
-    date_range: DateRange | None,
-    date_range_error: str | None,
-) -> FilterSummary:
-    """One removable chip per active filter value, in the rail's group order.
-
-    Text is the bare value except where that would be ambiguous (dates, contract
-    year, excluded labels, switch). A deleted Contract falls back to its raw id;
-    label chips come from the resolved include/exclude sets, so ids the form
-    dropped never appear.
-    """
-    chips = ChipBuilder(
-        request,
-        list_url_name=_LISTVIEW_URL,
-        region_url_name=_LIST_REGION_URL,
-    )
-    chips.multi("processing_status")
-    chips.multi("payment_status", labels=dict(payment_status_choices))
-    chips.multi("payment_methods")
-    chips.multi("open_access_type")
-
-    publication_type = request.GET.get("publication_type")
-    if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
-        chips.add("publication_type", publication_type, publication_type.title())
-
-    chips.multi("publication_states", labels=dict(publication_state_choices))
-    chips.date_range(
-        start_key=_DATE_START_KEY,
-        end_key=_DATE_END_KEY,
-        start_source_id="id_start_date",
-        end_source_id="id_end_date",
-        date_range=date_range,
-        error=date_range_error,
-    )
-    chips.single(
-        "contract_name",
-        labels={str(contract.pk): contract.name for contract in contracts},
-    )
-    chips.single("contract_year", prefix="Year ")
-    chips.switch("invalid_contract_years", "Invalid years only")
-
-    names = {label.pk: label.name for label in labels}
-    colors = {label.pk: label.hexcolor for label in labels}
-
-    def label_chips(param: str, ids: set[int], prefix: str = "") -> None:
-        for value in sorted(ids):
-            chips.add(
-                param, str(value), prefix + names[value], kind="label", label_color=colors[value]
-            )
-
-    label_chips("labels", included)
-    label_chips("exclude_labels", excluded, "Not: ")
-    return chips.summary()

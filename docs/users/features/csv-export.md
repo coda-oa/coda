@@ -4,7 +4,7 @@ The CSV Export feature allows you to export funding request data with publicatio
 
 ## Overview
 
-You can access the CSV Export feature from the **Export** page in the navigation menu. From there, click **View** on the *Funding Request CSV Export* card to see your previously generated exports.
+You can access the CSV Export feature from the **Reporting** page in the navigation menu. From there, click **View** on the *Funding Request CSV Export* card to see your previously generated exports.
 
 The export list page displays all exports you have created, showing:
 
@@ -82,7 +82,7 @@ Note: institutions receive their internal ID when the institution structure is e
 
 To create a new CSV export:
 
-1. Navigate to the **Export** page from the navigation menu
+1. Navigate to the **Reporting** page from the navigation menu
 2. Click **View** on the *Funding Request CSV Export* card
 3. Click the **New** button on the export list page
 4. Enter a **name** for your export 
