@@ -23,7 +23,7 @@ Whether an amount is stated with or without tax: gross-of-tax includes tax, net-
 _Avoid_: tax mode, VAT basis
 
 **Net-of-tax amount**:
-An amount excluding tax. Position costs and their funding splits are stated net-of-tax; a VAT-type cost line is the exception — it states the tax itself, so its net-of-tax amount is nil.
+An amount excluding tax. Position costs are stated net-of-tax; their funding splits (and the decided funding amount they attribute) are stated gross-of-tax — splits carry no tax rate and count as-is (ADR 0001). A VAT-type cost line is the exception — it states the tax itself, so its net-of-tax amount is nil.
 _Avoid_: net (bare), pre-tax
 
 **Gross-of-tax amount**:

@@ -415,6 +415,49 @@ def test__budget_detail__lists_invoices_referencing_the_source(client: Client) -
     assert f'href="{reverse("invoices:list")}?funding_source={budget_id}"' in content
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__ignores_deleted_assignments(client: Client) -> None:
+    """An invoice re-saved (positions and funding assignments recreated) must
+    appear exactly once in the reference list: the save deletes the old
+    assignment rows, and the list deduplicates the assignment join — two
+    positions assigned to the same budget join twice without it."""
+    from coda.domain.finance import invoice_positions
+    from coda.domain.finance.costtypes import PublicationCostType
+    from coda.domain.finance.invoice import CreditorId, InvoiceId, PaymentStatus
+    from coda.domain.finance.invoice_positions import FreeItem
+    from coda.domain.finance.taxrate import TaxRate
+    from tests import domainfactory
+
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("100000", EUR))
+    positions = []
+    for i in range(2):
+        position = invoice_positions.create(
+            item=FreeItem(f"APC {i}", cost_type=PublicationCostType.Gold_OA),
+            cost=Money("10", EUR),
+            tax_rate=TaxRate.from_percentage(0),
+            external_position_id=f"POS-{i}",
+        )
+        position.assign_funding(budget, Decimal(10))
+        positions.append(position)
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=positions
+    )
+    invoice.status = PaymentStatus.Unpaid
+    pk = invoice_repository.create(invoice)
+
+    invoice.id = InvoiceId(pk)
+    invoice.number = "INV-RESAVED"
+    invoice_repository.update(invoice)  # re-save: positions/assignments recreated
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    link = f'<a href="{reverse("invoices:detail", kwargs={"pk": pk})}">INV-RESAVED</a>'
+    assert content.count(link) == 1
+
+
 # --- Amendment — budget UI completion: cycle 4 (list navigation) ---
 
 

@@ -7,6 +7,7 @@ applies to review decisions and manual/UI funding assignments — invoice
 import is a recorded fact and does not run these checks."""
 
 from collections import Counter
+from collections.abc import Iterable
 from decimal import Decimal
 
 from django.db.models import DecimalField, F, Sum
@@ -32,6 +33,17 @@ from coda.domain.money import Currency, Money
 
 class BudgetCapacityExceededError(DomainError):
     pass
+
+
+def committed_per_funding_source(
+    commitments: Iterable[tuple[FundingSourceId, Money]],
+) -> dict[FundingSourceId, Money]:
+    """Sums commitments per funding source — a source's capacity must be
+    checked against the total committed to it, not against each commitment."""
+    totals: dict[FundingSourceId, Money] = {}
+    for funding_source, amount in commitments:
+        totals[funding_source] = totals.get(funding_source, Money(0, amount.currency)) + amount
+    return totals
 
 
 def capacity_verdict(funding_source_id: FundingSourceId, new: Money) -> CapacityVerdict:

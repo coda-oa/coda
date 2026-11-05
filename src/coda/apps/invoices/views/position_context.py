@@ -15,9 +15,15 @@ _ContractCostTypes = [ct.value for ct in ContractCostType]
 
 
 def funding_source_options_context() -> dict[str, Any]:
-    """Build context with budget funding-source choices and their default type."""
+    """Build context with budget funding-source choices and their default type.
+
+    ``select_related("institution")``: every choice is stringified (select
+    options, filter chips) and ``FundingSource.__str__`` falls back to the
+    institution name — one join instead of one query per source."""
     return {
-        "funding_sources": FundingSource.objects.filter(type="budget"),
+        "funding_sources": FundingSource.objects.filter(type="budget").select_related(
+            "institution"
+        ),
         "default_funding_source_type": "budget",
     }
 

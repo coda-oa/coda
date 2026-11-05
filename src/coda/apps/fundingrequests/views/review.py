@@ -1,5 +1,4 @@
 import re
-from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -22,13 +21,22 @@ from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId
 from coda.domain.money import Money
 
 
-def _decimal_or_zero(value: str | None) -> Decimal:
+def _decimal_or_none(value: str | None) -> Decimal | None:
+    """Parses a posted amount; ``None`` marks it invalid so the row feedback
+    can surface it instead of silently zeroing the live sum."""
     if not value:
-        return Decimal(0)
+        return None
     try:
         return Decimal(value)
     except InvalidOperation:
-        return Decimal(0)
+        return None
+
+
+def _source_id(source: str) -> FundingSourceId | None:
+    try:
+        return FundingSourceId(int(source))
+    except ValueError:
+        return None
 
 
 def _int_value(value: str | list[object], default: int = 0) -> int:
@@ -133,8 +141,9 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         }
         if split_data is None and self.request.method == "POST":
             split_data = self.request.POST
-        context |= self._split_section(context["fundingrequest"], split_data)
-        context["budgets"] = self._budgets()
+        budgets = self._budgets()
+        context["budgets"] = budgets
+        context |= self._split_section(context["fundingrequest"], split_data, budgets)
         return context
 
     def _budgets(self) -> list[dict[str, Any]]:
@@ -147,48 +156,87 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
             for budget in FundingSource.objects.filter(type="budget")
         ]
 
-    def _split_section(self, fundingrequest: AnyFundingRequest, split_data: QueryDict | None) -> dict[str, Any]:
+    def _split_section(
+        self,
+        fundingrequest: AnyFundingRequest,
+        split_data: QueryDict | None,
+        budgets: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         if split_data is not None:
             formset = ReviewSplitFormSet(split_data, prefix="funding_splits")
         else:
             formset = ReviewSplitFormSet(prefix="funding_splits")
             split_data = QueryDict("")
 
-        budgets = {budget["id"]: budget for budget in self._budgets()}
-        committed: dict[str, Decimal] = defaultdict(Decimal)
-        entries: list[tuple[int, ReviewSplitForm, str, Decimal]] = []
+        decided = fundingrequest.funding_amount
+        parsed_decided = _decimal_or_none(split_data.get("decided_funding_amount"))
+        if split_data.get("decided_funding_amount") and parsed_decided is not None:
+            decided = Money(parsed_decided, fundingrequest.funding_amount.currency)
+
+        entries: list[tuple[int, ReviewSplitForm, str, Decimal, bool]] = []
+        commitments: list[tuple[FundingSourceId, Money]] = []
         for index, split_form in enumerate(formset):
             source = split_data.get(f"funding_splits-{index}-funding_source") or ""
-            amount = _decimal_or_zero(split_data.get(f"funding_splits-{index}-amount"))
-            entries.append((index, split_form, source, amount))
-            committed[source] += amount
+            raw_amount = split_data.get(f"funding_splits-{index}-amount")
+            amount = _decimal_or_none(raw_amount)
+            invalid = amount is None and bool(raw_amount)
+            entries.append((index, split_form, source, amount or Decimal(0), invalid))
+            source_id = _source_id(source)
+            if source_id is not None:
+                # The preview checks capacity on the sum of all rows per
+                # budget, in the decided-funding currency — exactly the basis
+                # save-time ensure_capacity uses. The cross-currency
+                # comparison TypeError for foreign-currency budgets is
+                # pre-existing at save time and out of scope here.
+                commitments.append((source_id, Money(amount or Decimal(0), decided.currency)))
+
+        committed = budget_service.committed_per_funding_source(commitments)
+        verdicts = {
+            source_id: budget_service.capacity_verdict(source_id, amount)
+            for source_id, amount in committed.items()
+            if str(source_id) in {budget["id"] for budget in budgets}
+        }
 
         rows = []
         total = Decimal(0)
-        for index, split_form, source, amount in entries:
+        for index, split_form, source, amount, invalid in entries:
             total += amount
-            budget = budgets.get(source)
-            if budget is None:
-                rows.append({"index": index, "form": split_form, "gross_left": "", "feedback": ""})
+            source_id = _source_id(source)
+            capacity = verdicts.get(source_id) if source_id is not None else None
+            if capacity is None:
+                rows.append(
+                    {
+                        "index": index,
+                        "form": split_form,
+                        "gross_left": "",
+                        "feedback": "invalid amount" if invalid else "",
+                        "amount_invalid": invalid,
+                    }
+                )
                 continue
-            available: Money = budget["available"]
-            gross_left = available - Money(amount, available.currency)
-            # Sibling-aggregated: all posted rows on this budget commit together,
-            # so the capacity verdict sees their sum, not the single row.
-            capacity = budget_service.capacity_verdict(
-                FundingSourceId(int(source)), Money(committed[source], available.currency)
-            )
-            feedback = "fits" if capacity.allowed else f"exceeds: only {available} gross-of-tax available"
+            if invalid:
+                feedback, amount_invalid = "invalid amount", True
+            else:
+                amount_invalid = False
+                feedback = (
+                    "fits"
+                    if capacity.allowed
+                    else f"exceeds: only {capacity.available_after} "
+                    "gross-of-tax available, over-budget not allowed"
+                )
             rows.append(
-                {"index": index, "form": split_form, "gross_left": gross_left, "feedback": feedback}
+                {
+                    "index": index,
+                    "form": split_form,
+                    # Aggregated across all rows on this budget (spec §8.3.1):
+                    # the verdict is computed on the sibling sum, so the
+                    # gross-left figure is what remains after all of them.
+                    "gross_left": capacity.available_after,
+                    "feedback": feedback,
+                    "amount_invalid": amount_invalid,
+                }
             )
 
-        decided = fundingrequest.funding_amount
-        if split_data.get("decided_funding_amount"):
-            decided = Money(
-                _decimal_or_zero(split_data.get("decided_funding_amount")),
-                fundingrequest.funding_amount.currency,
-            )
         if total == decided.amount:
             verdict = "matches the decided amount ✓"
         else:

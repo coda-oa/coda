@@ -42,6 +42,7 @@
 
   --coda-validation-valid-color: var(--pico-form-element-valid-border-color);
   --coda-validation-invalid-color: var(--pico-form-element-invalid-border-color);
+  --coda-warning-color: rgb(205, 130, 10);
 
   --coda-validation-text-color: #fff;
   --coda-disabled-text-color: var(--pico-muted-color);
