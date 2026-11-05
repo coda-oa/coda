@@ -33,15 +33,36 @@ class BudgetStatus:
     css_class: str
 
 
-def _balance_bar_widths(balance: budget_query.BudgetBalance) -> tuple[int, int]:
-    """Spent/reserved percentages of the amount for the balance bar (spec
-    §8.1.1); the bar caps at full width — no overfull segment."""
+def _balance_bar_widths(
+    balance: budget_query.BudgetBalance, allowance: Decimal
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Closed-form segment widths for the balance bar (spec §8.1.1, Budget
+    Review & Transfers Polish map): returns (spent, reserved, available, over)
+    as percentages. The available segment is always present — zero bookings
+    renders a full available bar; the committed block (spent + reserved) is
+    capped at amount + allowance and the hatched over-segment takes the
+    remainder beyond the cap. Widths are normalized against
+    ``max(amount + allowance, spent + reserved)`` and sum to ≤ 100 % of the
+    pill."""
     amount = balance.amount.amount
-    if amount <= 0:
-        return 0, 0
-    reserved = min(Decimal(100), balance.reserved.amount / amount * 100)
-    spent = min(Decimal(100) - reserved, balance.spent.amount / amount * 100)
-    return int(spent), int(reserved)
+    committed = balance.spent.amount + balance.reserved.amount
+    cap = amount + allowance
+    denominator = max(cap, committed)
+    if denominator <= 0:
+        # Zero-amount budget: the bar is all available (deliberate — the bar
+        # must never be invisible).
+        return Decimal(0), Decimal(0), Decimal(100), Decimal(0)
+    available = max(Decimal(0), amount - committed) / denominator * 100
+    block = min(committed, cap) / denominator * 100
+    spent_share = (balance.spent.amount / committed) if committed else Decimal(0)
+    reserved_share = (balance.reserved.amount / committed) if committed else Decimal(0)
+    over = max(Decimal(0), committed - cap) / denominator * 100
+    return (
+        round(block * spent_share, 2),
+        round(block * reserved_share, 2),
+        round(available, 2),
+        round(over, 2),
+    )
 
 
 @dataclass(frozen=True)
@@ -208,7 +229,20 @@ def _detail_context(source: FundingSource) -> dict[str, Any]:
     if source.type == "budget":
         context["balance"] = budget_query.budget_balances(FundingSourceId(source.pk))
         context["ledger"] = source.ledger_entries.order_by("-created_at")
-        context["bar_spent_width"], context["bar_reserved_width"] = _balance_bar_widths(
-            context["balance"]
-        )
+        allowance = Decimal(source.allowance_amount or 0)
+        (
+            bar_spent,
+            bar_reserved,
+            bar_available,
+            bar_over,
+        ) = _balance_bar_widths(context["balance"], allowance)
+        context["bar_spent_width"] = bar_spent
+        context["bar_reserved_width"] = bar_reserved
+        context["bar_available_width"] = bar_available
+        context["bar_over_width"] = bar_over
+        # Gap compensation (spec §8.1.1): rendered widths are calc(p% − k px)
+        # so the inter-segment gaps never eat the pill's padding — each
+        # segment carries its share of (n − 1) · 3px.
+        nonzero = len([w for w in (bar_spent, bar_reserved, bar_available, bar_over) if w])
+        context["bar_gap_comp_px"] = round((nonzero - 1) * 3 / nonzero, 2) if nonzero else 0
     return context
