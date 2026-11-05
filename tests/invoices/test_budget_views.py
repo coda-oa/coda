@@ -4,7 +4,9 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices import budget_query
+from coda.apps.invoices.models import FundingSource
 from coda.domain.money import Currency, Money
 from tests import modelfactory
 from tests.invoices import budget_setup
@@ -260,3 +262,112 @@ def test__budget_update__amount_field_is_disabled_after_period_start(client: Cli
     content = response.content.decode()
     assert "disabled" in content
     assert "immutable once the period has started" in content
+
+
+# --- Amendment — budget UI completion: cycle 1 (funding-source rendering) ---
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__funding_source__renders_as_name_in_selects(client: Client) -> None:
+    """Funding sources render by name in the review-split select and the
+    invoice filter sidebar — never as the model repr. An institution-type
+    source falls back to its institution's label."""
+    _budget, budget_id = budget_setup.a_budget(name="DARK 2026")
+    institution = Institution.objects.create(name="Bielefeld University")
+    institution_source = FundingSource.objects.create(type="institution", institution=institution)
+
+    review_page = client.get(
+        reverse("fundingrequests:review", kwargs={"pk": modelfactory.fundingrequest().pk})
+    )
+    review_html = review_page.content.decode()
+    assert f'<option value="{budget_id}">DARK 2026</option>' in review_html
+    assert "FundingSource object" not in review_html
+
+    invoice_list_page = client.get(reverse("invoices:list"))
+    list_html = invoice_list_page.content.decode()
+    assert f'<option value="{budget_id}">DARK 2026</option>' in list_html
+    assert "FundingSource object" not in list_html
+
+    assert str(institution_source) == "Bielefeld University"
+    assert str(FundingSource.objects.get(pk=budget_id)) == "DARK 2026"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_with_blank_name__renders_pk_label(client: Client) -> None:
+    """A budget row with a blank name and no linked institution renders a
+    pk-based label in the invoice filter sidebar instead of crashing."""
+    budget = FundingSource.objects.create(
+        type="budget",
+        budget_amount=Decimal(1000),
+        budget_currency="EUR",
+        period_start="2026-01-01",
+        period_end="2026-12-31",
+    )
+
+    response = client.get(reverse("invoices:list"))
+
+    content = response.content.decode()
+    assert f"FundingSource #{budget.pk}" in content
+    assert "FundingSource object" not in content
+    assert str(budget) == f"FundingSource #{budget.pk}"
+
+
+# --- Amendment — budget UI completion: cycle 5 (institution routes) ---
+
+
+def _institution_source_with(*, institution: Institution | None) -> FundingSource:
+    return FundingSource.objects.create(type="institution", institution=institution)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__institution_source__detail_redirects_to_institution_page(client: Client) -> None:
+    """Institution-type funding sources have no detail page: both a linked
+    and a soft-deleted institution resolve to the institution's detail page;
+    a missing FK falls back to the institution list."""
+    institution = Institution.objects.create(name="Bielefeld University")
+    source = _institution_source_with(institution=institution)
+    deleted = Institution.objects.create(name="Gone University")
+    deleted_source = _institution_source_with(institution=deleted)
+    orphan = _institution_source_with(institution=None)
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": source.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:detail", kwargs={"pk": institution.pk})
+
+    deleted.archive()
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": deleted_source.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:detail", kwargs={"pk": deleted.pk})
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": orphan.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:list")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__institution_source__update_redirects_to_institution_page(client: Client) -> None:
+    """Institution-type funding sources are not editable: the update route
+    redirects to the linked institution (soft-deleted ones still resolve);
+    a missing FK falls back to the institution list."""
+    institution = Institution.objects.create(name="Bielefeld University")
+    source = _institution_source_with(institution=institution)
+    deleted = Institution.objects.create(name="Gone University")
+    deleted_source = _institution_source_with(institution=deleted)
+    orphan = _institution_source_with(institution=None)
+
+    response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": source.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:detail", kwargs={"pk": institution.pk})
+
+    deleted.archive()
+    response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": deleted_source.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:detail", kwargs={"pk": deleted.pk})
+
+    response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": orphan.pk}))
+    assert response.status_code == 302
+    assert response.url == reverse("institutions:list")
