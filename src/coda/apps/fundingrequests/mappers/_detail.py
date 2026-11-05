@@ -6,11 +6,13 @@ from django.urls import reverse
 from coda.apps.fundingrequests.mappers._domain import FundingRequestDomainMapper
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import ReviewFundingSplit as ReviewFundingSplitModel
 from coda.apps.fundingrequests.queries.mappers import AuthorDetailMapper, PublicationDetailMapper
 from coda.apps.fundingrequests.queries.models import (
     EstimatedCostDetail,
     ExternalFundingDetail,
     FundingRequestDetail,
+    FundingSplitAttribution,
     PublicationPaymentDetail,
     PublishingEntityInfo,
     ReviewDetail,
@@ -34,6 +36,10 @@ class FundingRequestDetailMapper:
             Prefetch(
                 "external_funding",
                 queryset=ExternalFundingModel.objects.select_related("organization"),
+            ),
+            Prefetch(
+                "review__funding_splits",
+                queryset=ReviewFundingSplitModel.objects.select_related("funding_source"),
             ),
             "labels",
         )
@@ -99,6 +105,16 @@ class FundingRequestDetailMapper:
             edit_submitter_url=reverse("fundingrequests:update_submitter", kwargs={"pk": model.pk}),
             edit_funding_url=reverse("fundingrequests:update_funding", kwargs={"pk": model.pk}),
             contact=model.extra_contact,
+            funding_attributions=[
+                FundingSplitAttribution(
+                    budget_id=split.funding_source_id,
+                    budget_name=split.funding_source.name,
+                    amount=split.amount,
+                )
+                for split in model.review.funding_splits.all()
+            ]
+            if review_model
+            else [],
         )
 
 
