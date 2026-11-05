@@ -12,6 +12,7 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.reporting import factcache
+from tests.reporting import helpers
 from tests.reporting.test_page import seed
 
 
@@ -39,17 +40,10 @@ def _fact_fetch_count(client: Client) -> int:
     """The fact pipeline's own queries of one more region request: the
     DISTINCT funding-request fetch plus its prefetch graph. Form choice
     lists and the treemap's hierarchy query are not part of the pipeline
-    and stay uncached, so they must not count."""
-    from django.db import connection
-    from django.test.utils import CaptureQueriesContext
-
-    with CaptureQueriesContext(connection) as ctx:
-        _region_url(client)
-    return sum(
-        1
-        for q in ctx.captured_queries
-        if "DISTINCT" in q["sql"] and "fundingrequests_fundingrequest" in q["sql"]
-    )
+    and stay uncached, so they must not count. That includes the used-labels
+    choice list, whose DISTINCT query *joins* the funding-request table —
+    the shared probe matches the FROM clause, not a substring."""
+    return helpers.fact_pipeline_query_count(client)
 
 
 @pytest.mark.django_db
