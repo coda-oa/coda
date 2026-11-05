@@ -18,12 +18,24 @@ _Avoid_: account, fund, grant
 The mandatory start/end date range a budget covers. Arbitrary ranges, not calendar-aligned; editable after creation, unlike the amount.
 _Avoid_: fiscal year, term
 
+**Cost basis**:
+Whether an amount is stated with or without tax: gross-of-tax includes tax, net-of-tax excludes it. Budget commitments are gross-of-tax; position costs are stated net-of-tax.
+_Avoid_: tax mode, VAT basis
+
+**Net-of-tax amount**:
+An amount excluding tax. Position costs are stated net-of-tax; their funding splits (and the decided funding amount they attribute) are stated gross-of-tax — splits carry no tax rate and count as-is (ADR 0001). A VAT-type cost line is the exception — it states the tax itself, so its net-of-tax amount is nil.
+_Avoid_: net (bare), pre-tax
+
+**Gross-of-tax amount**:
+An amount including tax: what is actually paid. Budgets reserve and spend gross-of-tax amounts.
+_Avoid_: gross (bare), including VAT
+
 **Reserved**:
-Money a budget has committed: the decided funding of approved funding requests, replaced by the assigned amount of an unpaid invoice once one exists.
+Money a budget has committed, stated gross-of-tax: the decided funding of approved funding requests, replaced by the assigned amount of an unpaid invoice once one exists.
 _Avoid_: allocated, earmarked, promised
 
 **Spent**:
-Money a budget has actually paid out via paid invoices. Never overlaps with reserved for the same money.
+Money a budget has actually paid out via paid invoices, stated gross-of-tax. Never overlaps with reserved for the same money.
 _Avoid_: paid, disbursed
 
 **Credited**:
@@ -39,7 +51,7 @@ The optional amount by which a budget may exceed its total; empty means unbounde
 _Avoid_: buffer, credit line
 
 **Exceeded**:
-The derived status of a budget whose commitments (reserved and spent, net of credited and debit) surpass its amount.
+The derived status of a budget whose commitments (reserved and spent, minus credited and debit) surpass its amount.
 _Avoid_: overdrawn, in the red
 
 **Transfer**:
@@ -51,7 +63,7 @@ Money booked against a budget by a transfer: either leaving it or inherited from
 _Avoid_: charge, deduction
 
 **Booking ledger**:
-The persisted history of budget-relevant events — commitments, payments, transfers — each row recording budget, original-currency amount, source reference, and timestamp.
+The persisted history of budget-relevant events — commitments, payments, transfers — each row recording budget, gross-of-tax amount in the original currency, source reference, and timestamp.
 _Avoid_: transaction log, journal
 
 **Institution funding source**:

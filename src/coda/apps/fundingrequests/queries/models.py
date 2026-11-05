@@ -9,9 +9,11 @@ Copied from domain/fundingrequest/references.py as these were specifically
 created for the detail view.
 """
 
+import dataclasses
 import datetime
 from collections.abc import Iterable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Literal, NamedTuple
 
 from coda.domain.author import Role
@@ -183,6 +185,17 @@ class EstimatedCostDetail:
 
 
 @dataclass(frozen=True)
+class FundingSplitAttribution:
+    """A review's committed split, resolved for display: the budget it
+    attributes to (id + name for the link) and the gross-of-tax amount
+    (splits carry no tax rate and count as-is — ADR 0001)."""
+
+    budget_id: int
+    budget_name: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
 class FundingRequestDetail:
     """Fully resolved detail model for the funding request detail view.
 
@@ -205,6 +218,7 @@ class FundingRequestDetail:
     edit_submitter_url: str
     edit_funding_url: str
     contact: Any  # FilledContact | NoContact — kept as-is for template rendering
+    funding_attributions: list[FundingSplitAttribution] = dataclasses.field(default_factory=list)
 
 
 @dataclass(frozen=True)

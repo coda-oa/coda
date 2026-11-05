@@ -102,11 +102,36 @@ class FundingSourceForm(forms.ModelForm[FundingSource]):
                 "period_end",
             ):
                 self.fields[field_name].required = True
+        else:
+            # Institution rows carry no budget terms (and the currency field
+            # is required by default) — editing one must not demand them.
+            for field_name in (
+                "budget_amount",
+                "budget_currency",
+                "period_start",
+                "period_end",
+            ):
+                self.fields[field_name].required = False
 
         if instance.pk and instance.period_start and instance.period_start <= datetime.date.today():
             # The amount is immutable once the period has started (spec §2):
             # disabled fields fall back to the instance's value on POST.
             self.fields["budget_amount"].disabled = True
+
+    def clean_name(self) -> str:
+        name: str = self.cleaned_data["name"]
+        if self.instance.pk and self.instance.type != "budget":
+            # Institution rows share the table and are managed elsewhere;
+            # the uniqueness rule covers budget-type sources only.
+            return name
+        duplicate = (
+            FundingSource.objects.filter(name=name, type="budget")
+            .exclude(pk=self.instance.pk)
+            .exists()
+        )
+        if duplicate:
+            raise forms.ValidationError("A funding source with this name already exists.")
+        return name
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or {}

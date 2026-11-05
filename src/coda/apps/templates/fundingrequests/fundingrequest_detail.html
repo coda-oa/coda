@@ -51,6 +51,18 @@
                 <p class="text danger">
                     <b>{{ funding_request.funding_amount }}</b>
                 </p>
+                {% if funding_attributions %}
+                    <h3>Funding Attribution</h3>
+                    <ul class="mt-0">
+                        {% for attribution in funding_attributions %}
+                            <li>
+                                <a href="{% url 'invoices:fundingsource_detail' pk=attribution.budget_id %}"
+                                   >{{ attribution.budget_name }}</a
+                                >: {{ attribution.amount }} (gross-of-tax)
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
                 <a href="{% url 'fundingrequests:review' pk=funding_request.id %}"
                    class="button secondary w-100 text-center">Submit Review</a>
             </div>

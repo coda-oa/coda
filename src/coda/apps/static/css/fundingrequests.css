@@ -125,7 +125,6 @@ li.fundingrequest-check {
 }
 
 .label.warning {
-  --coda-warning-color: rgb(205, 130, 10);
   --label-border-color: var(--coda-warning-color);
   --label-bg-color: var(--coda-warning-color);
 }

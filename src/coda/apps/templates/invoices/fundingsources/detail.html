@@ -19,36 +19,54 @@
                     not allowed
                 {% endif %}
             </p>
-            <p>
-                Reserved: {{ balance.reserved }} · Spent: {{ balance.spent }} ·
-                Credited: {{ balance.credited }} · Debit: {{ balance.debit }}
-            </p>
-            <p><strong>Available: {{ balance.available }}</strong></p>
-            {% if balance.pending %}
-                <p>
-                    Pending conversion:
-                    {% for amount in balance.pending %}{{ amount }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                </p>
-            {% endif %}
-            <h2>Transfer funds</h2>
-            <form method="post"
-                  action="{% url "invoices:budget_transfer" pk=fundingsource.id %}">
-                {% csrf_token %}
-                <div class="flex">
-                    <select name="target" aria-label="Target budget">
-                        {% for target in transfer_targets %}
-                            <option value="{{ target.id }}">{{ target.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="number"
-                           name="amount"
-                           step="0.01"
-                           placeholder="Amount (negative = debt transfer)">
-                    <input type="text" name="provenance_note" placeholder="Provenance note">
-                    <button type="submit">Transfer</button>
+            <div class="budget-balance-overview">
+                <div class="budget-balance-available">
+                    <small>Available (gross-of-tax)</small>
+                    <p class="budget-balance-figure{% if balance.exceeded %} danger{% endif %}">{{ balance.available }}</p>
                 </div>
-                {% if transfer_error %}<small class="mt-1">{{ transfer_error }}</small>{% endif %}
-            </form>
+                <div>
+                    <p class="budget-balance-amount">of {{ balance.amount }} gross-of-tax{% if fundingsource.allowance_amount %} (+ {{ fundingsource.allowance_amount }} {{ fundingsource.budget_currency }} allowance){% endif %}</p>
+                    <div class="budget-balance-bar">
+                        {% if bar_available_width %}<span class="budget-balance-bar__available" style="width: calc({{ bar_available_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_spent_width %}<span class="budget-balance-bar__spent" style="width: calc({{ bar_spent_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_reserved_width %}<span class="budget-balance-bar__reserved" style="width: calc({{ bar_reserved_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_over_width %}<span class="budget-balance-bar__over" style="width: calc({{ bar_over_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                    </div>
+                    <p>
+                        Spent (gross-of-tax) {{ balance.spent }} ·
+                        Reserved (gross-of-tax) {{ balance.reserved }} ·
+                        Credited: {{ balance.credited }} · Debit: {{ balance.debit }}
+                    </p>
+                    {% if balance.pending %}
+                        <p class="budget-balance-pending">
+                            Pending conversion:
+                            {% for amount in balance.pending %}{{ amount }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            — excluded from available until the bank rate is entered
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            <h2>Invoices for this funding source</h2>
+            <ul class="budget-invoice-list">
+                {% for invoice in recent_invoices %}
+                    <li><a href="{% url "invoices:detail" pk=invoice.pk %}">{{ invoice.number }}</a></li>
+                {% empty %}
+                    <li>No invoices reference this funding source yet</li>
+                {% endfor %}
+            </ul>
+            <p>
+                <a href="{% url "invoices:list" %}?funding_source={{ fundingsource.id }}">All invoices for this funding source →</a>
+            </p>
+            <h2>Transfer funds</h2>
+            {# Transfer dialog (§8.4): the GET fragment opens the htmx dialog (transfer or add-funds mode); the existing budget_transfer POST URL submits it. #}
+            <button class="outline"
+                    hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Transfer…</button>
+            <button class="outline"
+                    hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}?mode=add_funds"
+                    hx-target="body"
+                    hx-swap="beforeend">Add funds…</button>
             <h2>Booking ledger</h2>
             <ul>
                 {% for entry in ledger %}
@@ -60,8 +78,6 @@
                     <li>No bookings yet</li>
                 {% endfor %}
             </ul>
-        {% else %}
-            <p>Name: {{ fundingsource.name }}</p>
         {% endif %}
     </article>
 {% endblock content %}

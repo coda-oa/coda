@@ -1,6 +1,8 @@
 <article class="flex justify-between align-center">
     <div>
-        <p class="m-0">{{ entity.name }}</p>
+        <p class="m-0">
+            <a href="{% url 'invoices:fundingsource_detail' pk=entity.id %}">{{ entity.name }}</a>
+        </p>
         <small>
             <span class="chip {{ entity.status.css_class }}">{{ entity.status.label }}</span>
             available: {{ entity.balance.available }}
