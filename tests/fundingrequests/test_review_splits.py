@@ -78,6 +78,28 @@ def test__review_page__prefills_persisted_splits(client: Client) -> None:
     assert "600.00" in content  # the persisted amount renders
     assert "fits" in content  # the unchanged row fits (delta 0 over own totals)
     assert "exceeds" not in content  # no false over figure on an unchanged re-open
+    # The row's gross-left figure agrees with the own-excluded budgets list
+    # (both on the same basis): 1 000, not the double-counted 400.
+    rows = response.context["split_rows"]
+    assert rows[0]["gross_left"] == Money("1000", EUR)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__prefilled_gross_left_after_raise(client: Client) -> None:
+    """Re-approving with a raised split (600 → 900) then re-opening: the row's
+    gross-left figure is on the own-excluded basis (1 000), matching the
+    budgets list."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900)))
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    rows = response.context["split_rows"]
+    assert rows[0]["gross_left"] == Money("1000", EUR)
+    assert rows[0]["feedback"] == "fits"
 
 
 @pytest.mark.django_db

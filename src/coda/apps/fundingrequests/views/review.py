@@ -241,7 +241,7 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
             total += amount
             source_id = _source_id(source)
             capacity = verdicts.get(source_id) if source_id is not None else None
-            if capacity is None:
+            if capacity is None or source_id is None:
                 rows.append(
                     {
                         "index": index,
@@ -267,9 +267,14 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
                     "index": index,
                     "form": split_form,
                     # Aggregated across all rows on this budget (spec §8.3.1):
-                    # the verdict is computed on the sibling sum, so the
-                    # gross-left figure is what remains after all of them.
-                    "gross_left": capacity.available_after,
+                    # the verdict is computed on the delta over the review's
+                    # own persisted splits (§8.3.6), so the displayed figure
+                    # adds them back — it agrees with the own-excluded
+                    # per-budget available in the budgets context.
+                    "gross_left": capacity.available_after
+                    + Money(
+                        own.get(source_id, Decimal(0)), capacity.available_after.currency
+                    ),
                     "feedback": feedback,
                     "amount_invalid": amount_invalid,
                 }
