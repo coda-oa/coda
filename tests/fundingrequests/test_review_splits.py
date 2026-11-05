@@ -293,6 +293,15 @@ def test__review_page__add_row_round_trips(client: Client) -> None:
     assert funding_request.review.funding_splits.count() == 0
 
 
+def _split_table_rows(content: str) -> list[str]:
+    """The review page's split-table rows, in formset order."""
+    return [
+        row
+        for row in re.findall(r"<tr>.*?</tr>", content, re.DOTALL)
+        if "funding_splits-" in row
+    ]
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__review_page__capacity_feedback_is_gross_of_tax_qualified(client: Client) -> None:
@@ -320,10 +329,19 @@ def test__review_page__capacity_feedback_is_gross_of_tax_qualified(client: Clien
 
     assert response.status_code == 200
     content = response.content.decode()
+    budget_a_rows = [row for row in _split_table_rows(content) if f'value="{a_id}" selected' in row]
+    budget_b_rows = [row for row in _split_table_rows(content) if f'value="{b_id}" selected' in row]
+    assert len(budget_a_rows) == 2
+    assert len(budget_b_rows) == 1
     # Both Budget A rows fit individually (600 ≤ 1000), but the sibling-
-    # aggregated 1200 exceeds the budget's available 1000.
-    assert "exceeds: only 1000.00 EUR gross-of-tax available" in content
-    assert "fits" in content
+    # aggregated 1200 exceeds the budget's available 1000: each row shows the
+    # aggregated gross-left figure (-200), not its single-row remainder (400).
+    for row in budget_a_rows:
+        assert re.search(r"-200\.00 EUR\s*<small>exceeds", row)
+        assert "exceeds: only -200.00 EUR gross-of-tax available, over-budget not allowed" in row
+        assert "400.00 EUR" not in row
+    # Budget B (row index 2) is the row whose verdict is "fits": 500 of 10000.
+    assert re.search(r"9500\.00 EUR\s*<small>fits", budget_b_rows[0])
 
 
 @pytest.mark.django_db

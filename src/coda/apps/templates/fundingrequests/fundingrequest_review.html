@@ -51,7 +51,7 @@
                                     <small class="mt-1">{{ error }}</small>
                                 {% endfor %}
                             </td>
-                            <td>
+                            <td {% if row.amount_invalid %}class="invalid-amount"{% endif %}>
                                 {{ row.gross_left }}
                                 <small>{{ row.feedback }}</small>
                             </td>

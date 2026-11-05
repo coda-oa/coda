@@ -316,7 +316,11 @@ span.icon-tooltip[data-tooltip] {
 }
 
 .budget-balance-bar__reserved {
-    background-color: rgb(205, 130, 10);
+    background-color: var(--coda-warning-color);
+}
+
+.invalid-amount {
+    color: var(--coda-validation-invalid-color);
 }
 
 .budget-balance-pending {

@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -72,12 +73,14 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
 fundingsource_createview = CreateFundingSourceView.as_view()
 
 
-@breadcrumb("Update Funding Source", parent_url_name="invoices:fundingsource_list")
-class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, FundingSourceForm]):
-    model = FundingSource
-    form_class = FundingSourceForm
-    success_url = reverse_lazy("invoices:fundingsource_list")
-    template_name = "invoices/fundingsources/form.html"
+class InstitutionSourceRedirectMixin:
+    """Fetches the funding source once per request and routes institution-type
+    sources to their institution page — they have no funding-source page of
+    their own. Place after ``LoginRequiredMixin`` so the auth check runs first;
+    the cached ``get_object`` keeps ``dispatch`` from fetching the object a
+    second time."""
+
+    object: FundingSource
 
     def dispatch(
         self, request: HttpRequest, *args: Any, **kwargs: Any
@@ -85,7 +88,24 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
         self.object = self.get_object()
         if self.object.type == "institution":
             return _institution_redirect(self.object)
-        return super().dispatch(request, *args, **kwargs)
+        return cast(
+            HttpResponseBase, super().dispatch(request, *args, **kwargs)  # type: ignore[misc]
+        )
+
+    def get_object(self, queryset: QuerySet[FundingSource] | None = None) -> FundingSource:
+        if getattr(self, "object", None) is not None:
+            return self.object
+        return cast(FundingSource, super().get_object(queryset))  # type: ignore[misc]
+
+
+@breadcrumb("Update Funding Source", parent_url_name="invoices:fundingsource_list")
+class UpdateFundingSourceView(
+    LoginRequiredMixin, InstitutionSourceRedirectMixin, UpdateView[FundingSource, FundingSourceForm]
+):
+    model = FundingSource
+    form_class = FundingSourceForm
+    success_url = reverse_lazy("invoices:fundingsource_list")
+    template_name = "invoices/fundingsources/form.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs) | {"title": "Update Funding Source"}
@@ -125,40 +145,27 @@ fundingsource_listview = FundingSourceListView.as_view()
 
 
 @breadcrumb("Funding Source Detail", parent_url_name="invoices:fundingsource_list")
-class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
+class FundingSourceDetailView(LoginRequiredMixin, InstitutionSourceRedirectMixin, DetailView[FundingSource]):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
 
-    def dispatch(
-        self, request: HttpRequest, *args: Any, **kwargs: Any
-    ) -> HttpResponseBase:
-        self.object = self.get_object()
-        if self.object.type == "institution":
-            return _institution_redirect(self.object)
-        return super().dispatch(request, *args, **kwargs)
-
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs) | {
-            "transfer_targets": FundingSource.objects.exclude(pk=self.object.pk).filter(
-                type="budget"
-            ),
-        }
+        context = super().get_context_data(**kwargs) | _detail_context(self.object)
         if self.object.type != "budget":
             return context
 
-        context["balance"] = budget_query.budget_balances(FundingSourceId(self.object.pk))
-        context["ledger"] = self.object.ledger_entries.order_by("-created_at")
-        context["bar_spent_width"], context["bar_reserved_width"] = _balance_bar_widths(
-            context["balance"]
-        )
         # The invoices whose current funding assignments reference this
         # source (spec §8.1.2) — same Q the invoice list filters by.
+        # distinct(): an invoice with several positions on the same budget
+        # joins once per assignment and must be listed once.
         source_criterion = invoice_query.FundingSourceCriterion(
             FundingSourceId(self.object.pk)
         )
-        context["recent_invoices"] = InvoiceModel.objects.filter(
-            invoice_query.to_query(source_criterion)
-        ).order_by("-date")[:10]
+        context["recent_invoices"] = (
+            InvoiceModel.objects.filter(invoice_query.to_query(source_criterion))
+            .distinct()
+            .order_by("-date")[:10]
+        )
         return context
 
 
