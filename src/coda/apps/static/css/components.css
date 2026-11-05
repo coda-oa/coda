@@ -272,3 +272,53 @@ span.icon-tooltip[data-tooltip] {
 #successor-form:has(#radio-select-existing:checked) #existing-selector-field {
     display: block;
 }
+
+/* Budget balance overview (budget-system spec §8.1.1): the big colored
+   Available (gross-of-tax) figure beside a slim stacked bar of spent (red)
+   and reserved (amber) out of the amount; the bar caps at full width on
+   exceeded budgets — the red figure carries the state. */
+.budget-balance-overview {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+}
+
+.budget-balance-available small {
+    display: block;
+}
+
+.budget-balance-figure {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--coda-validation-valid-color);
+}
+
+.budget-balance-figure.danger {
+    color: var(--coda-validation-invalid-color);
+}
+
+.budget-balance-amount {
+    color: var(--pico-muted-color);
+    margin: 0;
+}
+
+.budget-balance-bar {
+    display: flex;
+    block-size: 0.5rem;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: var(--coda-muted-border-color);
+}
+
+.budget-balance-bar__spent {
+    background-color: var(--coda-validation-invalid-color);
+}
+
+.budget-balance-bar__reserved {
+    background-color: rgb(205, 130, 10);
+}
+
+.budget-balance-pending {
+    color: var(--pico-muted-color);
+}

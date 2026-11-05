@@ -38,6 +38,11 @@ class BudgetBalance:
     def available(self) -> Money:
         return self.amount - self.reserved - self.spent + self.credited - self.debit
 
+    @property
+    def exceeded(self) -> bool:
+        """Derived status: commitments surpass the amount (GLOSSARY)."""
+        return bool(self.available < Money(0, self.amount.currency))
+
 
 def _transfer_sum(
     *, target_id: int | None = None, source_id: int | None = None, positive: bool
