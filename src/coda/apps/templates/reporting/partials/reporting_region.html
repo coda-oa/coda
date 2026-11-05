@@ -15,15 +15,21 @@
     region request), so the response also pushes the nav out of band —
     the freshly rendered buttons carry aria-current directly, no JS.
 {% endcomment %}
-<div hx-swap-oob="innerHTML:#statistics-groups">
-    {% include "reporting/partials/statistics_tab_nav.html" %}
-</div>
+<div hx-swap-oob="innerHTML:#statistics-groups">{% include "reporting/partials/statistics_tab_nav.html" %}</div>
 {% comment %}
     The band form's hidden tab fallback must track the server-owned tab, or an
     implicit submit (Enter in the search box) resets it.
 {% endcomment %}
-<input type="hidden" name="tab" id="statistics-tab-value" value="{{ tab }}" hx-swap-oob="true">
-<input type="hidden" name="resolution" id="statistics-resolution-value" value="{{ resolution }}" hx-swap-oob="true">
+<input type="hidden"
+       name="tab"
+       id="statistics-tab-value"
+       value="{{ tab }}"
+       hx-swap-oob="true">
+<input type="hidden"
+       name="resolution"
+       id="statistics-resolution-value"
+       value="{{ resolution }}"
+       hx-swap-oob="true">
 {% comment %}
     The resolution control lives in the timeline card header (inside the
     swapped region), so the region swap re-renders it with the fresh
@@ -45,4 +51,10 @@
     partial's own root div (filter_period_oob), so no wrapper nests up here.
 {% endcomment %}
 {% include "partials/filter_period.html" with filter_period_oob=True %}
+{% comment %}
+    The list bridge lives in the title row, outside the swapped region; the
+    region response re-renders it out of band so href and count track the
+    filters the same way the swapped region does.
+{% endcomment %}
+{% include "reporting/reporting.html#list_link" with list_link_oob=True %}
 {% include "reporting/partials/reporting_content.html" %}

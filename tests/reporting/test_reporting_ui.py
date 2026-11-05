@@ -3,6 +3,7 @@ figure JSON — one svg per [data-chart] mount — a chart-row click filters the
 statistics page in place, and the page's global link lands on the
 funding-request list with the active filters."""
 
+import re
 from decimal import Decimal
 from urllib.parse import urlencode
 
@@ -99,9 +100,11 @@ def test__reporting_page__row_link__filters_the_page_in_place(
     row_link.click()
 
     coda_page.wait_for_url(lambda url: f"journal={fixture.journal.pk}" in url)
-    # The headline cards are overview-only; the filter's effect shows in the
-    # intro link's count (first item on every tab).
-    expect(coda_page.locator(".statistics-intro")).to_contain_text("1 funding request")
+    # The filter's effect also shows in the title-row list button: the region
+    # response re-renders it out of band — href and live count both.
+    list_button = coda_page.locator("#statistics-list-link")
+    expect(list_button).to_have_attribute("href", re.compile(f"journal={fixture.journal.pk}"))
+    expect(list_button).to_contain_text("1 request")
 
     # Toggle off: the row link now carries the filter-removing URL. The swap
     # re-renders the region with the details collapsed again — reopen first.
@@ -109,7 +112,7 @@ def test__reporting_page__row_link__filters_the_page_in_place(
     coda_page.locator("#statistics-journal details.statistics-exact summary").click()
     row_link.click()
     coda_page.wait_for_url(lambda url: "journal=" not in url)
-    expect(coda_page.locator(".statistics-intro")).to_contain_text("3 funding requests")
+    expect(list_button).not_to_have_attribute("href", re.compile("journal="))
 
 
 @pytest.mark.ui_test
@@ -117,13 +120,17 @@ def test__reporting_page__row_link__filters_the_page_in_place(
 def test__reporting_page__global_list_link__lands_on_the_filtered_list(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
-    """The page's one link into the funding-request list carries the active
+    """The title-row button into the funding-request list carries the active
     filters — the data behind the numbers."""
     fixture = seed()
     _goto_statistics(coda_page, live_server, journal=str(fixture.journal.pk))
     _wait_for_charts(coda_page)
 
-    coda_page.get_by_role("link", name="behind these numbers").click()
+    # The OOB re-render updated the button's href with the facet param.
+    list_button = coda_page.get_by_role("link", name="View 1 request")
+    expect(list_button).to_have_attribute("href", re.compile(f"journal={fixture.journal.pk}"))
+
+    list_button.click()
 
     coda_page.wait_for_url(lambda url: "/fundingrequests/list/" in url)
     assert f"journal={fixture.journal.pk}" in coda_page.url
