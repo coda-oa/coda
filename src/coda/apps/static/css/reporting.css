@@ -15,11 +15,6 @@
     margin: 0.25rem 0;
 }
 
-.statistics-intro {
-    margin: 0 0 1rem;
-    text-align: right;
-}
-
 /* Pico paints <article> as a card — facets use that idiom, like the
 headline cards above them; this class only keeps the anchor id addressable. */
 .statistics-section {

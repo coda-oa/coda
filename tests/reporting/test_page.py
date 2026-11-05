@@ -439,11 +439,11 @@ def test__reporting_page__chart_rows__link_to_the_reporting_region(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__reporting_page__offers_one_link_into_the_request_list(
+def test__reporting_page__offers_one_list_bridge_in_the_title_row(
     client: Client,
 ) -> None:
-    """The page's bridge into the data: one link by the headline carrying the
-    page's whole filter set — not one per chart row."""
+    """The page's bridge into the data: one button in the title row carrying
+    the page's whole filter set — not one per chart row."""
     seed()
 
     response = goto(client, license=License.CC_BY.value)
@@ -459,7 +459,7 @@ def test__reporting_page__offers_one_link_into_the_request_list(
     ]
     assert len(list_links) == 1
     assert _attrs(list_links[0]).get("title") == (
-        "Show these funding requests in the list, with the active filters"
+        "View the funding requests matching the active filters"
     )
 
 

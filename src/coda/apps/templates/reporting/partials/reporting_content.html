@@ -1,13 +1,8 @@
 {% load mathfilters %}
-<p class="statistics-intro">
-    <a href="{{ list_view_url }}"
-       title="Show these funding requests in the list, with the active filters">Show the
-        {{ headline.publications }} funding request{{ headline.publications|pluralize }} behind these
-        numbers</a>
-</p>
 {% if incomplete_invoices %}
     <details class="statistics-notice" role="note">
-        <summary>{{ headline.requests_unconvertible }}
+        <summary>
+            {{ headline.requests_unconvertible }}
             {{ headline.requests_unconvertible|pluralize:"request,requests" }}
             with excluded amounts — no conversion rate in the report currency
             , the amounts are not in spend
@@ -19,8 +14,8 @@
         </ul>
     </details>
 {% endif %}
-{% if tab == 'overview' %}
-    {% include 'reporting/partials/reporting_overview.html' %}
+{% if tab == "overview" %}
+    {% include "reporting/partials/reporting_overview.html" %}
 {% else %}
-    {% include 'reporting/partials/reporting_groups.html' %}
+    {% include "reporting/partials/reporting_groups.html" %}
 {% endif %}
