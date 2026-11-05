@@ -60,6 +60,81 @@ def test__re_approval__raised_split_beyond_remaining__rejected() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__review_page__refresh_round_trips(client: Client) -> None:
+    """The form_action_refresh marker re-renders the page with recomputed
+    feedback and the entered data — without saving anything."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}),
+        {
+            "decided_funding_amount": "600",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "action": "return",
+            "form_action_refresh": "1",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "600",
+        },
+    )
+
+    assert response.status_code == 200
+    rows = response.context["split_rows"]
+    assert rows[0]["gross_left"] == Money("400", EUR)  # 1 000 − 600, recomputed
+    assert rows[0]["feedback"] == "fits"
+    # Nothing saved: the review is still open, no splits persisted.
+    funding_request.refresh_from_db()
+    assert funding_request.review.review_result == "open"
+    assert funding_request.review.funding_splits.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__refresh_aggregates_sibling_rows(client: Client) -> None:
+    """Two rows on one budget aggregate into one gross-left figure on the
+    live path (the sibling constraint, pinned on the refresh POST)."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}),
+        {
+            "decided_funding_amount": "1200",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "action": "return",
+            "form_action_refresh": "1",
+            "funding_splits-TOTAL_FORMS": "2",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "600",
+            "funding_splits-1-funding_source": str(budget_id),
+            "funding_splits-1-amount": "600",
+        },
+    )
+
+    assert response.status_code == 200
+    rows = response.context["split_rows"]
+    assert rows[0]["gross_left"] == Money("-200", EUR)  # aggregated, not per-row
+    assert "exceeds" in rows[0]["feedback"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__no_available_per_budget_list(client: Client) -> None:
+    _budget, _budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    assert b"Available per budget" not in response.content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__review_page__prefills_persisted_splits(client: Client) -> None:
     """Re-opening an approved review renders the persisted splits as filled
     rows (plus the extra blank row) with their gross-left figures and the sum
