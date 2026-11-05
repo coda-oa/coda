@@ -11,7 +11,13 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from coda.apps.invoices import repository as invoice_repository
+from coda.apps.publications.repositories import payment_repository
 from coda.apps.reporting import factcache
+from coda.domain.finance.invoice import CreditorId, InvoiceId
+from coda.domain.publication import PublicationId
+from coda.domain.publication.payment import PublicationPaid
+from tests import domainfactory, modelfactory
 from tests.reporting import helpers
 from tests.reporting.test_page import seed
 
@@ -92,6 +98,48 @@ def test__fact_cache__comparison_period_enters_the_key(client: Client) -> None:
         comparison_period=DateRange(_d(2025, 1, 1), _d(2025, 12, 31)),
     )
     assert key_current != key_compared
+
+
+@pytest.mark.django_db
+def test__bulk_invoice_creation__bumps_generation() -> None:
+    """Invoice creation is a bulk_create path (positions, conversions,
+    assignments, funding sources included), so post_save never fires; the
+    explicit bump in ``invoice_repository.create_many`` is what invalidates
+    the fact cache."""
+    creditor = modelfactory.creditor()
+    before = factcache.generation()
+
+    invoice_repository.create_many(
+        [
+            domainfactory.invoice(
+                creditor=CreditorId(creditor.pk),
+                positions=(),
+            )
+        ]
+    )
+
+    assert factcache.generation() > before
+
+
+@pytest.mark.django_db
+def test__bulk_payment_update__bumps_generation() -> None:
+    """The payment status is a statistics filter criterion
+    (``Q(publication__payments__status=…)``), and payment updates are a
+    bulk_create/bulk_update path, so they must bump the generation."""
+    publication = modelfactory.publication()
+    invoice = modelfactory.invoice()
+    before = factcache.generation()
+
+    payment_repository.bulk_save_payments(
+        [
+            (
+                PublicationId(publication.pk),
+                PublicationPaid(invoice_id=InvoiceId(invoice.pk), invoice_number=invoice.number),
+            )
+        ]
+    )
+
+    assert factcache.generation() > before
 
 
 def _d(year: int, month: int, day: int) -> object:

@@ -21,9 +21,10 @@ the home currency, and the resolved comparison period where one is
 fetched. A data-generation counter invalidates on every write to any
 model the fetch graph reads; the TTL bounds staleness if a write path ever
 escapes the receivers. The default LocMemCache has no LRU: distinct filter
-combinations accumulate until their TTL expires, bounded by the 60s TTL.
+combinations accumulate until their TTL expires, bounded by the 24h TTL.
 """
 
+import datetime
 import hashlib
 from collections.abc import Callable
 
@@ -35,7 +36,10 @@ from coda.domain.date import DateRange
 from coda.domain.money import Currency
 
 GENERATION_KEY = "statistics_facts_generation"
-FACTS_TTL = 60  # seconds; bounds staleness if a write path escapes the receivers
+FACTS_TTL = int(datetime.timedelta(hours=24).total_seconds())
+"""Bounds staleness if a write path escapes the receivers (bulk ops bypass
+post_save/post_delete); invalidation itself is the generation counter, which
+the signal receivers bump on every ordinary write."""
 
 #: The statistics page's own state: not filters, so it must not widen the
 #: facts cache key here, and drilldown keeps it out of the list URLs it
