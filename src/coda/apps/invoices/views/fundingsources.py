@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from decimal import InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -29,6 +29,17 @@ from coda.domain.money import Currency, Money
 class BudgetStatus:
     label: str
     css_class: str
+
+
+def _balance_bar_widths(balance: budget_query.BudgetBalance) -> tuple[int, int]:
+    """Spent/reserved percentages of the amount for the balance bar (spec
+    §8.1.1); the bar caps at full width — no overfull segment."""
+    amount = balance.amount.amount
+    if amount <= 0:
+        return 0, 0
+    reserved = min(Decimal(100), balance.reserved.amount / amount * 100)
+    spent = min(Decimal(100) - reserved, balance.spent.amount / amount * 100)
+    return int(spent), int(reserved)
 
 
 @dataclass(frozen=True)
@@ -136,6 +147,9 @@ class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
 
         context["balance"] = budget_query.budget_balances(FundingSourceId(self.object.pk))
         context["ledger"] = self.object.ledger_entries.order_by("-created_at")
+        context["bar_spent_width"], context["bar_reserved_width"] = _balance_bar_widths(
+            context["balance"]
+        )
         return context
 
 
@@ -178,4 +192,7 @@ def _detail_context(source: FundingSource) -> dict[str, Any]:
     if source.type == "budget":
         context["balance"] = budget_query.budget_balances(FundingSourceId(source.pk))
         context["ledger"] = source.ledger_entries.order_by("-created_at")
+        context["bar_spent_width"], context["bar_reserved_width"] = _balance_bar_widths(
+            context["balance"]
+        )
     return context

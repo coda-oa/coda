@@ -19,17 +19,31 @@
                     not allowed
                 {% endif %}
             </p>
-            <p>
-                Reserved: {{ balance.reserved }} · Spent: {{ balance.spent }} ·
-                Credited: {{ balance.credited }} · Debit: {{ balance.debit }}
-            </p>
-            <p><strong>Available: {{ balance.available }}</strong></p>
-            {% if balance.pending %}
-                <p>
-                    Pending conversion:
-                    {% for amount in balance.pending %}{{ amount }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                </p>
-            {% endif %}
+            <div class="budget-balance-overview">
+                <div class="budget-balance-available">
+                    <small>Available (gross-of-tax)</small>
+                    <p class="budget-balance-figure{% if balance.exceeded %} danger{% endif %}">{{ balance.available }}</p>
+                </div>
+                <div>
+                    <p class="budget-balance-amount">of {{ balance.amount }} gross-of-tax{% if fundingsource.allowance_amount %} (+ {{ fundingsource.allowance_amount }} {{ fundingsource.budget_currency }} allowance){% endif %}</p>
+                    <div class="budget-balance-bar">
+                        <span class="budget-balance-bar__spent" style="width: {{ bar_spent_width }}%"></span>
+                        <span class="budget-balance-bar__reserved" style="width: {{ bar_reserved_width }}%"></span>
+                    </div>
+                    <p>
+                        Spent (gross-of-tax) {{ balance.spent }} ·
+                        Reserved (gross-of-tax) {{ balance.reserved }} ·
+                        Credited: {{ balance.credited }} · Debit: {{ balance.debit }}
+                    </p>
+                    {% if balance.pending %}
+                        <p class="budget-balance-pending">
+                            Pending conversion:
+                            {% for amount in balance.pending %}{{ amount }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            — excluded from available until the bank rate is entered
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
             <h2>Transfer funds</h2>
             <form method="post"
                   action="{% url "invoices:budget_transfer" pk=fundingsource.id %}">

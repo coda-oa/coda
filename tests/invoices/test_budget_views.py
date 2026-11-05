@@ -314,6 +314,94 @@ def test__budget_with_blank_name__renders_pk_label(client: Client) -> None:
     assert str(budget) == f"FundingSource #{budget.pk}"
 
 
+# --- Amendment — budget UI completion: cycle 2 (detail balance overview) ---
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__shows_available_figure_and_balance_bar(client: Client) -> None:
+    """The detail page leads with a big available (gross-of-tax) figure beside
+    a slim bar of spent (red) and reserved (amber) out of the amount; the
+    secondary line states the amount (+ allowance) gross-of-tax."""
+    budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("10000", EUR))
+    budget_setup.an_invoice_with_assignment(Money("2500", EUR), budget, paid=True)
+    budget_setup.an_invoice_with_assignment(Money("2000", EUR), budget, paid=False)
+    row = FundingSource.objects.get(pk=budget_id)
+    row.allow_over = True
+    row.allowance_amount = Decimal(5000)
+    row.save()
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Available (gross-of-tax)" in content
+    assert "5500.00 EUR" in content  # available figure
+    assert "budget-balance-bar" in content
+    assert "budget-balance-bar__spent" in content
+    assert "width: 25%" in content  # 2500 of 10000 spent
+    assert "budget-balance-bar__reserved" in content
+    assert "width: 20%" in content  # 2000 of 10000 reserved
+    assert "of 10000.00 EUR gross-of-tax (+ 5000.0000 EUR allowance)" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__exceeded__shows_red_available(client: Client) -> None:
+    """An exceeded budget's available figure turns red and the bar caps at
+    full width — no overfull segment; the red figure carries the state."""
+    budget, budget_id = budget_setup.a_budget(name="LibrOpenAPC", amount=Money("1000", EUR))
+    budget_setup.an_invoice_with_assignment(Money("1200", EUR), budget, paid=True)
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "budget-balance-figure danger" in content
+    assert "-200.00 EUR" in content
+    assert "width: 100%" in content  # bar capped, no overfull segment
+    assert "width: 120%" not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__shows_pending_conversion_annotation(client: Client) -> None:
+    """Pending conversion is an annotation in the original currency — excluded
+    from available — never a bar segment."""
+    budget, budget_id = budget_setup.a_budget(name="Rate Pending", amount=Money("10000", EUR))
+    budget_setup.an_invoice_with_assignment(Money("3000", USD), budget, paid=True)
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Pending conversion" in content
+    assert "3000.00 USD" in content
+    assert "excluded from available" in content
+    assert "budget-balance-bar__pending" not in content
+
+
+# --- Amendment — budget UI completion: cycle 4 (list navigation) ---
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_list__name_links_to_detail(client: Client) -> None:
+    """The list row's name links to the detail page (house pattern, as the
+    institutions list); Edit stays beside it."""
+    _budget, budget_id = budget_setup.a_budget(name="DARK 2026")
+
+    response = client.get(reverse("invoices:fundingsource_list"))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    detail_url = reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id})
+    assert f'<a href="{detail_url}">DARK 2026</a>' in content
+    edit_url = reverse("invoices:fundingsource_update", kwargs={"pk": budget_id})
+    assert edit_url in content
+    assert ">Edit</a>" in content
+
+
 # --- Amendment — budget UI completion: cycle 5 (institution routes) ---
 
 
