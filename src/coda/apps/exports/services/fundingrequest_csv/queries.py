@@ -20,10 +20,13 @@ def get_funding_requests_for_export(
 def fetch_funding_requests(
     criteria: Sequence[fundingrequest_query.FundingRequestSearchCriteria],
 ) -> QuerySet[FundingRequest]:
-    """The single fetch shape shared by the CSV export and the statistics page.
+    """The filtered rows shared by the CSV export and the statistics page.
 
-    Both pages must see exactly the same rows and the same prefetched graph;
-    keeping the assembly in one place is what stops them from drifting apart.
+    Both pages filter their rows through the same criteria pass. This keeps
+    the row sets equal. The prefetch graph is the export's own. The
+    statistics page fetches a slimmer graph
+    (``coda.apps.reporting.queries.fetch_requests``). A test asserts that
+    the two shapes produce equal facts.
     """
     qs = fundingrequest_query.search(*criteria)
 
