@@ -105,13 +105,83 @@ headline cards above them; this class only keeps the anchor id addressable. */
     display: none;
 }
 
-/* The period lives in the toolbar band (2.8): search + period + Filters
-   button on one row. */
+/* The period lives in the toolbar band (2.8): two outlined panels on one
+   full-width row — the report period and the comparison period. */
 .filter-period {
+    display: block;
+}
+
+.period-panels {
     display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.period-panel {
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    margin: 0;
+    flex: 1 1 auto;
+    display: block;
+}
+
+.period-panel-header {
+    display: flex;
+    gap: 0.6rem;
     align-items: center;
-    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+    height: 1.75rem;
+}
+
+.period-panel-header .compare-switch {
+    margin-left: 0.4rem;
+}
+
+.period-panel-header button {
+    margin: 0 0 0 auto;
+    padding: 0 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1.5rem;
+    height: 1.5rem;
+}
+
+.period-panel-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
     white-space: nowrap;
+}
+
+.period-range {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.period-range input[type="date"] {
+    flex: 1 1 auto;
+    width: 10rem;
+    min-width: 0;
+}
+
+.period-range-off {
+    opacity: 0.45;
+}
+
+/* The error is a sibling block below the inputs row, so it can never
+   intersect the taller date inputs. */
+.period-range-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.period-range-error-line {
+    line-height: 1.2rem;
+    color: var(--coda-danger-color, #b42318);
 }
 
 .filter-period label {

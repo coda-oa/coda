@@ -8,13 +8,22 @@ from coda.domain.date import DateRange
 
 
 class DateRangeWidget(forms.MultiWidget):
-    def __init__(self, *, input_names: tuple[str, str], input_ids: tuple[str, str]) -> None:
+    def __init__(
+        self,
+        *,
+        input_names: tuple[str, str],
+        input_ids: tuple[str, str],
+        error_id: str = "date-range-error",
+        input_attrs: tuple[Mapping[str, str], Mapping[str, str]] = ({}, {})
+    ) -> None:
         self.input_names = input_names
         self.input_ids = input_ids
+        self.error_id = error_id
+        self.input_attrs = input_attrs
         super().__init__(
             [
-                forms.DateInput(attrs={"type": "date"}),
-                forms.DateInput(attrs={"type": "date"}),
+                forms.DateInput(attrs={"type": "date", **input_attrs[0]}),
+                forms.DateInput(attrs={"type": "date", **input_attrs[1]}),
             ]
         )
 
@@ -53,7 +62,7 @@ class DateRangeWidget(forms.MultiWidget):
         return list(value) if isinstance(value, (list, tuple)) else ["", ""]
 
     def mark_invalid(self) -> None:
-        self.attrs.update({"aria-invalid": "true", "aria-describedby": "date-range-error"})
+        self.attrs.update({"aria-invalid": "true", "aria-describedby": self.error_id})
 
     def _input_name(self, field_name: str, index: int) -> str:
         prefix, separator, _ = field_name.rpartition("-")

@@ -36,6 +36,7 @@ from coda.apps.listfilters import (
     named_model_choices,
     valid_fields,
 )
+from coda.domain.date import DateRange
 from coda.apps.preferences.models import GlobalPreferences, PreloadedVocabularyProvider
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers.models import Publisher
@@ -586,6 +587,15 @@ class FundingRequestListFilterForm(forms.Form):
         input_names=("start_date", "end_date"),
         input_ids=("id_start_date", "id_end_date"),
     )
+    compare_range = DateRangeField(
+        input_names=("compare_start_date", "compare_end_date"),
+        input_ids=("id_compare_start_date", "id_compare_end_date"),
+        error_id="compare-date-error",
+        input_attrs=(
+            {"aria-label": "Comparison start date"},
+            {"aria-label": "Comparison end date"},
+        ),
+    )
     labels = forms.Field(required=False, widget=forms.MultipleHiddenInput)
     exclude_labels = forms.Field(
         required=False,
@@ -726,9 +736,10 @@ class FundingRequestListFilterForm(forms.Form):
         toggle fetches the previous period through the same filters.
         """
         cleaned = valid_fields(self)
+        date_range: DateRange | None
         if date_override is not None:
             start, end = date_override
-            date_range = fq.DateRange(start=start, end=end)
+            date_range = DateRange(start=start, end=end)
         else:
             date_range = cleaned.get("date_range")
         params = fq.FundingRequestSearchParams(

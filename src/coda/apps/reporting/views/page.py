@@ -11,10 +11,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -36,6 +36,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.reporting import dataset, factcache, queries
 from coda.apps.reporting.drilldown import DrilldownLinks, list_view_url
 from coda.apps.reporting.treemap import institution_treemap
+from coda.apps.widgets import DateRangeWidget
 from coda.contexts.statistics import aggregation, charts
 from coda.contexts.statistics.dimensions import DIMENSIONS, Dimension, by_id
 from coda.contexts.statistics.dto import (
@@ -51,7 +52,7 @@ from coda.contexts.statistics.timeline import (
     temporal_counts,
     timeline_figure,
 )
-from coda.domain.date import DateRange
+from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
 
 _PAGE_URL = "reporting:stats_fundingrequests"
 _REGION_URL = "reporting:stats_fundingrequests_region"
@@ -150,7 +151,18 @@ class ReportingRegionView(ListRegionMixin, TemplateView):
     list_url_name = _PAGE_URL
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        return super().get_context_data(**kwargs) | reporting_context(self.request)
+        context = super().get_context_data(**kwargs) | reporting_context(self.request)
+        # The compare prefill's params, or None to push the request's own GET.
+        # Stashed here because recomputing the context in _push_url just for
+        # this key would run the form build and criteria pass twice per htmx
+        # request.
+        self._push_params: QueryDict | None = context.get("push_params")
+        return context
+
+    def _push_url(self) -> str:
+        if self._push_params is None:
+            return super()._push_url()
+        return reverse(self.list_url_name, query=self._push_params)
 
 
 reporting_region = login_required(ReportingRegionView.as_view())
@@ -170,9 +182,41 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     labels = list(Label.objects.all().order_by("name"))
     contracts = list(Contract.objects.all())
     vocabularies = GlobalPreferences.preloaded()
+    # When compare is switched on with empty inputs, prefill them with the
+    # same-length window before the selected range. The injected values then
+    # render into the widgets and ride out via push_params, so URL and inputs
+    # agree. An unbounded main range has no prior window, so no prefill and
+    # compare resolves to nothing. The range is parsed directly because a
+    # second form validation would pay the choice queries twice for one value.
+    compare_data = request.GET.copy()
+    compare_requested = request.GET.get("compare") == "1"
+    prefill_window: DateRange | None = None
+    push_params: QueryDict | None = None
+    if compare_requested and (
+        not request.GET.get("compare_start_date") and not request.GET.get("compare_end_date")
+    ):
+        try:
+            prefill_source = DateRange.from_iso(
+                start=request.GET.get("start_date"), end=request.GET.get("end_date")
+            )
+            prefill_window = prefill_source.prior_window()
+        except (InvalidDateError, InvalidDateRangeError):
+            prefill_window = None
+        if prefill_window is not None:
+            compare_data["compare_start_date"] = prefill_window.start.isoformat()
+            compare_data["compare_end_date"] = prefill_window.end.isoformat()
+            # request.GET is immutable, so the region view pushes these via
+            # its push_params override instead of a mutated request.GET.
+            push_params = compare_data
     filter_form = FundingRequestListFilterForm(
-        request.GET, contracts=contracts, labels=labels, vocabularies=vocabularies
+        compare_data, contracts=contracts, labels=labels, vocabularies=vocabularies
     )
+    # Disable the compare inputs server-side while compare is off, because
+    # JS-only disabling leaves operable content invisible to screen readers
+    # (WCAG 4.1.2).
+    if not compare_requested:
+        for subwidget in filter_form.fields["compare_range"].widget.widgets:
+            subwidget.attrs["disabled"] = True
     filter_form.is_valid()  # fills cleaned_data for the comparison resolution below
     criteria, _sort_order = filter_form.search_criteria()
     # The home currency is page-wide (both periods convert into it); one
@@ -188,19 +232,30 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         return dataset.build_facts(queries.fetch_requests(comparison_criteria), home_currency)
 
     facts = factcache.facts_for(request.GET, home_currency, build_facts)
-    # The comparison period is resolved before anything else consumes it: the
-    # pipeline below takes it as given and never assumes WHICH period it is.
-    # Today the only strategy is "the same length immediately before"; a
-    # custom period (picked window, fiscal year) resolves here and flows
-    # through unchanged. None means "no comparison": a one-sided range has no
-    # prior window (not zero; an all-zero comparison would lie), and the
-    # toggle only compares when a window exists.
+    # The comparison window is user-owned: the compare inputs carry it, and
+    # the prefill above is only the default. Both bounds are required because
+    # a missing bound would stretch the window to eternity. Invalid or
+    # one-sided dates disable the comparison instead of failing the page, so
+    # the rejected value stays visible in its input and the error renders
+    # below the switch.
     comparison_period: DateRange | None = None
-    if (
-        request.GET.get("compare") == "1"
-        and (date_range := filter_form.cleaned_data.get("date_range")) is not None
-    ):
-        comparison_period = date_range.prior_window()
+    comparison_error: str | None = None
+    if compare_requested:
+        if "compare_range" in filter_form.errors:
+            comparison_error = str(filter_form.errors["compare_range"][0])
+        else:
+            compare_range = filter_form.cleaned_data.get("compare_range")
+            main_range: DateRange | None = filter_form.cleaned_data.get("date_range")
+            if compare_range is None or compare_range.is_unbounded():
+                comparison_period = main_range.prior_window() if main_range is not None else None
+            elif compare_range.start == date.min or compare_range.end == date.max:
+                comparison_error = "Both comparison dates are required."
+                # Because the view produced this error, compress never ran and
+                # the inputs are not yet marked invalid — do it here so screen
+                # readers can associate the message via aria-describedby.
+                cast(DateRangeWidget, filter_form.fields["compare_range"].widget).mark_invalid()
+            else:
+                comparison_period = compare_range
     comparison_facts: tuple[RequestFact, ...] = ()
     if comparison_period:
         comparison_facts = factcache.facts_for(
@@ -265,8 +320,18 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             if section_id in sections_by_id
         ]
 
+    # Once per group: the nav filter and the value below would otherwise call
+    # it twice per group.
+    nav_sections = {group: group_sections(group) for group in DIMENSION_GROUPS}
+
+    # The compare inputs re-render from the form's bound data, so a rejected
+    # value stays visible in its input — the same contract as the sidebar's
+    # date inputs.
     return {
         "filter_form": filter_form,
+        # The compare params the region view should push; None pushes the
+        # request's own GET.
+        "push_params": push_params,
         "labels": labels,
         "contract_list": contracts,
         "label_state": sorted(parse_label_ids(request.GET.getlist("labels"))),
@@ -293,12 +358,17 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         "resolution": resolution,
         "resolutions": list(TemporalResolution),
         "comparison": comparison_report,
+        # The switch state follows the user's toggle, not the resolved window:
+        # an invalid compare period keeps the inputs and error visible with
+        # the switch still on. `compare` stays "a comparison actually
+        # rendered", because the tables' delta and "new" badges annotate real
+        # comparison values.
+        "compare_on": compare_requested,
         "compare": bool(comparison_report),
-        # The switch label names the actual comparison window, not a vague
-        # "previous". Whatever strategy resolved it, the user sees the dates.
         "comparison_period": (
             (comparison_period.start, comparison_period.end) if comparison_period else None
         ),
+        "comparison_error": comparison_error,
         "tab": tab,
         "incomplete_invoices": _incomplete_invoices(facts),
         # The tab nav needs every surviving group; only the active one renders
@@ -309,10 +379,10 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             {
                 "group": group,
                 "treemap": treemap if group.has_treemap else None,
-                "sections": group_sections(group) if tab == group.id else (),
+                "sections": nav_sections[group] if tab == group.id else (),
             }
             for group in DIMENSION_GROUPS
-            if group_sections(group) or (group.has_treemap and treemap) or _has_rows(group, facts)
+            if nav_sections[group] or (group.has_treemap and treemap) or _has_rows(group, facts)
         ],
         "active_group": tab,
     }

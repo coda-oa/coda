@@ -87,10 +87,22 @@ def named_model_choices(items: Iterable[Any]) -> list[tuple[Any, str]]:
 class DateRangeField(forms.MultiValueField):
     """One date-range value backed by the sidebar's two existing GET params."""
 
-    def __init__(self, *, input_names: tuple[str, str], input_ids: tuple[str, str]) -> None:
+    def __init__(
+        self,
+        *,
+        input_names: tuple[str, str],
+        input_ids: tuple[str, str],
+        error_id: str = "date-range-error",
+        input_attrs: tuple[Mapping[str, str], Mapping[str, str]] = ({}, {}),
+    ) -> None:
         super().__init__(
             (forms.CharField(required=False), forms.CharField(required=False)),
-            widget=DateRangeWidget(input_names=input_names, input_ids=input_ids),
+            widget=DateRangeWidget(
+                input_names=input_names,
+                input_ids=input_ids,
+                error_id=error_id,
+                input_attrs=input_attrs,
+            ),
             required=False,
             require_all_fields=False,
         )
@@ -275,5 +287,3 @@ def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: st
         params.pop(key, None)
 
     return build_url(url_name, params)
-
-

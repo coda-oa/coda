@@ -1,29 +1,61 @@
 {% comment %}
-    The period (2.8): not a facet but what the page is about — rendered in
-    the sticky toolbar band, outside the filter drawer. Bound to the shared
-    filter form's date_range field; hx-include already pulls this form.
-    The compare switch names the resolved comparison window (today the
-    same-length window ending the day before the selected range; the
-    pipeline takes whatever window the view resolved). The block re-renders
-    out of band with the region response, so an edited date range updates
-    the label on the next swap.
+    The period: two outlined panels in the sticky toolbar band, outside the
+    filter drawer — the report period (the form's date_range field) and the
+    comparison period (compare_range plus the compare switch). hx-include
+    already pulls this form.
+    The comparison is user-owned: switching on with empty inputs prefills
+    the same-length window before the report period (the view injects it);
+    the "previous" button re-applies that window (reporting.js computes it
+    client-side). The block re-renders out of band with the region response;
+    reporting.js re-derives the controls' enabled state per swap.
 {% endcomment %}
 <div class="filter-period" id="filter-period" {% if filter_period_oob %}hx-swap-oob="outerHTML"{% endif %}>
-
-
-    {{ filter_form.date_range.subwidgets.0 }}
-
-    <label for="id_end_date">to</label>
-    {{ filter_form.date_range.subwidgets.1 }}
-
-    {% include "partials/filter_date_error.html" %}
-
-    <label class="compare-switch">
-        <input type="checkbox"
-               name="compare"
-               value="1"
-               role="switch"
-               {% if compare %}checked{% endif %}>
-        Compare with previous period{% if comparison_period %}:<br> {{ comparison_period.0|date:"Y-m-d" }} – {{ comparison_period.1|date:"Y-m-d" }}{% endif %}
-    </label>
+    <div class="period-panels">
+        <section class="period-panel">
+            <div class="period-panel-header">
+                <p class="period-panel-title">Report period</p>
+            </div>
+            <div class="period-range-wrap">
+                <div class="period-range">
+                    {{ filter_form.date_range.subwidgets.0 }}
+                    <label for="id_end_date">to</label>
+                    {{ filter_form.date_range.subwidgets.1 }}
+                </div>
+                {% include "partials/filter_date_error.html" %}
+            </div>
+        </section>
+        <section class="period-panel">
+            <div class="period-panel-header">
+                <p class="period-panel-title">Comparison period</p>
+                <label class="compare-switch">
+                    <input type="checkbox"
+                           name="compare"
+                           value="1"
+                           role="switch"
+                           id="compare-switch"
+                           {% if compare_on %}checked{% endif %}>
+                    Enable
+                </label>
+                <button type="button" id="compare-previous-button" class="secondary outline period-previous-button" title="Set the same-length window before the report period">⟲ previous</button>
+            </div>
+            {% if compare_on %}
+            <div class="period-range-wrap">
+                <div class="period-range">
+                    {{ filter_form.compare_range.subwidgets.0 }}
+                    <label for="id_compare_end_date">to</label>
+                    {{ filter_form.compare_range.subwidgets.1 }}
+                </div>
+                {% if comparison_error %}
+                    <small id="compare-date-error" class="period-range-error-line">{{ comparison_error }}</small>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="period-range period-range-off">
+                {{ filter_form.compare_range.subwidgets.0 }}
+                <label for="id_compare_end_date" aria-hidden="true">to</label>
+                {{ filter_form.compare_range.subwidgets.1 }}
+            </div>
+            {% endif %}
+        </section>
+    </div>
 </div>

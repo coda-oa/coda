@@ -15,10 +15,10 @@ never assign into them). How many processes share this cache is a
 deployment choice: more processes mean more independent caches, each still
 correct, just colder at startup.
 
-Entries are keyed by the page's own filter params (the same exclusions the
-list URLs use: tab, compare, resolution and page are display state, not
-filters), the home currency, and the resolved comparison period where one
-is fetched. A data-generation counter invalidates on every write to any
+Entries are keyed by the page's own filter params (display state — tab,
+compare params, resolution, page — is excluded, matching the list URLs),
+the home currency, and the resolved comparison period where one is
+fetched. A data-generation counter invalidates on every write to any
 model the fetch graph reads; the TTL bounds staleness if a write path ever
 escapes the receivers. The default LocMemCache has no LRU: distinct filter
 combinations accumulate until their TTL expires, bounded by the 60s TTL.
@@ -37,10 +37,17 @@ from coda.domain.money import Currency
 GENERATION_KEY = "statistics_facts_generation"
 FACTS_TTL = 60  # seconds; bounds staleness if a write path escapes the receivers
 
-#: The page's display-state params: not filters, must not widen the key.
-#: ``page`` never reaches this view (no pagination), excluded for symmetry
-#: with the list URL builders.
-_DISPLAY_STATE_PARAMS = ("page", "tab", "compare", "resolution")
+#: The statistics page's own state: not filters, so it must not widen the
+#: facts cache key here, and drilldown keeps it out of the list URLs it
+#: derives from the page.
+DISPLAY_STATE_PARAMS = (
+    "page",
+    "tab",
+    "compare",
+    "compare_start_date",
+    "compare_end_date",
+    "resolution",
+)
 
 
 def generation() -> int:
@@ -67,7 +74,7 @@ def facts_key(
         (key, value)
         for key, values in params.lists()
         for value in values
-        if key not in _DISPLAY_STATE_PARAMS
+        if key not in DISPLAY_STATE_PARAMS
     )
     material = repr((filter_items, currency.code, comparison_period, generation()))
     digest = hashlib.sha256(material.encode()).hexdigest()

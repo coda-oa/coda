@@ -34,7 +34,6 @@ from coda.domain.money import Currency, CurrencyExchange, Money
 ZERO = Decimal("0.00")
 
 
-
 def build_facts(
     requests: Iterable[FundingRequest], report_currency: Currency
 ) -> tuple[RequestFact, ...]:
