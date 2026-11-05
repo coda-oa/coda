@@ -27,8 +27,10 @@
                 <div>
                     <p class="budget-balance-amount">of {{ balance.amount }} gross-of-tax{% if fundingsource.allowance_amount %} (+ {{ fundingsource.allowance_amount }} {{ fundingsource.budget_currency }} allowance){% endif %}</p>
                     <div class="budget-balance-bar">
-                        <span class="budget-balance-bar__spent" style="width: {{ bar_spent_width }}%"></span>
-                        <span class="budget-balance-bar__reserved" style="width: {{ bar_reserved_width }}%"></span>
+                        {% if bar_available_width %}<span class="budget-balance-bar__available" style="width: calc({{ bar_available_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_spent_width %}<span class="budget-balance-bar__spent" style="width: calc({{ bar_spent_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_reserved_width %}<span class="budget-balance-bar__reserved" style="width: calc({{ bar_reserved_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
+                        {% if bar_over_width %}<span class="budget-balance-bar__over" style="width: calc({{ bar_over_width }}% - {{ bar_gap_comp_px }}px)"></span>{% endif %}
                     </div>
                     <p>
                         Spent (gross-of-tax) {{ balance.spent }} ·

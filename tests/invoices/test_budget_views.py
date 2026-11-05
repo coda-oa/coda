@@ -370,29 +370,54 @@ def test__budget_detail__shows_available_figure_and_balance_bar(client: Client) 
     assert "Available (gross-of-tax)" in content
     assert "5500.00 EUR" in content  # available figure
     assert "budget-balance-bar" in content
+    assert "budget-balance-bar__available" in content
+    assert "width: calc(36.67% - 2.0px)" in content  # available segment (base fill)
     assert "budget-balance-bar__spent" in content
-    assert "width: 25%" in content  # 2500 of 10000 spent
+    assert "width: calc(16.67% - 2.0px)" in content  # 2500 of 10000 spent, block capped at amount + allowance
     assert "budget-balance-bar__reserved" in content
-    assert "width: 20%" in content  # 2000 of 10000 reserved
+    assert "width: calc(13.33% - 2.0px)" in content  # 2000 of 10000 reserved
+    assert "budget-balance-bar__over" not in content  # no over-segment within amount + allowance
     assert "of 10000.00 EUR gross-of-tax (+ 5000.0000 EUR allowance)" in content
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__budget_detail__exceeded__shows_red_available(client: Client) -> None:
-    """An exceeded budget's available figure turns red and the bar caps at
-    full width — no overfull segment; the red figure carries the state."""
+def test__budget_detail__zero_bookings__renders_full_available_bar(client: Client) -> None:
+    """The bar is never invisible: zero bookings renders one full-width
+    available segment (§8.1.1 base fill)."""
+    budget, budget_id = budget_setup.a_budget(name="Fresh 2027", amount=Money("10000", EUR))
+
+    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "budget-balance-bar__available" in content
+    assert "width: calc(100.00% - 0.0px)" in content  # full-width available base fill
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__exceeded__shows_red_available_and_over_segment(client: Client) -> None:
+    """An exceeded budget's available figure turns red; the bar renders a
+    hatched over-segment inside the pill for the part beyond amount +
+    allowance (reversing the earlier "no overfull segment" wording)."""
     budget, budget_id = budget_setup.a_budget(name="LibrOpenAPC", amount=Money("1000", EUR))
-    budget_setup.an_invoice_with_assignment(Money("1200", EUR), budget, paid=True)
+    row = FundingSource.objects.get(pk=budget_id)
+    row.allowance_amount = Decimal(500)
+    row.save()
+    budget_setup.an_invoice_with_assignment(Money("1600", EUR), budget, paid=True)
 
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
 
     assert response.status_code == 200
     content = response.content.decode()
     assert "budget-balance-figure danger" in content
-    assert "-200.00 EUR" in content
-    assert "width: 100%" in content  # bar capped, no overfull segment
-    assert "width: 120%" not in content
+    assert "-600.00 EUR" in content
+    assert "budget-balance-bar__available" not in content  # available floored at 0
+    assert "budget-balance-bar__reserved" not in content  # zero-width segments gated
+    assert "budget-balance-bar__over" in content
+    assert "width: calc(93.75% - 1.5px)" in content  # committed block capped at amount + allowance (1500/1600)
+    assert "width: calc(6.25% - 1.5px)" in content  # hatched over-segment (100/1600)
 
 
 @pytest.mark.django_db

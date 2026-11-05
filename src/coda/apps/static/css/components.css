@@ -305,18 +305,42 @@ span.icon-tooltip[data-tooltip] {
 
 .budget-balance-bar {
     display: flex;
-    block-size: 0.5rem;
-    border-radius: 6px;
-    overflow: hidden;
+    gap: 3px;
+    block-size: 0.8rem;
+    padding: 3px 4px;
+    border: var(--coda-border-width) solid var(--coda-border-color);
+    border-radius: 999px;
     background-color: var(--coda-muted-border-color);
 }
 
+.budget-balance-bar__available {
+    flex-shrink: 0;
+    background-color: var(--coda-validation-valid-color);
+    border-radius: 999px;
+}
+
 .budget-balance-bar__spent {
+    flex-shrink: 0;
     background-color: var(--coda-validation-invalid-color);
+    border-radius: 999px;
 }
 
 .budget-balance-bar__reserved {
+    flex-shrink: 0;
     background-color: var(--coda-warning-color);
+    border-radius: 999px;
+}
+
+.budget-balance-bar__over {
+    flex-shrink: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        var(--coda-validation-invalid-color),
+        var(--coda-validation-invalid-color) 3px,
+        var(--coda-border-color) 3px,
+        var(--coda-border-color) 7px
+    );
+    border-radius: 999px;
 }
 
 .invalid-amount {
