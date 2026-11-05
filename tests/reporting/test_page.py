@@ -661,6 +661,52 @@ def test__reporting_region__swaps_sidebar_toolbar_count_and_sections(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__reporting_region__compare_prefill__lands_in_the_pushed_url(
+    client: Client,
+) -> None:
+    """Switching compare on with empty compare inputs prefills the prior
+    window: the pushed canonical URL must carry the injected dates, or the
+    effective period is invisible after the toggle (and a reload loses it)."""
+    seed()
+
+    response = client.get(
+        reverse("reporting:stats_fundingrequests_region"),
+        data={**PERIOD, "compare": "1"},
+        headers={"hx-request": "true"},
+    )
+
+    pushed = parse_qs(urlparse(response["HX-Push-Url"]).query)
+    assert pushed["compare"] == ["1"]
+    assert pushed["compare_start_date"] == ["2025-01-01"]
+    assert pushed["compare_end_date"] == ["2025-12-31"]
+    # The rendered inputs carry the same prefill — URL and widgets agree.
+    html = response.content.decode()
+    assert 'name="compare_start_date" value="2025-01-01"' in html
+    assert 'name="compare_end_date" value="2025-12-31"' in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__reporting_region__without_prefill__pushes_the_request_params(
+    client: Client,
+) -> None:
+    """Without the prefill the push stays the request's own GET: no injected
+    compare dates, everything else untouched."""
+    seed()
+
+    response = client.get(
+        reverse("reporting:stats_fundingrequests_region"),
+        data={**PERIOD, "compare": "1", "compare_start_date": "2024-01-01"},
+        headers={"hx-request": "true"},
+    )
+
+    pushed = parse_qs(urlparse(response["HX-Push-Url"]).query)
+    assert pushed["compare_start_date"] == ["2024-01-01"]
+    assert "compare_end_date" not in pushed
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__plotly_asset__matches_the_installed_plotly_bundle() -> None:
     path = find("js/vendor/plotly.min.js")
     assert path is not None

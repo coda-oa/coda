@@ -5,23 +5,23 @@
 // Runs on first load and after every htmx swap of the statistics region, so a
 // filter change re-paints the freshly swapped charts.
 
-// Commit-on-blur for the band form's date fields and search box. The band
-// form once carried this as `focusout changed[...]` in hx-trigger, but htmx
-// only reads a bracket filter directly after the event name — the filter sat
-// after `changed`, was dropped with a syntax error per token, and the bare
-// `focusout changed` fired on every first blur of every field in the form.
-// And htmx's `changed` seeds its last-value map with the *listener* element
-// (the form), so no hx-trigger spelling of "changed since focus" exists;
-// tracking the per-field value in JS is the only faithful form. The search
-// box has no input debounce on this page (the pipeline is too expensive for
-// search-as-you-type), so blur is its only commit besides Enter.
+// Commit-on-blur for the band form's date fields and search box. htmx cannot
+// express "changed since focus": its `changed` modifier compares against the
+// *listener* element's value (the form), so no hx-trigger spelling of this
+// exists — the per-field value must be tracked in JS. The search box gets no
+// input debounce (search-as-you-type would run the whole pipeline), so blur
+// is its only commit besides Enter.
 //
 // focusout (unlike blur) bubbles, and the form is never htmx-swapped, so one
 // delegated listener on the form survives the period block's OOB re-renders.
-const COMMIT_ON_BLUR = ".filter-search, #id_start_date, #id_end_date";
+const COMMIT_ON_BLUR =
+    ".filter-search, #id_start_date, #id_end_date, #id_compare_start_date, #id_compare_end_date";
 const bandForm = document.getElementById("filter-toolbar-form");
+// Module scope so the previous-period button's commit below can also re-seed
+// it; otherwise the next blur of a compare input re-fires an identical
+// request for the values the button just wrote.
+const lastCommitted = new WeakMap();
 if (bandForm) {
-    const lastCommitted = new WeakMap();
     // Seed the baseline on focus: only a value that changed while the field
     // was focused commits on its blur. Without the seed the first blur of an
     // untouched field (lastCommitted undefined) would fire — exactly the
@@ -32,11 +32,11 @@ if (bandForm) {
             lastCommitted.set(field, field.value);
         }
     });
-    // A submit serializes the fields' current values, so anything the submit
-    // carried is committed as far as the blur path is concerned. Without the
-    // re-seed, "type into search + Enter, then blur" fires a second, identical
-    // request: the blur dispatches change, the trigger's 300ms delay queues it
-    // behind the submit via hx-sync, and it still runs after the swap.
+    // A submit serializes the fields' current values, so the blur path has
+    // nothing new to commit afterwards. Without the re-seed, "type into
+    // search + Enter, then blur" fires a second, identical request: the
+    // blur's change rides the trigger's 300ms delay, queues behind the
+    // submit via hx-sync, and still runs after the swap.
     bandForm.addEventListener("submit", () => {
         for (const field of bandForm.querySelectorAll(COMMIT_ON_BLUR)) {
             lastCommitted.set(field, field.value);
@@ -58,6 +58,92 @@ if (bandForm) {
         // matches neither excluded selector — and the trigger's 300ms
         // debounce coalesces rapid blurs like an editor-committed value.
         bandForm.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+}
+
+// The comparison period controls (filter_period.html). The compare inputs
+// commit on blur like the report dates (COMMIT_ON_BLUR above); the rest is
+// the switch's enable/disable and the previous-period button. The period
+// block re-renders out of band on every region response, so the state is
+// re-derived from the DOM after each swap.
+const compareControls = (root) => {
+    const switchInput = root.querySelector("#compare-switch");
+    const inputs = root.querySelectorAll(
+        "#id_compare_start_date, #id_compare_end_date"
+    );
+    const previousButton = root.querySelector("#compare-previous-button");
+    return { switchInput, inputs, previousButton };
+};
+
+const priorWindow = (startValue, endValue) => {
+    // The same-length window immediately before [start, end] — the client
+    // copy of the view's DateRange.prior_window. Empty or unparseable bounds
+    // disable the button instead of guessing.
+    const start = new Date(startValue);
+    const end = new Date(endValue);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+        return null;
+    }
+    const length = Math.round((end - start) / 86400000) + 1;
+    const priorEnd = new Date(start);
+    priorEnd.setDate(priorEnd.getDate() - 1);
+    const priorStart = new Date(priorEnd);
+    priorStart.setDate(priorStart.getDate() - (length - 1));
+    return [priorStart.toISOString().slice(0, 10), priorEnd.toISOString().slice(0, 10)];
+};
+
+const syncCompareControls = (root) => {
+    const { switchInput, inputs, previousButton } = compareControls(root);
+    if (!switchInput) {
+        return;
+    }
+    const on = switchInput.checked;
+    inputs.forEach((input) => {
+        input.disabled = !on;
+    });
+    if (previousButton) {
+        const [startInput, endInput] = root.querySelectorAll(
+            "#id_start_date, #id_end_date"
+        );
+        previousButton.disabled = !on || !priorWindow(startInput?.value, endInput?.value);
+    }
+};
+
+if (bandForm) {
+    syncCompareControls(bandForm);
+    // The switch's change rides the band's change trigger (300ms debounce),
+    // so toggling submits the form like any filter edit; the server
+    // re-renders the block OOB with the inputs enabled and prefilled.
+    bandForm.addEventListener("change", (event) => {
+        if (event.target.id === "compare-switch") {
+            syncCompareControls(bandForm);
+        }
+    });
+    // type=button: write the prior window into the compare inputs, re-seed
+    // the blur baselines, then dispatch change on the FORM so the band's
+    // change trigger picks it up.
+    bandForm.addEventListener("click", (event) => {
+        if (!(event.target instanceof Element) || event.target.id !== "compare-previous-button") {
+            return;
+        }
+        const { inputs } = compareControls(bandForm);
+        const [startInput, endInput] = bandForm.querySelectorAll("#id_start_date, #id_end_date");
+        const window_ = priorWindow(startInput?.value, endInput?.value);
+        if (!window_ || !inputs.length) {
+            return;
+        }
+        const [compareStart, compareEnd] = inputs;
+        compareStart.value = window_[0];
+        compareEnd.value = window_[1];
+        // Re-seed the blur baselines: the button just committed these values.
+        lastCommitted.set(compareStart, compareStart.value);
+        lastCommitted.set(compareEnd, compareEnd.value);
+        bandForm.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    document.addEventListener("htmx:afterSettle", (event) => {
+        if (event.target instanceof Element && event.target.querySelector("#compare-switch")) {
+            syncCompareControls(event.target);
+        }
     });
 }
 

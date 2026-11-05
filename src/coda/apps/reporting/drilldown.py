@@ -28,6 +28,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.listfilters import build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences, PreloadedVocabularyProvider
 from coda.apps.publishers.models import Publisher
+from coda.apps.reporting.factcache import DISPLAY_STATE_PARAMS
 from coda.contexts.statistics.dimensions import PageFacet, by_id
 from coda.contexts.statistics.dto import ContractRef, GroupRow, RowKind
 from coda.domain.publication import License, OpenAccessType
@@ -131,7 +132,7 @@ def list_view_url(request: HttpRequest) -> str:
     the one bridge from the statistics page into the data behind it. The
     statistics page's own state (tab, compare, resolution) is not a list
     filter."""
-    return build_url(_LIST_URL, params_without(request.GET, "page", "tab", "compare", "resolution"))
+    return build_url(_LIST_URL, params_without(request.GET, *DISPLAY_STATE_PARAMS))
 
 
 def _publication_type_table(
