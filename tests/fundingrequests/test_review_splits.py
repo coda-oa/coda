@@ -17,6 +17,63 @@ from tests.invoices import budget_setup
 EUR = Currency.EUR
 
 
+def _split_dto(budget_id: int, amount: Decimal) -> ReviewSplitDto:
+    return ReviewSplitDto(funding_source_id=budget_id, amount=amount)
+
+
+def _approve_dto(budget_id: int, amount: Decimal) -> UpdateReviewDto:
+    return UpdateReviewDto(
+        decided_funding_amount=amount,
+        decided_funding_currency="EUR",
+        reviewer_remarks="",
+        result="approved",
+        funding_splits=[_split_dto(budget_id, amount)],
+    )
+
+
+@pytest.mark.django_db
+def test__re_approval__does_not_double_count_own_splits() -> None:
+    """Re-submitting an approved review unchanged must not double-count its
+    own persisted splits: budget 1 000, own split 600, re-submit → accepted."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+
+    assert budget_query.budget_balances(budget_id).reserved == Money("600", EUR)
+
+
+@pytest.mark.django_db
+def test__re_approval__raised_split_beyond_remaining__rejected() -> None:
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900)))
+
+    with pytest.raises(budget_service.BudgetCapacityExceededError):
+        services.update_review(
+            FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(1100))
+        )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__available_excludes_own_persisted_splits(client: Client) -> None:
+    """The review page's per-budget available excludes the review's own
+    persisted splits (the capacity the reviewer is actually deciding against)."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    budgets = response.context["budgets"]
+    own = next(b for b in budgets if b["id"] == str(budget_id))
+    assert own["available"] == Money("1000", EUR)
+
+
 @pytest.mark.django_db
 def test__waived_review__reserves_nothing() -> None:
     """A waived review persists no funding splits even when split data is

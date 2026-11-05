@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from decimal import Decimal
 from typing import Any, TypeIs
 
 from django.db import transaction
@@ -108,6 +109,16 @@ class UnsavedFundingRequest(ValueError):
     def __init__(self, fundingrequest: AnyFundingRequest) -> None:
         super().__init__(f"Funding request {fundingrequest} is not saved")
         self.fundingrequest = fundingrequest
+
+
+def persisted_review_splits(fundingrequest_id: FundingRequestId) -> list[tuple[int, Decimal]]:
+    """The funding request's currently persisted review splits as
+    (funding source id, amount) pairs — the snapshot for re-approval delta
+    checks and ledger dedupe, taken before ``save_review`` replaces them."""
+    return list(
+        ReviewFundingSplit.objects.filter(review__fundingrequest=fundingrequest_id)
+        .values_list("funding_source_id", "amount")
+    )
 
 
 @transaction.atomic
