@@ -265,12 +265,23 @@ def _to_query(*criteria: FundingRequestSearchCriteria) -> Q:
     return q
 
 
+def filtered(
+    *criteria: FundingRequestSearchCriteria,
+    sort_order: SortOrder = SortOrder.default(),
+) -> QuerySet[FundingRequest]:
+    """The filtered, ordered requests, without the list page's prefetch graph.
+
+    Consumers with their own prefetch shape (the statistics fact set) build on
+    this; ``search`` layers the list page's graph on top.
+    """
+    return FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
+
+
 def search(
     *criteria: FundingRequestSearchCriteria,
     sort_order: SortOrder = SortOrder.default(),
 ) -> QuerySet[FundingRequest]:
-    qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
-    return FundingRequestListMapper.prefetch(qs)
+    return FundingRequestListMapper.prefetch(filtered(*criteria, sort_order=sort_order))
 
 
 @dataclass
@@ -530,5 +541,3 @@ def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSea
     if params.funding_source is not None:
         criteria.append(InvoiceFundingSourceCriteria(funding_source=params.funding_source))
     return criteria
-
-

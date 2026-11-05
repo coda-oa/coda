@@ -17,11 +17,11 @@ from coda.apps.publications.models import (
 from coda.apps.reporting import dataset, queries
 from coda.contexts.finance.services import invoice_service
 from coda.contexts.statistics.dto import RequestFact
-from coda.domain.author import Role
+from coda.domain.author import InstitutionId, Role
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.funding_sources import Budget
+from coda.domain.finance.funding_sources import Budget, SplitSource
 from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
@@ -104,6 +104,12 @@ def position(
 
 def budget(name: str) -> Budget:
     source = Budget(None, name)
+    source.id = funding_source_repository.create(source)
+    return source
+
+
+def split_source(institution_id: int, institution_name: str) -> SplitSource:
+    source = SplitSource.new(InstitutionId(institution_id), institution_name)
     source.id = funding_source_repository.create(source)
     return source
 
