@@ -18,7 +18,7 @@ from coda.contexts.fundingrequest.services import checks, fundingrequests
 from coda.domain.errors import DomainError
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId
-from coda.domain.money import Money
+from coda.domain.money import Currency, Money
 
 
 def _decimal_or_none(value: str | None) -> Decimal | None:
@@ -147,11 +147,19 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         return context
 
     def _budgets(self) -> list[dict[str, Any]]:
+        # The review page's per-budget available excludes this review's own
+        # persisted splits (opt-in display exclusion — the budget detail page's
+        # default semantics are unchanged): the reviewer deciding a re-opened
+        # review sees the capacity they are actually deciding against.
+        own: dict[int, Decimal] = {}
+        for funding_source_id, amount in repository.persisted_review_splits(self._fid()):
+            own[funding_source_id] = own.get(funding_source_id, Decimal(0)) + amount
         return [
             {
                 "id": str(budget.pk),
                 "name": budget.name,
-                "available": budget_query.budget_balances(FundingSourceId(budget.pk)).available,
+                "available": budget_query.budget_balances(FundingSourceId(budget.pk)).available
+                + Money(own.get(budget.pk, Decimal(0)), Currency[budget.budget_currency or "EUR"]),
             }
             for budget in FundingSource.objects.filter(type="budget")
         ]

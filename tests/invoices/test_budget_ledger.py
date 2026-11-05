@@ -109,7 +109,27 @@ def test__approving_review_with_split__appends_commitment_row() -> None:
 
 
 @pytest.mark.django_db
-def test__re_approving_review__appends_a_further_row_instead_of_updating() -> None:
+def test__re_approving_review__with_changed_split__appends_a_further_row() -> None:
+    """A *changed* re-approval books a further commitment row; an unchanged
+    re-approval books none (the ledger must not drift on untouched re-saves)."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    fr_services.update_review(
+        FundingRequestId(funding_request.pk), review_dto(budget_id, Decimal(2000))
+    )
+    fr_services.update_review(
+        FundingRequestId(funding_request.pk), review_dto(budget_id, Decimal(2500))
+    )
+
+    amounts = list(
+        ledger(budget_id).filter(event="commitment").values_list("amount", flat=True)
+    )
+    assert amounts == [Decimal(2000), Decimal(2500)]
+
+
+@pytest.mark.django_db
+def test__re_approving_review__unchanged_splits__books_no_further_row() -> None:
     _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
     funding_request = modelfactory.fundingrequest()
 
@@ -120,7 +140,7 @@ def test__re_approving_review__appends_a_further_row_instead_of_updating() -> No
         FundingRequestId(funding_request.pk), review_dto(budget_id, Decimal(2000))
     )
 
-    assert ledger(budget_id).filter(event="commitment").count() == 2
+    assert ledger(budget_id).filter(event="commitment").count() == 1
 
 
 @pytest.mark.django_db
