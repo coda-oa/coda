@@ -60,6 +60,28 @@ def test__re_approval__raised_split_beyond_remaining__rejected() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__review_page__prefills_persisted_splits(client: Client) -> None:
+    """Re-opening an approved review renders the persisted splits as filled
+    rows (plus the extra blank row) with their gross-left figures and the sum
+    verdict — not blank inputs."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    formset = response.context["funding_splits"]
+    assert formset.total_form_count() == 2  # persisted + extra=1 blank
+    assert int(formset.forms[0].initial["funding_source"]) == budget_id
+    assert Decimal(formset.forms[0].initial["amount"]) == Decimal(600)
+    content = response.content.decode()
+    assert "600.00" in content  # the persisted amount renders
+    assert "fits" in content  # the unchanged row fits (delta 0 over own totals)
+    assert "exceeds" not in content  # no false over figure on an unchanged re-open
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__review_page__available_excludes_own_persisted_splits(client: Client) -> None:
     """The review page's per-budget available excludes the review's own
     persisted splits (the capacity the reviewer is actually deciding against)."""
