@@ -167,9 +167,11 @@ def test__fundingrequest_detail__shows_funding_attributions(client: Client) -> N
     from coda.apps.fundingrequests.queries import detail as detail_queries
 
     context = detail_queries.get_detail_context(FundingRequestId(funding_request.pk))
-    assert context["funding_attributions"] == [
-        {"budget_id": budget_id, "budget_name": _budget.name, "amount": Decimal("600")}
-    ]
+    attributions = context["funding_attributions"]
+    assert len(attributions) == 1
+    assert attributions[0].budget_id == budget_id
+    assert attributions[0].budget_name == _budget.name
+    assert attributions[0].amount == Decimal(600)
 
     response = client.get(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
     content = response.content.decode()
