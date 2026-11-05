@@ -255,9 +255,12 @@ def budget_transfer(request: HttpRequest, pk: int) -> HttpResponse:
             status=200,
         )
 
-    return HttpResponseClientRedirect(
-        reverse("invoices:fundingsource_detail", kwargs={"pk": pk})
-    )
+    # htmx submits get a client redirect (full page reload with updated
+    # balances); non-JS submits keep the plain 302 redirect.
+    detail_url = reverse("invoices:fundingsource_detail", kwargs={"pk": pk})
+    if request.htmx:  # type: ignore[attr-defined]
+        return HttpResponseClientRedirect(detail_url)
+    return redirect(detail_url)
 
 
 def _detail_context(source: FundingSource) -> dict[str, Any]:

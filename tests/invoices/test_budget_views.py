@@ -143,6 +143,13 @@ def test__transfer_dialog__opens_as_fragment(client: Client) -> None:
     assert f'hx-post="{reverse("invoices:budget_transfer", kwargs={"pk": budget_id})}"' in content
     assert 'name="mode"' in content
     assert 'name="target"' in content
+    # The dialog triggers on the detail page append the fragment (repo
+    # precedent: hx-target="body" hx-swap="beforeend") — pinned in the
+    # rendered detail page since no test can click the button.
+    detail = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
+    detail_content = detail.content.decode()
+    assert 'hx-swap="beforeend"' in detail_content
+    assert f'hx-get="{reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id})}"' in detail_content
 
 
 @pytest.mark.django_db
@@ -187,10 +194,7 @@ def test__transfer_dialog__add_funds_mode__books_credited_row(client: Client) ->
         },
     )
 
-    assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == reverse(
-        "invoices:fundingsource_detail", kwargs={"pk": budget_id}
-    )
+    assert response.status_code == 302
     from coda.apps.invoices.models import BudgetLedgerEntry, BudgetTransfer
 
     transfer = BudgetTransfer.objects.get()
@@ -239,8 +243,27 @@ def test__budget_transfer__books_transfer_and_shows_in_balances(client: Client) 
         {"target": str(_target.id), "amount": "2000", "provenance_note": "top-up"},
     )
 
-    # The dialog submit responds with an htmx client redirect (HX-Redirect)
-    # — the full page reloads with the updated balances (§8.4).
+    # A non-JS submit keeps the plain 302 redirect; the htmx variant gets the
+    # client redirect (HX-Redirect) — see the htmx cycle below.
+    assert response.status_code == 302
+    from coda.apps.invoices.models import BudgetTransfer
+
+    assert BudgetTransfer.objects.count() == 1
+    assert budget_query.budget_balances(source_id).debit == Money("2000", EUR)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_transfer__htmx_submit__responds_with_client_redirect(client: Client) -> None:
+    _source, source_id = budget_setup.a_budget(name="Source", amount=Money("5000", EUR))
+    _target, _target_id = budget_setup.a_budget(name="Target", amount=Money("10000", EUR))
+
+    response = client.post(
+        reverse("invoices:budget_transfer", kwargs={"pk": source_id}),
+        {"target": str(_target.id), "amount": "2000", "provenance_note": "top-up"},
+        HTTP_HX_REQUEST="true",
+    )
+
     assert response.status_code == 200
     assert response.headers["HX-Redirect"] == reverse(
         "invoices:fundingsource_detail", kwargs={"pk": source_id}
@@ -248,7 +271,6 @@ def test__budget_transfer__books_transfer_and_shows_in_balances(client: Client) 
     from coda.apps.invoices.models import BudgetTransfer
 
     assert BudgetTransfer.objects.count() == 1
-    assert budget_query.budget_balances(source_id).debit == Money("2000", EUR)
 
 
 @pytest.mark.django_db

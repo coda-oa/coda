@@ -61,10 +61,12 @@
             {# Transfer dialog (§8.4): the GET fragment opens the htmx dialog (transfer or add-funds mode); the existing budget_transfer POST URL submits it. #}
             <button class="outline"
                     hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}"
-                    hx-target="body">Transfer…</button>
+                    hx-target="body"
+                    hx-swap="beforeend">Transfer…</button>
             <button class="outline"
                     hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}?mode=add_funds"
-                    hx-target="body">Add funds…</button>
+                    hx-target="body"
+                    hx-swap="beforeend">Add funds…</button>
             <h2>Booking ledger</h2>
             <ul>
                 {% for entry in ledger %}
