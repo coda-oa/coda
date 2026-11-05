@@ -5,6 +5,7 @@
     would silence every later sidebar change.
 {% endcomment %}
 {% include "partials/filter_toolbar_count.html" with toolbar_filter_count_oob=True %}
+{% include "fundingrequests/fundingrequest_list.html#statistics_link" with statistics_link_oob=True %}
 <div hx-swap-oob="innerHTML:#filter-sidebar-form">
     {% include "fundingrequests/fundingrequest_filter_sidebar.html" %}
 </div>
