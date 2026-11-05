@@ -170,11 +170,32 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         split_data: QueryDict | None,
         budgets: list[dict[str, Any]],
     ) -> dict[str, Any]:
+        # The review's own persisted splits sit in the balance until
+        # save_review replaces them (§8.3.6 delta semantics) — the prefill
+        # reads them and the capacity verdicts exempt them (only the positive
+        # delta over own totals is capacity-checked, mirroring the write path).
+        persisted = repository.persisted_review_splits(self._fid())
+        own: dict[int, Decimal] = {}
+        for persisted_source_id, persisted_amount in persisted:
+            own[persisted_source_id] = own.get(persisted_source_id, Decimal(0)) + persisted_amount
+
         if split_data is not None:
             formset = ReviewSplitFormSet(split_data, prefix="funding_splits")
         else:
-            formset = ReviewSplitFormSet(prefix="funding_splits")
-            split_data = QueryDict("")
+            # GET (re-open): prefill editable rows from the persisted splits
+            # (§8.3.4), feeding both the formset and the feedback/sum path
+            # (the synthesized data below is what the feedback loop reads).
+            initial = [
+                {"funding_source": str(persisted_source_id), "amount": persisted_amount}
+                for persisted_source_id, persisted_amount in persisted
+            ]
+            formset = ReviewSplitFormSet(initial=initial, prefix="funding_splits")
+            split_data = QueryDict("", mutable=True)
+            split_data["funding_splits-TOTAL_FORMS"] = str(len(initial) + 1)  # extra=1 blank
+            split_data["funding_splits-INITIAL_FORMS"] = "0"
+            for index, (persisted_source_id, persisted_amount) in enumerate(persisted):
+                split_data[f"funding_splits-{index}-funding_source"] = str(persisted_source_id)
+                split_data[f"funding_splits-{index}-amount"] = str(persisted_amount)
 
         decided = fundingrequest.funding_amount
         parsed_decided = _decimal_or_none(split_data.get("decided_funding_amount"))
@@ -199,8 +220,17 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
                 commitments.append((source_id, Money(amount or Decimal(0), decided.currency)))
 
         committed = budget_service.committed_per_funding_source(commitments)
+        # Delta semantics (§8.3.6): the verdict is computed on the positive
+        # delta over the review's own persisted totals — an unchanged
+        # re-opened review renders "fits", not a false over figure.
         verdicts = {
-            source_id: budget_service.capacity_verdict(source_id, amount)
+            source_id: budget_service.capacity_verdict(
+                source_id,
+                Money(
+                    max(Decimal(0), amount.amount - own.get(source_id, Decimal(0))),
+                    amount.currency,
+                ),
+            )
             for source_id, amount in committed.items()
             if str(source_id) in {budget["id"] for budget in budgets}
         }
