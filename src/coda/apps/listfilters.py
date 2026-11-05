@@ -75,7 +75,7 @@ def valid_fields(form: forms.Form) -> dict[str, Any]:
 
 def named_model_choices(items: Iterable[Any]) -> list[tuple[Any, str]]:
     """Return a blank option followed by choices from named model instances."""
-    return [("", "-------"), *((item.pk, item.name) for item in items)]
+    return [("", "-------"), *((item.pk, str(item)) for item in items)]
 
 
 class DateRangeField(forms.MultiValueField):

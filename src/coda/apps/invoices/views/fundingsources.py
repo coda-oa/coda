@@ -5,7 +5,7 @@ from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_POST
@@ -13,6 +13,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices import budget_query
 from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
@@ -66,6 +67,14 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
     success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "invoices/fundingsources/form.html"
 
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
+        self.object = self.get_object()
+        if self.object.type == "institution":
+            return _institution_redirect(self.object)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs) | {"title": "Update Funding Source"}
         if self.object and self.object.type == "budget":
@@ -108,6 +117,14 @@ class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
 
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
+        self.object = self.get_object()
+        if self.object.type == "institution":
+            return _institution_redirect(self.object)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs) | {
             "transfer_targets": FundingSource.objects.exclude(pk=self.object.pk).filter(
@@ -123,6 +140,15 @@ class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
 
 
 fundingsource_detailview = FundingSourceDetailView.as_view()
+
+
+def _institution_redirect(source: FundingSource) -> HttpResponse:
+    """Institution-type funding sources are implicit byproducts with no
+    funding-source page of their own; they route to their institution."""
+    if source.institution_id is None:
+        return redirect("institutions:list")
+    institution = Institution.all_objects.get(pk=source.institution_id)
+    return redirect("institutions:detail", pk=institution.pk)
 
 
 @login_required

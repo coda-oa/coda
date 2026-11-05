@@ -44,6 +44,13 @@ class FundingSource(models.Model):
             ),
         ]
 
+    def __str__(self) -> str:
+        if self.name:
+            return self.name
+        if self.institution_id is not None:
+            return Institution.all_objects.get(pk=self.institution_id).name
+        return f"FundingSource #{self.pk}"
+
 
 class CreditorManager(models.Manager["Creditor"]):
     def get_queryset(self) -> models.QuerySet["Creditor"]:
