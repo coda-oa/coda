@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 import pytest
@@ -165,3 +166,119 @@ def test__review_view__split_exceeding_capacity__renders_error_and_blocks_approv
     funding_request.refresh_from_db()
     assert funding_request.review.review_result == "open"
     assert funding_request.review.funding_splits.count() == 0
+
+
+def _input_value(content: str, name: str) -> str | None:
+    for tag in re.findall(r"<input\b[^>]*>", content):
+        if f'name="{name}"' in tag:
+            match = re.search(r'value="([^"]*)"', tag)
+            return match.group(1) if match else ""
+    return None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__renders_split_table_with_add_button(client: Client) -> None:
+    budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    content = response.content.decode()
+    assert 'name="form_action_add"' in content
+    assert "+ Add funding source" in content
+    assert "Funding source" in content
+    assert "Amount (gross-of-tax)" in content
+    assert "Gross left (all splits)" in content
+    assert 'name="form_action_remove"' in content
+    assert _input_value(content, "funding_splits-TOTAL_FORMS") == "1"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__add_row_round_trips(client: Client) -> None:
+    _, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}),
+        {
+            "form_action_add": "add_form",
+            "decided_funding_amount": "2000",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "2000",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert _input_value(content, "funding_splits-TOTAL_FORMS") == "2"
+    assert _input_value(content, "funding_splits-0-amount") == "2000"
+    assert _input_value(content, "funding_splits-1-amount") == ""
+    assert f'<option value="{budget_id}" selected' in content
+    funding_request.refresh_from_db()
+    assert funding_request.review.review_result == "open"
+    assert funding_request.review.funding_splits.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__capacity_feedback_is_gross_of_tax_qualified(client: Client) -> None:
+    _, a_id = budget_setup.a_budget(name="Budget A", amount=Money("1000", EUR))
+    _, b_id = budget_setup.a_budget(name="Budget B", amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}),
+        {
+            "form_action_add": "add_form",
+            "decided_funding_amount": "1700",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "3",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(a_id),
+            "funding_splits-0-amount": "600",
+            "funding_splits-1-funding_source": str(a_id),
+            "funding_splits-1-amount": "600",
+            "funding_splits-2-funding_source": str(b_id),
+            "funding_splits-2-amount": "500",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    # Both Budget A rows fit individually (600 ≤ 1000), but the sibling-
+    # aggregated 1200 exceeds the budget's available 1000.
+    assert "exceeds: only 1000.00 EUR gross-of-tax available" in content
+    assert "fits" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__sum_verdict_shows_difference(client: Client) -> None:
+    _, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}),
+        {
+            "action": "approved",
+            "decided_funding_amount": "2000",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "1500",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "difference 500.00" in content
+    assert "matches the decided amount" not in content

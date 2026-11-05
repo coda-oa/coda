@@ -21,13 +21,57 @@
             {% endif %}
             <h2 class="mt-2">Funding attribution</h2>
             {{ funding_splits.management_form }}
-            {% for split_form in funding_splits %}
-                <div class="flex">
-                    {{ split_form.funding_source }}
-                    {{ split_form.amount }}
-                </div>
-                {% for error in split_form.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
-            {% endfor %}
+            <button class="outline" type="submit" name="form_action_add" value="add_form">
+                + Add funding source
+            </button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Funding source</th>
+                        <th>Amount (gross-of-tax)</th>
+                        <th>Gross left (all splits)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in split_rows %}
+                        <tr>
+                            <td>
+                                {{ row.form.funding_source }}
+                                {% for error in row.form.funding_source.errors %}
+                                    <small class="mt-1">{{ error }}</small>
+                                {% endfor %}
+                                {% for error in row.form.non_field_errors %}
+                                    <small class="mt-1">{{ error }}</small>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {{ row.form.amount }}
+                                {% for error in row.form.amount.errors %}
+                                    <small class="mt-1">{{ error }}</small>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {{ row.gross_left }}
+                                <small>{{ row.feedback }}</small>
+                            </td>
+                            <td>
+                                <button class="outline"
+                                        type="submit"
+                                        name="form_action_remove"
+                                        value="{{ row.index }}">✕</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Sum</td>
+                        <td>{{ split_total }}</td>
+                        <td colspan="2">{{ sum_verdict }}</td>
+                    </tr>
+                </tfoot>
+            </table>
             {% if funding_splits.non_form_errors %}
                 <small class="mt-1">{{ funding_splits.non_form_errors.0 }}</small>
             {% endif %}
