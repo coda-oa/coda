@@ -24,7 +24,7 @@
             <button class="outline" type="submit" name="form_action_add" value="add_form">
                 + Add funding source
             </button>
-            <table>
+            <table id="split-table">
                 <thead>
                     <tr>
                         <th>Funding source</th>
@@ -75,12 +75,17 @@
             {% if funding_splits.non_form_errors %}
                 <small class="mt-1">{{ funding_splits.non_form_errors.0 }}</small>
             {% endif %}
-            <p class="mt-1"><small>Available per budget:</small></p>
-            <ul class="mt-0">
-                {% for budget in budgets %}
-                    <li><small>{{ budget.name }}: {{ budget.available }}</small></li>
-                {% endfor %}
-            </ul>
+            {# Live fit (§8.3.5): change events in the split table POST the whole
+               review form (hx-include) with the refresh marker; the view
+               re-renders the full page with recomputed feedback. The marker
+               rides in hx-vals so native submits never carry it. #}
+            <div
+                hx-post="{% url 'fundingrequests:review' pk=fundingrequest.id %}"
+                hx-trigger="change from:#split-table"
+                hx-include="closest form"
+                hx-vals='{"form_action_refresh": "1"}'
+                hx-target="body"
+                hx-swap="outerHTML"></div>
             {% if form.non_field_errors %}
                 <small class="mt-1">{{ form.non_field_errors.0 }}</small>
             {% endif %}

@@ -87,7 +87,10 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         }
 
     def post(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
-        """Add/remove markers re-render the full page before any action runs."""
+        """Add/remove/refresh markers re-render the full page before any
+        action runs."""
+        if "form_action_refresh" in request.POST:
+            return self._rerender(request.POST)
         if "form_action_add" in request.POST:
             data = request.POST.copy()
             total = _int_value(data.get("funding_splits-TOTAL_FORMS", "0"))
