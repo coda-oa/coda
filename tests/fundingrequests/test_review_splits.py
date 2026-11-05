@@ -140,6 +140,7 @@ def test__review_page__split_inputs_carry_live_refresh_attrs(client: Client) -> 
     assert '{"form_action_refresh": "1"}' in content
     assert 'id="split-table"' in content
     assert "htmx" in content  # htmx itself is loaded (base: {% htmx_script %})
+    assert "{#" not in content  # a multi-line {# #} leaks as literal text (no DOTALL in Django's tag_re)
 
 
 @pytest.mark.django_db
