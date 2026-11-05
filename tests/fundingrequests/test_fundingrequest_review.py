@@ -3,12 +3,12 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
-from coda.domain.fundingrequest import Review
-from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest, Review
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
+from tests.invoices import budget_setup
 
 
 @pytest.mark.django_db
@@ -20,6 +20,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
     fr_id = repository.create(fr)
     funding = Money(100, Currency.EUR)
     remarks = "Approved with funding"
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", Currency.EUR))
 
     client.post(
         reverse("fundingrequests:review", kwargs={"pk": fr_id}),
@@ -28,6 +29,10 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
             "decided_funding_amount": funding.amount,
             "decided_funding_currency": funding.currency.code,
             "reviewer_remarks": remarks,
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "100",
         },
     )
 
