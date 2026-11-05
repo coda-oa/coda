@@ -35,6 +35,45 @@ def test__foreign_currency_commitment__is_invisible_to_the_capacity_check() -> N
 
 
 @pytest.mark.django_db
+def test__re_saving_invoice_with_assignment__does_not_double_count_its_own_commitment() -> None:
+    budget, _ = budget_setup.a_budget(amount=Money("1000", EUR))
+    invoice = budget_setup.an_unsaved_invoice_with_assignment(Money("600", EUR), budget)
+
+    invoice_service.save(invoice)
+    # Re-saving an existing invoice (edit) must not count its own persisted
+    # assignment again — otherwise any edit of a fully-committed budget fails.
+    invoice_service.save(invoice)
+
+
+@pytest.mark.django_db
+def test__re_saving_invoice__after_other_invoices_consumed_the_budget__is_allowed() -> None:
+    budget, _ = budget_setup.a_budget(amount=Money("1000", EUR))
+    invoice_a = budget_setup.an_unsaved_invoice_with_assignment(Money("600", EUR), budget)
+    invoice_service.save(invoice_a)
+    budget_setup.an_invoice_with_assignment(Money("400", EUR), budget)
+
+    # Invoice A's 600 were committed before B; re-saving A (edit) re-checks
+    # only the change over its own commitment, not the whole amount.
+    invoice_service.save(invoice_a)
+
+
+@pytest.mark.django_db
+def test__re_saving_invoice__with_raised_assignment_beyond_capacity__is_rejected() -> None:
+    budget, _ = budget_setup.a_budget(amount=Money("1000", EUR))
+    invoice_a = budget_setup.an_unsaved_invoice_with_assignment(Money("600", EUR), budget)
+    invoice_service.save(invoice_a)
+    budget_setup.an_invoice_with_assignment(Money("400", EUR), budget)
+
+    # Edit: raise invoice A's assignment to 700 — the +100 delta is a new
+    # commitment, and the budget no longer has room for it.
+    edited = budget_setup.an_unsaved_invoice_with_assignment(Money("700", EUR), budget)
+    edited.id = invoice_a.id
+
+    with pytest.raises(budget_service.BudgetCapacityExceededError):
+        invoice_service.save(edited)
+
+
+@pytest.mark.django_db
 def test__saving_invoice_with_over_capacity_assignment__is_rejected() -> None:
     budget, _ = budget_setup.a_budget(amount=Money("1000", EUR))
     position = invoice_positions.create(
