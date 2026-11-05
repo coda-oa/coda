@@ -104,11 +104,15 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         """Re-render the full page from (modified) POST data without saving.
 
         The review form's ``action`` field is display-only here; filling it
-        keeps the required-field error off the re-rendered page."""
+        keeps the required-field error off the re-rendered page. The form's
+        other field errors are suppressed too: add/remove/refresh re-renders
+        happen mid-edit, where "this field is required" noise is premature —
+        real validation runs on the actual submit."""
         if "action" not in data:
             data = data.copy()
             data["action"] = ReviewForm.ACTION_RETURN
         form = ReviewForm(data)
+        form.errors.clear()
         return self.render_to_response(self.get_context_data(form=form, split_data=data))
 
     def form_valid(self, form: ReviewForm) -> HttpResponse:

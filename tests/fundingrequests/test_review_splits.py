@@ -124,6 +124,26 @@ def test__review_page__refresh_aggregates_sibling_rows(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__review_page__split_inputs_carry_live_refresh_attrs(client: Client) -> None:
+    """The htmx wiring is the half the tests can't exercise (no JS): pin the
+    rendered attributes — the delegation div's POST/trigger/include and the
+    refresh marker — so a template regression can't silently kill live fit."""
+    _budget, _budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
+    funding_request = modelfactory.fundingrequest()
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
+
+    content = response.content.decode()
+    assert f'hx-post="{reverse("fundingrequests:review", kwargs={"pk": funding_request.pk})}"' in content
+    assert 'hx-trigger="change from:#split-table"' in content
+    assert 'hx-include="closest form"' in content
+    assert '{"form_action_refresh": "1"}' in content
+    assert 'id="split-table"' in content
+    assert "htmx" in content  # htmx itself is loaded (base: {% htmx_script %})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__review_page__no_available_per_budget_list(client: Client) -> None:
     _budget, _budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
