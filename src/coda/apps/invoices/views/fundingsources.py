@@ -8,9 +8,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
-from django.views.decorators.http import require_POST
+from django.urls import reverse, reverse_lazy
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
@@ -203,22 +204,57 @@ def _institution_redirect(source: FundingSource) -> HttpResponse:
 
 
 @login_required
+@require_GET
+def budget_transfer_dialog(request: HttpRequest, pk: int) -> HttpResponse:
+    """The transfer dialog fragment (§8.4): an htmx `<dialog open>` partial
+    carrying both the transfer and the add-funds mode (§8.4, Budget Review &
+    Transfers Polish map)."""
+    source = get_object_or_404(FundingSource, pk=pk)
+    context = _transfer_dialog_context(source)
+    return render(request, "invoices/fundingsources/transfer_modal.html", context)
+
+
+def _transfer_dialog_context(
+    source: FundingSource, *, mode: str = "transfer", error: str | None = None
+) -> dict[str, Any]:
+    return {
+        "fundingsource": source,
+        "mode": mode,
+        "transfer_targets": FundingSource.objects.exclude(pk=source.pk).filter(type="budget"),
+        "transfer_url": reverse("invoices:budget_transfer", kwargs={"pk": source.pk}),
+        "transfer_error": error,
+    }
+
+
+@login_required
 @require_POST
 def budget_transfer(request: HttpRequest, pk: int) -> HttpResponse:
     source = get_object_or_404(FundingSource, pk=pk)
+    mode = request.POST.get("mode", "transfer")
     try:
         amount = Money(request.POST["amount"], Currency.from_code(source.budget_currency or "EUR"))
-        budget_service.create_transfer(
-            FundingSourceId(pk),
-            FundingSourceId(int(request.POST["target"])),
-            amount,
-            request.POST.get("provenance_note", ""),
-        )
+        provenance = request.POST.get("provenance_note", "")
+        if mode == "add_funds":
+            budget_service.add_funds(FundingSourceId(pk), amount, provenance)
+        else:
+            budget_service.create_transfer(
+                FundingSourceId(pk),
+                FundingSourceId(int(request.POST["target"])),
+                amount,
+                provenance,
+            )
     except (DomainError, KeyError, ValueError, InvalidOperation) as error:
-        context = _detail_context(source) | {"transfer_error": str(error)}
-        return render(request, "invoices/fundingsources/detail.html", context, status=200)
+        context = _transfer_dialog_context(source, mode=mode, error=str(error))
+        return render(
+            request,
+            "invoices/fundingsources/transfer_modal.html",
+            context,
+            status=200,
+        )
 
-    return redirect("invoices:fundingsource_detail", pk=pk)
+    return HttpResponseClientRedirect(
+        reverse("invoices:fundingsource_detail", kwargs={"pk": pk})
+    )
 
 
 def _detail_context(source: FundingSource) -> dict[str, Any]:

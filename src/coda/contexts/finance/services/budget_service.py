@@ -171,6 +171,29 @@ def create_transfer(
     record_transfer(target_id, amount, transfer.pk)
 
 
+def add_funds(target_id: FundingSourceId, amount: Money, provenance_note: str) -> None:
+    """Adds funds from outside CODA (§5, Budget Review & Transfers Polish
+    map): a nullable-source transfer variant that books ``credited`` on the
+    target with no debit — the pseudo-mutability of an immutable budget
+    amount lives entirely in ``credited``. No capacity check runs (incoming
+    transfers are exempt, §5). Amounts must be strictly positive (a negative
+    add-funds would be a withdrawal without a debit leg) and the provenance
+    note is mandatory — with no source row it is the only audit trail."""
+    _transfer_endpoint(target_id)  # validates that the target exists
+    if amount.amount <= 0:
+        raise InvalidTransfer("add-funds amounts must be positive")
+    if not provenance_note.strip():
+        raise InvalidTransfer("a provenance note is required to audit added funds")
+
+    transfer = BudgetTransferModel.objects.create(
+        source=None,
+        target_id=target_id,
+        amount=amount.amount,
+        provenance_note=provenance_note,
+    )
+    record_transfer(target_id, amount, transfer.pk)
+
+
 class InvalidTransfer(DomainError):
     pass
 
