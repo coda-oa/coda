@@ -28,11 +28,12 @@ docker exec -w /app coda_local_django uv run pytest tests/fundingrequests -q
 docker exec -w /app coda_local_django sh -lc 'uv run ruff format <files> && uv run ruff check <files>'
 ```
 
-Test selection via pytest markers — DB suites run parallel via `pytest-xdist` — new tests must be parallel-safe (no fixed ports, no shared module state, no execution-order deps). Tests use `--reuse-db` (in `addopts`), so pass `--create-db` after schema/migration changes. `tests/database/conftest.py` gives migration tests their own databases because `django_test_migrations` mutates schema mid-run.
-- Unit suite: `uv run pytest -m 'not integration and not migration_test and not performance and not ui_test' -n auto`
-- Integration suite: `uv run pytest -m 'not migration_test and not performance and not ui_test' -n auto`
-- Migration suite: `uv run pytest -m 'migration_test' -n auto`
-- UI suite: `uv run pytest -m 'ui_test'`
+Test selection via poe tasks (defined in `pyproject.toml`, run as `uv run poe <task>`) — DB suites run parallel via `pytest-xdist` — new tests must be parallel-safe (no fixed ports, no shared module state, no execution-order deps). Tests use `--reuse-db` (in `addopts`), so pass `--create-db` after schema/migration changes. `tests/database/conftest.py` gives migration tests their own databases because `django_test_migrations` mutates schema mid-run.
+- `uv run poe unittests` — everything not marked integration/migration/performance
+- `uv run poe integrationtests`
+- `uv run poe migrationtests`
+- `uv run poe uitests`
+- `uv run poe alltests`, `uv run poe coverage`
 Pre-commit runs ruff, djlint (templates), mypy `--strict` (+django/pydantic stubs), commitizen.
 
 ## Tests

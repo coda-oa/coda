@@ -994,9 +994,8 @@ def test__two_publications__generate_report__query_count_stays_bounded(
 ) -> None:
     """Guard the end-to-end query count without the performance marker.
 
-    Deliberately unmarked so it also runs under the unit-suite invocation
-    (``uv run pytest -m 'not integration and not migration_test and not performance and not ui_test'``),
-    which filters performance-marked tests out. Two publications with invoices exercise the full path: the
+    Deliberately unmarked so it also runs under ``uv run poe unittests``, which filters
+    performance-marked tests out. Two publications with invoices exercise the full path: the
     item selection, the one invoice fetch, the seed rows and the pass that writes the stored
     document from them. Measured 28 queries for this fixture (2 publications with invoices,
     home institution, no contracts), against the 50 the snapshot pipeline needed for the same
