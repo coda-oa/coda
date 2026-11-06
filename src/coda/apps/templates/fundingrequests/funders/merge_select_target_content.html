@@ -2,6 +2,7 @@
     <header class="flex justify-between align-center mb-1">
         <h2 class="my-1">Merge Funding Organization</h2>
         <button aria-label="Close"
+                type="button"
                 class="close"
                 onclick="this.closest('dialog').remove()"></button>
     </header>
@@ -40,8 +41,10 @@
                             <tr>
                                 <td>{{ org.name }}</td>
                                 <td>
+                                    {# djlint:off H037 #}
                                     <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
                                        class="primary">Select</a>
+                                    {# djlint:on H037 #}
                                 </td>
                             </tr>
                         {% endfor %}
