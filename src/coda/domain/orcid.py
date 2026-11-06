@@ -1,4 +1,4 @@
-from typing import Self, cast
+from typing import Self
 
 from coda.domain.errors import DomainError
 
@@ -26,7 +26,7 @@ class Orcid(str):
             raise InvalidOrcid("ORCID has an invalid checksum")
 
         # str methods return plain str; re-wrap so subclass attributes (e.g. .url) survive.
-        return cast(Self, super().__new__(cls, cleaned))
+        return super().__new__(cls, cleaned)
 
     @property
     def url(self) -> str:

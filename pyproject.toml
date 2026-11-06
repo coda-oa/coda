@@ -34,19 +34,16 @@ docs = [
   "sphinx-copybutton>=0.5.2",
 ]
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
 
-[tool.pdm.scripts]
+[tool.poe.tasks]
 coverage = "pytest --cov"
 unittests = "pytest -m 'not integration and not migration_test and not performance and not ui_test' --ff -n auto"
 integrationtests = "pytest -m 'not migration_test and not performance and not ui_test' --ff -n auto"
 migrationtests = "pytest -m 'migration_test' --ff -n auto"
 uitests = "pytest -m 'ui_test'"
 alltests = "pytest -vv -n auto"
-
-[tool.black]
-line-length = 100
 
 [tool.mypy]
 mypy_path = "$MYPY_CONFIG_FILE_DIR:$MYPY_CONFIG_FILE_DIR/src"
@@ -69,6 +66,12 @@ ignore_errors = true
 module = "environ"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# Django's test client decorates responses with `context`/`wsgi_request` at
+# runtime (setup_test_environment), but django-stubs doesn't model them.
+module = "tests.*"
+disable_error_code = ["attr-defined"]
+
 [tool.django-stubs]
 strict_settings = false
 django_settings_module = "config.settings.production"
@@ -82,7 +85,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py315"
 
 force-exclude = true
 line-length = 100
@@ -92,10 +95,10 @@ extend-exclude = ["migrations"]
 
 [dependency-groups]
 dev = [
+    "poethepoet>=0.32",
     "mypy>=1.7.1",
     "pre-commit>=3.5.0",
     "ruff>=0.1.1",
-    "black>=23.10.1",
     "djlint>=1.34.0",
     "pytest-django>=4.5.2",
     "django-stubs[compatible-mypy]>=5.2.9",

@@ -54,7 +54,9 @@ def test__author_without_person_id__round_trips() -> None:
         name="No Identifier", email="n.i@example.com", roles="CO_AUTHOR"
     )
 
-    actual = AuthorDomainMapper.map(AuthorDomainMapper.prefetch(AuthorModel.objects.all()).get(pk=model.pk))
+    actual = AuthorDomainMapper.map(
+        AuthorDomainMapper.prefetch(AuthorModel.objects.all()).get(pk=model.pk)
+    )
 
     assert actual.name == NonEmptyStr("No Identifier")
     assert actual.orcid is None

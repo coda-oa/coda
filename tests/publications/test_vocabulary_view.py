@@ -101,6 +101,7 @@ def test__save_vocabularies__edit_page_payload_with_both_hidden_ids__renames_voc
     limited = vocabulary_repository.create_limited(
         base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
     )
+    assert limited.id is not None
 
     response = client.post(
         reverse("publications:save_vocabularies"),
@@ -202,6 +203,7 @@ def test__vocabulary_delete__unused_vocabulary_confirmed__removes_it(client: Cli
     limited = vocabulary_repository.create_limited(
         base_vocabulary_id=VocabularyId(base_model.pk), name="Limited"
     )
+    assert limited.id is not None
 
     response = client.post(reverse("publications:vocabulary_delete", kwargs={"pk": limited.id}))
 

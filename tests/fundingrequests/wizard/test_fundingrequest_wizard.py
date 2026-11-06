@@ -350,9 +350,9 @@ def test__existing_request_with_outdated_contract_year__update_publication_meta_
     from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 
     if isinstance(updated_builder, ArticleRequestDataBuilder):
-        updated_builder = updated_builder.with_journal(fr_before.publication.journal)  # type: ignore
+        updated_builder = updated_builder.with_journal(fr_before.publication.journal)
     elif isinstance(updated_builder, MonographRequestDataBuilder):
-        updated_builder = updated_builder.with_publisher(fr_before.publication.publisher)  # type: ignore
+        updated_builder = updated_builder.with_publisher(fr_before.publication.publisher)
 
     wizard = get_wizard(client, fr_id, updated_builder)
     wizard.step_iterator = complete_early_iterator(until=0)

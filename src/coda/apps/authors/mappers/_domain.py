@@ -1,4 +1,3 @@
-
 from django.db.models import QuerySet
 
 from coda.apps.authors.models import Author as AuthorModel

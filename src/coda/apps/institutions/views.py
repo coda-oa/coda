@@ -129,7 +129,6 @@ class CreateInstitutionView(
         return reverse("institutions:list")
 
 
-
 @breadcrumb("Edit Institution", parent_url_name="institutions:list")
 class UpdateInstitutionView(
     LoginRequiredMixin, InstitutionLinkFormMixin, UpdateView[Institution, InstitutionForm]
@@ -177,8 +176,6 @@ class UpdateInstitutionView(
 
     def get_success_url(self) -> str:
         return reverse("institutions:list")
-
-
 
 
 @login_required
@@ -267,7 +264,9 @@ def _render_successor_modal_with_errors(
 def _archive_without_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
     services.archive(institution)
     messages.success(request, f"Institution '{institution.name}' archived successfully.")
-    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(
+        reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk})
+    )
 
 
 def _archive_and_create_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -286,7 +285,9 @@ def _archive_and_create_successor(request: HttpRequest, institution: Institution
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": successor.pk}))
+    return HttpResponseClientRedirect(
+        reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": successor.pk})
+    )
 
 
 def _archive_with_existing_successor(
@@ -310,7 +311,9 @@ def _archive_with_existing_successor(
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(
+        reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk})
+    )
 
 
 @login_required
@@ -420,7 +423,9 @@ def _restore_without_children(request: HttpRequest, institution: Institution) ->
 
     services.restore_without_children(institution, new_parent=new_parent)
     messages.success(request, f"Institution '{institution.name}' has been restored successfully.")
-    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(
+        reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk})
+    )
 
 
 def _restore_with_children(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -442,7 +447,9 @@ def _restore_with_children(request: HttpRequest, institution: Institution) -> Ht
         request,
         f"Institution '{institution.name}' and child institutions have been restored successfully.",
     )
-    return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+    return HttpResponseClientRedirect(
+        reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk})
+    )
 
 
 def _render_restore_modal_with_errors(
@@ -485,7 +492,9 @@ def restore(request: HttpRequest, pk: int) -> HttpResponse:
 
     if not institution.archived_at:
         messages.info(request, "This institution is already active.")
-        return HttpResponseClientRedirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
+        return HttpResponseClientRedirect(
+            reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk})
+        )
 
     restore_handlers = {
         "without_children": _restore_without_children,

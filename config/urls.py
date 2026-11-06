@@ -40,6 +40,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     from debug_toolbar.toolbar import debug_toolbar_urls
+
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
     demo_formset_view = DemoFormset.get_management_view()

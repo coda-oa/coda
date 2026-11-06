@@ -558,12 +558,12 @@ def test__publication_form__no_args__has_empty_concept_choices() -> None:
         )
     )
     # Only the empty sentinel; no concepts from shared state
-    assert subject_area_choices == [
-        EMPTY_CHOICE
-    ], f"Expected only EMPTY_CHOICE but got: {subject_area_choices}"
-    assert publication_type_choices == [
-        EMPTY_CHOICE
-    ], f"Expected only EMPTY_CHOICE but got: {publication_type_choices}"
+    assert subject_area_choices == [EMPTY_CHOICE], (
+        f"Expected only EMPTY_CHOICE but got: {subject_area_choices}"
+    )
+    assert publication_type_choices == [EMPTY_CHOICE], (
+        f"Expected only EMPTY_CHOICE but got: {publication_type_choices}"
+    )
 
 
 def test__publication_form__two_instances_without_args__do_not_share_concept_state() -> None:
@@ -593,6 +593,6 @@ def test__publication_form__two_instances_without_args__do_not_share_concept_sta
     subject_area_field_a._concepts = [sentinel_concept]
 
     # form_b must remain unaffected — this is the key assertion that catches the bug
-    assert (
-        list(subject_area_field_b._concepts) == []
-    ), "form_b's subject_area concepts were affected by mutating form_a — shared state detected!"
+    assert list(subject_area_field_b._concepts) == [], (
+        "form_b's subject_area concepts were affected by mutating form_a — shared state detected!"
+    )

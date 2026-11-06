@@ -161,7 +161,7 @@ When launching the devcontainer, CODA will automatically be started at `localhos
 
 ### Project management
 
-CODA uses `pdm` to manage the project and its dependencies. See <a href="https://pdm-project.org/en/latest/" target="_blank" rel="noopener noreferrer">pdm's documentation</a> for more details.
+CODA uses `uv` to manage the project and its dependencies. See <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv's documentation</a> for more details.
 
 ### Pre-commit configuration
 
@@ -169,7 +169,7 @@ CODA uses a strict `pre-commit` configuration that runs checks before allowing a
 
 1. **mypy** — static type checking in strict mode
 2. **ruff** — linting and code style enforcement
-3. **black** — deterministic code formatting
+3. **ruff format** — deterministic code formatting
 4. **djlint** — Django template linting
 5. **commitizen** — enforces <a href="https://www.conventionalcommits.org/en/v1.0.0/" target="_blank" rel="noopener noreferrer">conventional commits</a>
 
@@ -178,7 +178,7 @@ CODA uses a strict `pre-commit` configuration that runs checks before allowing a
 As we use `commitizen` to ensure correct commit formatting, we recommend using its command-line tool to generate the commit message:
 
 ```
-pdm run cz commit
+uv run cz commit
 ```
 
 

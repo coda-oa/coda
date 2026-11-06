@@ -1,9 +1,10 @@
 from datetime import date
 
-from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType, ReviewResult
+from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest.review import ReviewResult
 
 
 def test__legacy_row__validating__decodes_comma_strings_and_legacy_keys() -> None:

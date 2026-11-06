@@ -388,9 +388,9 @@ def test__for_new_publication__limited_vocab__disallowed_concept_not_in_allowed_
             vocabulary_provider=provider,
         )
         concept_ids = [c.concept_id for c in allowed.publication_types]
-        assert (
-            "disallowed_type" not in concept_ids
-        ), f"kind={kind}: disallowed_type should be absent"
+        assert "disallowed_type" not in concept_ids, (
+            f"kind={kind}: disallowed_type should be absent"
+        )
         assert "allowed_type" in concept_ids, f"kind={kind}: allowed_type should be present"
 
 
@@ -447,9 +447,9 @@ def test__for_existing_publication__limited_vocab__grandfathers_disallowed_exist
         )
 
         concept_ids = [c.concept_id for c in allowed.publication_types]
-        assert (
-            "old_type" in concept_ids
-        ), f"kind={kind}: old_type must be grandfathered even though it was disallowed"
+        assert "old_type" in concept_ids, (
+            f"kind={kind}: old_type must be grandfathered even though it was disallowed"
+        )
         assert "new_type" in concept_ids, f"kind={kind}: new_type should also be present"
 
 
