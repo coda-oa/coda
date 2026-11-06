@@ -20,6 +20,7 @@ from coda.apps.invoices import budget_query, invoice_query
 from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.search import words_icontains
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.finance.services import budget_service
@@ -37,14 +38,13 @@ class BudgetStatus:
 def _balance_bar_widths(
     balance: budget_query.BudgetBalance, allowance: Decimal
 ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
-    """Closed-form segment widths for the balance bar (spec §8.1.1, Budget
-    Review & Transfers Polish map): returns (spent, reserved, available, over)
-    as percentages. The available segment is always present — zero bookings
-    renders a full available bar; the committed block (spent + reserved) is
-    capped at amount + allowance and the hatched over-segment takes the
-    remainder beyond the cap. Widths are normalized against
-    ``max(amount + allowance, spent + reserved)`` and sum to ≤ 100 % of the
-    pill."""
+    """Closed-form segment widths for the balance bar: returns (spent,
+    reserved, available, over) as percentages. The available segment is
+    always present — zero bookings renders a full available bar; the
+    committed block (spent + reserved) is capped at amount + allowance and
+    the hatched over-segment takes the remainder beyond the cap. Widths are
+    normalized against ``max(amount + allowance, spent + reserved)`` and sum
+    to ≤ 100 % of the pill."""
     amount = balance.amount.amount
     committed = balance.spent.amount + balance.reserved.amount
     cap = amount + allowance
@@ -91,6 +91,9 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Funding Source"}
 
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"home_currency": GlobalPreferences.get_home_currency}
+
 
 fundingsource_createview = CreateFundingSourceView.as_view()
 
@@ -104,14 +107,13 @@ class InstitutionSourceRedirectMixin:
 
     object: FundingSource
 
-    def dispatch(
-        self, request: HttpRequest, *args: Any, **kwargs: Any
-    ) -> HttpResponseBase:
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
         self.object = self.get_object()
         if self.object.type == "institution":
             return _institution_redirect(self.object)
         return cast(
-            HttpResponseBase, super().dispatch(request, *args, **kwargs)  # type: ignore[misc]
+            HttpResponseBase,
+            super().dispatch(request, *args, **kwargs),  # type: ignore[misc]
         )
 
     def get_object(self, queryset: QuerySet[FundingSource] | None = None) -> FundingSource:
@@ -134,6 +136,9 @@ class UpdateFundingSourceView(
         if self.object and self.object.type == "budget":
             context["balance"] = budget_query.budget_balances(FundingSourceId(self.object.pk))
         return context
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"home_currency": GlobalPreferences.get_home_currency}
 
 
 fundingsource_updateview = UpdateFundingSourceView.as_view()
@@ -167,7 +172,9 @@ fundingsource_listview = FundingSourceListView.as_view()
 
 
 @breadcrumb("Funding Source Detail", parent_url_name="invoices:fundingsource_list")
-class FundingSourceDetailView(LoginRequiredMixin, InstitutionSourceRedirectMixin, DetailView[FundingSource]):
+class FundingSourceDetailView(
+    LoginRequiredMixin, InstitutionSourceRedirectMixin, DetailView[FundingSource]
+):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
 
@@ -177,12 +184,10 @@ class FundingSourceDetailView(LoginRequiredMixin, InstitutionSourceRedirectMixin
             return context
 
         # The invoices whose current funding assignments reference this
-        # source (spec §8.1.2) — same Q the invoice list filters by.
-        # distinct(): an invoice with several positions on the same budget
-        # joins once per assignment and must be listed once.
-        source_criterion = invoice_query.FundingSourceCriterion(
-            FundingSourceId(self.object.pk)
-        )
+        # source — same Q the invoice list filters by. distinct(): an
+        # invoice with several positions on the same budget joins once per
+        # assignment and must be listed once.
+        source_criterion = invoice_query.FundingSourceCriterion(FundingSourceId(self.object.pk))
         context["recent_invoices"] = (
             InvoiceModel.objects.filter(invoice_query.to_query(source_criterion))
             .distinct()
@@ -206,9 +211,8 @@ def _institution_redirect(source: FundingSource) -> HttpResponse:
 @login_required
 @require_GET
 def budget_transfer_dialog(request: HttpRequest, pk: int) -> HttpResponse:
-    """The transfer dialog fragment (§8.4): an htmx `<dialog open>` partial
-    carrying both the transfer and the add-funds mode (§8.4, Budget Review &
-    Transfers Polish map)."""
+    """Renders the transfer dialog fragment: an htmx `<dialog open>` partial
+    carrying both the transfer and the add-funds mode."""
     source = get_object_or_404(FundingSource, pk=pk)
     mode = request.GET.get("mode", "transfer")
     if mode not in {"transfer", "add_funds"}:
@@ -223,10 +227,20 @@ def _transfer_dialog_context(
     return {
         "fundingsource": source,
         "mode": mode,
-        "transfer_targets": FundingSource.objects.exclude(pk=source.pk).filter(type="budget"),
+        "transfer_targets": _transfer_targets(source),
         "transfer_url": reverse("invoices:budget_transfer", kwargs={"pk": source.pk}),
         "transfer_error": error,
     }
+
+
+def _transfer_targets(source: FundingSource) -> QuerySet[FundingSource]:
+    # Transfers book the amount on both endpoints; cross-currency pairs are
+    # rejected by the service (create_transfer), so the dialog only offers
+    # targets whose currency matches the source's.
+    targets = FundingSource.objects.exclude(pk=source.pk).filter(type="budget")
+    if source.budget_currency:
+        targets = targets.filter(budget_currency=source.budget_currency)
+    return targets
 
 
 @login_required
@@ -235,14 +249,22 @@ def budget_transfer(request: HttpRequest, pk: int) -> HttpResponse:
     source = get_object_or_404(FundingSource, pk=pk)
     mode = request.POST.get("mode", "transfer")
     try:
-        amount = Money(request.POST["amount"], Currency.from_code(source.budget_currency or "EUR"))
+        raw_amount = request.POST.get("amount")
+        if not raw_amount:
+            raise ValueError("an amount is required")
+        amount = Money(raw_amount, Currency.from_code(source.budget_currency or "EUR"))
         provenance = request.POST.get("provenance_note", "")
         if mode == "add_funds":
             budget_service.add_funds(FundingSourceId(pk), amount, provenance)
         else:
+            target = request.POST.get("target") or ""
+            try:
+                target_id = FundingSourceId(int(target))
+            except ValueError:
+                raise ValueError("no target budget selected") from None
             budget_service.create_transfer(
                 FundingSourceId(pk),
-                FundingSourceId(int(request.POST["target"])),
+                target_id,
                 amount,
                 provenance,
             )
@@ -266,7 +288,8 @@ def budget_transfer(request: HttpRequest, pk: int) -> HttpResponse:
 def _detail_context(source: FundingSource) -> dict[str, Any]:
     context: dict[str, Any] = {
         "fundingsource": source,
-        "transfer_targets": FundingSource.objects.exclude(pk=source.pk).filter(type="budget"),
+        "transfer_targets": _transfer_targets(source),
+        "home_currency": GlobalPreferences.get_home_currency().code,
     }
     if source.type == "budget":
         context["balance"] = budget_query.budget_balances(FundingSourceId(source.pk))
@@ -282,9 +305,9 @@ def _detail_context(source: FundingSource) -> dict[str, Any]:
         context["bar_reserved_width"] = bar_reserved
         context["bar_available_width"] = bar_available
         context["bar_over_width"] = bar_over
-        # Gap compensation (spec §8.1.1): rendered widths are calc(p% − k px)
-        # so the inter-segment gaps never eat the pill's padding — each
-        # segment carries its share of (n − 1) · 3px.
+        # Gap compensation: rendered widths are calc(p% − k px) so the
+        # inter-segment gaps never eat the pill's padding — each segment
+        # carries its share of (n − 1) · 3px.
         nonzero = len([w for w in (bar_spent, bar_reserved, bar_available, bar_over) if w])
         context["bar_gap_comp_px"] = round((nonzero - 1) * 3 / nonzero, 2) if nonzero else 0
     return context

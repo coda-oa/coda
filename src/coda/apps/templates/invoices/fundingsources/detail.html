@@ -19,6 +19,14 @@
                     not allowed
                 {% endif %}
             </p>
+            {% if fundingsource.budget_currency != home_currency %}
+                <p class="budget-balance-pending">
+                    ⚠ This budget's currency ({{ fundingsource.budget_currency }}) differs from the
+                    current home currency ({{ home_currency }}). Invoice conversion rates are
+                    entered against the home currency only, so bookings in other currencies can
+                    never be converted to this budget and stay pending conversion.
+                </p>
+            {% endif %}
             <div class="budget-balance-overview">
                 <div class="budget-balance-available">
                     <small>Available (gross-of-tax)</small>
@@ -58,7 +66,7 @@
                 <a href="{% url "invoices:list" %}?funding_source={{ fundingsource.id }}">All invoices for this funding source →</a>
             </p>
             <h2>Transfer funds</h2>
-            {# Transfer dialog (§8.4): the GET fragment opens the htmx dialog (transfer or add-funds mode); the existing budget_transfer POST URL submits it. #}
+            {# Transfer dialog: the GET fragment opens the htmx dialog (transfer or add-funds mode); the existing budget_transfer POST URL submits it. #}
             <button class="outline"
                     hx-get="{% url 'invoices:budget_transfer_dialog' pk=fundingsource.id %}"
                     hx-target="body"

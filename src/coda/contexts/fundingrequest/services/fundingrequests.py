@@ -2,15 +2,14 @@ import datetime
 import itertools
 import logging
 import random
-from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from decimal import Decimal
 from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
+from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.dto import ContractYearDto, parse_publication_state
 from coda.checks.checkfactory import CheckFactory
 from coda.contexts.finance.services import budget_service
@@ -31,11 +30,18 @@ from coda.domain import errors
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import GetContractById, PublisherId
 from coda.domain.errors import DomainError
+from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.review import Review, ReviewResult, ReviewSplit
+from coda.domain.fundingrequest.review import (
+    DecidedFunding,
+    FundingSplits,
+    Review,
+    ReviewResult,
+    ReviewSplit,
+)
 from coda.domain.money import Currency, Money
 from coda.domain.publication import Authors, JournalId, License, OpenAccessType
 from coda.domain.publication.publication import Monograph, Publication
@@ -357,78 +363,121 @@ def update_funding(
 
 
 def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -> None:
+    """Saves a review decision and books its budget commitments.
+
+    An approved review validates its splits and capacity-checks only the
+    positive delta over the review's own persisted splits. Unchanged
+    re-approvals book nothing. A missing result keeps the persisted one.
+
+    The capacity decision is made from a pre-read snapshot: two concurrent
+    saves against the same budget (or a transfer landing in between) can both
+    pass. Transfers serialize via row locks; review saves do not."""
     if not review.result:
         review = _keep_result(fundingrequest_id, review)
 
     result = ReviewResult.of(review.result)
+    funding = _funding(review)
+    _validate(funding, fundingrequest_id)
+    review_ = Review(
+        fundingrequest_id,
+        funding.total,
+        remarks=review.reviewer_remarks,
+        result=result,
+        funding_splits=funding.splits if result == ReviewResult.Approved else FundingSplits(()),
+    )
+    for row in repository.save_review(review_):
+        budget_service.record_commitment(
+            FundingSourceId(row.funding_source_id),
+            Money(row.amount, funding.total.currency),
+            review_split=row.pk,
+        )
+
+
+def _funding(review: UpdateReviewDto) -> "DecidedFunding":
     decided_funding = Money(
         review.decided_funding_amount,
         Currency.from_code(review.decided_funding_currency),
     )
-    splits = _review_splits(review, decided_funding)
-    if result == ReviewResult.Approved:
-        _validate_splits(decided_funding, splits)
-        # Re-approval must not double-count its own previously persisted
-        # splits (they sit in the balance until save_review replaces them):
-        # only the positive delta over the review's own totals is a new
-        # commitment, and unchanged splits book no further ledger row.
-        own = repository.persisted_review_splits(fundingrequest_id)
-        own_totals: dict[int, Decimal] = {}
-        previous: Counter[tuple[int, str, Decimal]] = Counter()
-        for funding_source_id, amount in own:
-            own_totals[funding_source_id] = own_totals.get(funding_source_id, Decimal(0)) + amount
-            previous[(funding_source_id, decided_funding.currency.code, amount)] += 1
-        aggregated = budget_service.committed_per_funding_source(
-            (split.funding_source, split.amount) for split in splits
-        )
-        for funding_source, committed_amount in aggregated.items():
-            delta: Money = committed_amount - Money(
-                own_totals.get(funding_source, Decimal(0)), decided_funding.currency
-            )
-            if delta.amount > 0:
-                budget_service.ensure_capacity(funding_source, delta)
-
-    review_ = Review(
-        fundingrequest_id,
-        decided_funding,
-        remarks=review.reviewer_remarks,
-        result=result,
-        funding_splits=splits if result == ReviewResult.Approved else (),
-    )
-    persisted_splits = repository.save_review(review_)
-    for persisted_split in persisted_splits:
-        key = (
-            persisted_split.funding_source_id,
-            decided_funding.currency.code,
-            persisted_split.amount,
-        )
-        if previous[key] > 0:
-            previous[key] -= 1
-            continue
-        budget_service.record_commitment(
-            FundingSourceId(persisted_split.funding_source_id),
-            Money(persisted_split.amount, decided_funding.currency),
-            review_split=persisted_split.pk,
-        )
-
-
-def _review_splits(review: UpdateReviewDto, decided_funding: Money) -> tuple[ReviewSplit, ...]:
-    return tuple(
+    splits = FundingSplits.of(
         ReviewSplit(
             FundingSourceId(split.funding_source_id),
             Money(split.amount, decided_funding.currency),
         )
         for split in review.funding_splits
     )
+    return DecidedFunding(decided_funding, splits)
 
 
-def _validate_splits(decided_funding: Money, splits: tuple[ReviewSplit, ...]) -> None:
-    total = sum((split.amount for split in splits), start=Money(0, decided_funding.currency))
-    if total != decided_funding:
+def _validate(
+    funding: "DecidedFunding",
+    fundingrequest_id: FundingRequestId,
+) -> None:
+    _validate_splits(funding)
+    persisted_review = repository.get_review(fundingrequest_id)
+    _ensure_same_currency(
+        persisted_review.funding_splits, persisted_review.decided_funding.currency, funding
+    )
+    for source, delta in funding.delta_over(persisted_review.funding_splits).items():
+        budget_service.ensure_capacity(source, delta)
+
+
+def _validate_splits(funding: DecidedFunding) -> None:
+    """Validates the funding splits against the decided funding.
+
+    The splits must sum to the decided amount. Splits are stored without a
+    currency and count as-is in the budget's currency: a split decided in a
+    foreign currency would silently bypass the capacity guard (a foreign
+    commitment is rate-pending and invisible to it) and mis-state balances
+    on read. Decisions have a known currency, so each budget's currency must
+    match the decided currency."""
+    if not funding.all_assigned():
         raise InvalidFundingSplit(
-            f"funding splits sum to {total.amount} {total.currency.code} "
-            f"but the decided funding is {decided_funding.amount} {decided_funding.currency.code}"
+            f"funding splits sum to {funding.split_sum()} but the decided funding is {funding.total}"
         )
+    for source_id in funding.splits.sources():
+        source = funding_source_repository.get_by_id(source_id)
+        if not isinstance(source, Budget):
+            raise InvalidFundingSplit(
+                f"funding split references a non-budget funding source: {source.name}"
+            )
+        if source.amount.currency != funding.total.currency:
+            raise InvalidFundingSplit(
+                _split_currency_mismatch_message(
+                    funding.total.currency, source.name, source.amount.currency
+                )
+            )
+
+
+def _ensure_same_currency(
+    persisted_splits: FundingSplits, persisted_currency: Currency, funding: DecidedFunding
+) -> None:
+    """
+    The splits belong to the review and are denominated in the review's
+    decided currency. If that currency changed, the persisted splits belong
+    to the old decision: refuse to re-interpret them in the new currency
+    where the capacity delta would consume them.
+    """
+    same_currency = persisted_currency == funding.total.currency
+    if not persisted_splits.splits or same_currency:
+        return
+
+    sources_overlap = funding.splits.sources() & persisted_splits.sources()
+    if sources_overlap:
+        raise InvalidFundingSplit(
+            f"the decided currency changed from "
+            f"{persisted_currency.code} to "
+            f"{funding.total.currency.code}: the persisted funding splits "
+            f"belong to the old decision — re-enter the funding splits"
+        )
+
+
+def _split_currency_mismatch_message(
+    decided: Currency, budget_name: str, budget_currency: Currency
+) -> str:
+    return (
+        f"funding split for budget '{budget_name}' is decided in "
+        f"{decided.code}, but the budget is denominated in {budget_currency.code}"
+    )
 
 
 class InvalidFundingSplit(DomainError):

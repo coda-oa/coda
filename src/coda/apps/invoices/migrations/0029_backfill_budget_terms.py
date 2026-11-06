@@ -1,6 +1,5 @@
 """Backfill budget accounting terms for existing budget-type funding sources.
 
-Implements the auto-backfill contract from docs/design/budget-system.md §7:
 amount = the budget's historical assignment total; period = earliest to
 latest invoice date that assigned this budget in a funding assignment.
 Budgets without any assignments get amount 0 and an unbounded period.
@@ -20,17 +19,17 @@ def backfill_budget_terms(apps, schema_editor) -> None:
     FundingAssignment = apps.get_model("invoices", "FundingAssignment")
     Invoice = apps.get_model("invoices", "Invoice")
 
-    # The system-wide currency is a single setting with a EUR default
-    # (budget-system.md §2); a one-time backfill does not read it across
-    # app boundaries — budgets created under a different setting are rare
-    # enough to correct via the budget edit surface.
+    # The system-wide currency is a single setting with a EUR default; a
+    # one-time backfill does not read it across app boundaries — budgets
+    # created under a different setting are rare enough to correct via the
+    # budget edit surface.
     home_currency = "EUR"
 
     for budget in FundingSource.objects.filter(type="budget"):
         # Assignment amounts are currency-less (the currency lives on the
         # position). Sum only budget-currency assignments: foreign-currency
         # bookings stay in the read model's pending bucket and must not
-        # inflate the fabricated amount (budget-system.md §3, §7).
+        # inflate the fabricated amount.
         assignments = FundingAssignment.objects.filter(
             funding_source=budget, position__cost_currency=home_currency
         )

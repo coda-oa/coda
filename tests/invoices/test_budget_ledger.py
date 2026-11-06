@@ -3,19 +3,28 @@ from decimal import Decimal
 import pytest
 from django.db import models
 
+from coda.apps.fundingrequests import repository
+from coda.apps.invoices import budget_query
 from coda.apps.invoices.models import BudgetLedgerEntry, BudgetTransfer
 from coda.contexts.finance.services import budget_service, invoice_service
-from coda.contexts.fundingrequest.dto.commands import ReviewSplitDto, UpdateReviewDto
+from coda.contexts.fundingrequest.dto.commands import (
+    ExtraInformationDto,
+    ReviewSplitDto,
+    UpdateReviewDto,
+)
 from coda.contexts.fundingrequest.services import fundingrequests as fr_services
+from coda.contexts.fundingrequest.services.fundingrequests import InvalidFundingSplit
 from coda.domain.finance.funding_sources import Budget
-from coda.domain.finance.invoice import Invoice
+from coda.domain.finance.invoice import FundingSourceId, Invoice
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.review import FundingSplits, Review, ReviewResult, ReviewSplit
 from coda.domain.money import Currency, Money
 from tests import modelfactory
 from tests.invoices import budget_setup
 
 EUR = Currency.EUR
+SEK = Currency.SEK
 USD = Currency.USD
 
 
@@ -55,7 +64,7 @@ def test__re_saving_taxed_assignment__delta_is_gross_of_tax() -> None:
     gross 2000, B holds gross 952 of a 3000 budget. Raising A to gross 2050 is
     a +50 delta against 48 available — rejected. A net-basis delta (42.02)
     would wrongly allow it."""
-    budget, _ = budget_setup.a_budget(amount=Money("3000", EUR))
+    budget, budget_id = budget_setup.a_budget(amount=Money("3000", EUR))
     invoice_a = budget_setup.an_unsaved_invoice_with_assignment(
         Money("1680.6723", EUR), budget, tax_rate=TaxRate.from_percentage(19)
     )
@@ -69,8 +78,15 @@ def test__re_saving_taxed_assignment__delta_is_gross_of_tax() -> None:
     )
     edited.id = invoice_a.id
 
+    balance_before = budget_query.budget_balances(budget_id)
     with pytest.raises(budget_service.BudgetCapacityExceededError):
         invoice_service.save(edited)
+
+    # Nothing persisted: the budget state is untouched and the ledger still
+    # holds only A's original commitment row (B is seeded through the
+    # repository, which books no ledger rows).
+    assert budget_query.budget_balances(budget_id) == balance_before
+    assert ledger(budget_id).filter(event="commitment").count() == 1
 
 
 def review_dto(budget_id: int, amount: Decimal) -> UpdateReviewDto:
@@ -122,9 +138,7 @@ def test__re_approving_review__with_changed_split__appends_a_further_row() -> No
         FundingRequestId(funding_request.pk), review_dto(budget_id, Decimal(2500))
     )
 
-    amounts = list(
-        ledger(budget_id).filter(event="commitment").values_list("amount", flat=True)
-    )
+    amounts = list(ledger(budget_id).filter(event="commitment").values_list("amount", flat=True))
     assert amounts == [Decimal(2000), Decimal(2500)]
 
 
@@ -141,6 +155,67 @@ def test__re_approving_review__unchanged_splits__books_no_further_row() -> None:
     )
 
     assert ledger(budget_id).filter(event="commitment").count() == 1
+
+
+@pytest.mark.django_db
+def test__remarks_only_save__keeps_split_rows() -> None:
+    """A remarks-only save keeps the review's funding splits: get_review
+    round-trips them, so saving the replaced review re-persists the same
+    splits instead of wiping them."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    fid = FundingRequestId(funding_request.pk)
+
+    fr_services.update_review(fid, review_dto(budget_id, Decimal(2000)))
+    fr_services.update_extra_information(fid, ExtraInformationDto(reviewer_remarks="x"))
+
+    review = repository.get_review(fid)
+    assert review.funding_splits.splits == (
+        ReviewSplit(FundingSourceId(budget_id), Money(Decimal(2000), EUR)),
+    )
+
+
+@pytest.mark.django_db
+def test__remarks_only_save__keeps_ledger_split_links() -> None:
+    """A remarks-only save keeps commitment ledger rows linked to the same
+    split rows: the synchronize diffs instead of deleting and recreating, so
+    the split row's identity — and the audit trail's link to it — survives."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("10000", EUR))
+    funding_request = modelfactory.fundingrequest()
+    fid = FundingRequestId(funding_request.pk)
+
+    fr_services.update_review(fid, review_dto(budget_id, Decimal(2000)))
+    ledger_row = BudgetLedgerEntry.objects.filter(budget_id=budget_id, event="commitment").get()
+    split_pk_before = ledger_row.review_split_id
+    assert split_pk_before is not None
+
+    fr_services.update_extra_information(fid, ExtraInformationDto(reviewer_remarks="x"))
+
+    ledger_row.refresh_from_db()
+    assert ledger_row.review_split_id == split_pk_before
+
+
+@pytest.mark.django_db
+def test__re_approving_review__decided_currency_changed__rejects_stale_splits() -> None:
+    """A re-approval that changes the decided currency must not re-interpret
+    the persisted splits in the new currency: they belong to the old decision
+    and are rejected until re-entered."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("500", EUR))
+    funding_request = modelfactory.fundingrequest()
+    fid = FundingRequestId(funding_request.pk)
+
+    repository.save_review(
+        Review(fid).update_review(
+            ReviewResult.Approved,
+            Money("1000", SEK),
+            funding_splits=FundingSplits.of(
+                [ReviewSplit(FundingSourceId(budget_id), Money("1000", SEK))]
+            ),
+        )
+    )
+
+    with pytest.raises(InvalidFundingSplit):
+        fr_services.update_review(fid, review_dto(budget_id, Decimal(1000)))
 
 
 @pytest.mark.django_db

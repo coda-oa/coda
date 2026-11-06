@@ -6,10 +6,10 @@ from django_test_migrations.contrib.unittest_case import MigratorTestCase
 
 @pytest.mark.django_db
 class TestBackfillBudgetTerms(MigratorTestCase):
-    """Auto-backfill contract (docs/design/budget-system.md §7): amount =
-    historical assignment total; period = earliest → latest assigning-invoice
-    date; budgets without assignments get 0 and an unbounded period; the
-    constraint (0030) applies only after the backfill."""
+    """Auto-backfill contract: amount = historical assignment total; period =
+    earliest → latest assigning-invoice date; budgets without assignments get
+    0 and an unbounded period; the constraint (0030) applies only after the
+    backfill."""
 
     migrate_from = ("invoices", "0025_alter_fundingassignment_options")
     migrate_to = ("invoices", "0030_fundingsource_budget_type_has_amount_and_period")
@@ -36,7 +36,10 @@ class TestBackfillBudgetTerms(MigratorTestCase):
             name="Institution Source", type="institution"
         )
 
-        for invoice, amount in ((invoice_march, Decimal("100.50")), (invoice_june, Decimal("75.00"))):
+        for invoice, amount in (
+            (invoice_march, Decimal("100.50")),
+            (invoice_june, Decimal("75.00")),
+        ):
             position = Position.objects.create(
                 invoice=invoice,
                 description="APC",

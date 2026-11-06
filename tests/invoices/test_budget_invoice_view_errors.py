@@ -7,7 +7,7 @@ from django.test import Client
 from django.urls import reverse
 
 from coda import formdata
-from coda.apps.invoices import funding_source_repository, repository
+from coda.apps.invoices import budget_query, funding_source_repository, repository
 from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto, PositionList
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.contexts.finance.services import invoice_parser, invoice_service
@@ -69,7 +69,7 @@ def test__create_invoice__over_capacity_assignment__blocked_with_inline_error(
 def test__update_invoice__raised_assignment_beyond_capacity__blocked_with_inline_error(
     client: Client,
 ) -> None:
-    budget, _ = budget_setup.a_budget(amount=Money("1000", Currency.EUR))
+    budget, budget_id = budget_setup.a_budget(amount=Money("1000", Currency.EUR))
     invoice_a = budget_setup.an_unsaved_invoice_with_assignment(Money("600", Currency.EUR), budget)
     invoice_a.id = invoice_service.save(invoice_a)
     budget_setup.an_invoice_with_assignment(Money("400", Currency.EUR), budget)
@@ -90,3 +90,9 @@ def test__update_invoice__raised_assignment_beyond_capacity__blocked_with_inline
 
     assert response.status_code == 200
     assert b"exceeds its capacity" in response.content
+    # Nothing persisted: the invoice's assignment stays at 600 and the
+    # budget's reserved total is unchanged (600 from A + 400 from B).
+    saved = repository.get_by_id(invoice_a.id)
+    assignment = next(iter(saved.positions)).funding_assignments()[0]
+    assert assignment.amount == Money("600", Currency.EUR)
+    assert budget_query.budget_balances(budget_id).reserved == Money("1000", Currency.EUR)

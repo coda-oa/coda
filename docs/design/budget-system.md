@@ -1,6 +1,6 @@
 # Budget System Design
 
-Status: implemented · 2026-11-04 (spec), 2026-11-05 (implementation, incl. cost-basis amendment (ADR [0001](../adr/0001-budget-cost-basis.md)) and import ledger booking)
+Status: implemented · 2026-11-04 (spec), 2026-11-05 (implementation, incl. cost-basis amendment (ADR [0001](../adr/0001-budget-cost-basis.md)) and import ledger booking), 2026-11-06 (budget-currency invariants: home-currency budget currency, same-currency transfers)
 Origin: [Budget Overview and Monitoring in CODA (discussion #287)](https://github.com/coda-oa/coda/discussions/287), resolved through the wayfinder map in `.wayfinder/`. Decisions trace to the tickets linked per section. Terms follow [`GLOSSARY.md`](../../GLOSSARY.md).
 
 ## 1. Scope and premise
@@ -16,12 +16,13 @@ A budget carries, directly on the existing `Budget` FundingSource (domain datacl
 | Attribute | Rule |
 |---|---|
 | **Name** | Mandatory, **unique among budget-type sources**. |
-| **Amount** | One money amount — the total for the whole period — in the **system-wide currency** (one global setting; EUR is the natural default). Bookings in other currencies are converted with the existing `Money`/`CurrencyExchange` machinery (§3.5). |
+| **Amount** | One money amount — the total for the whole period — in the budget's **currency**, which is the **home currency at budget creation** and **frozen thereafter** (amended 2026-11-06, budget-currency invariants). The home currency is the existing `GlobalPreferences` setting (EUR is the natural default). Invoice conversion rates are entered **against the home currency only** (§3.5), so it is the one currency the balance pipeline can always reach; budgets created under a former home currency keep theirs, and bookings it cannot reach stay pending conversion (§4). |
 | **Period** | Mandatory start/end date range, arbitrary ranges (not calendar-aligned). **User-editable after creation**; editing never changes balances (attribution has no date filter, §7). |
 | **Allow going over** | Per-budget flag. |
 | **Overage allowance** | Optional amount; empty = **unbounded** when going over is allowed. |
 
 - **Amount immutability**: the amount cannot be edited once the period has started. Corrections happen only via transfers or a new budget.
+- **Currency immutability** (amended 2026-11-06): the currency is fixed at creation (the then-home currency) and not editable — changing it would re-base every derived balance against the unchanged amount and orphan ledger/transfer rows. The form fixes it to the home currency at creation and freezes it on edit.
 - **One funding source = one budget = one period.** A new period means creating a new budget. There is no entity spanning periods and therefore no period-resolution rule anywhere.
 - **No formal successor link**: period succession is visible through transfer provenance.
 - **No distinct budget kinds**; the discussion's "different for types of budgets" is satisfied by per-budget configuration.
@@ -56,7 +57,8 @@ A budget carries, directly on the existing `Budget` FundingSource (domain datacl
 - **One uniform capacity rule** at every commitment point: a new commitment is allowed iff `reserved + spent + new ≤ amount + allowance` — empty allowance = unbounded when "allow going over" is set; no allowance = the amount itself when not allowed. Existing commitments are never revoked by the rule. Outgoing positive transfers count as commitments on the source (§5); debt transfers and incoming transfers are exempt.
 - **Enforced at commitment time only**: FR approval (decided-funding reservation incl. its split) and invoice funding assignment. Paying an already-assigned invoice always proceeds — the money is committed and a real bank payment cannot be undone by CODA. The per-position split validation (`sum ≤ position cost`) is unchanged and orthogonal.
 - **Exhausted budget, invoice arrives (not allowed to go over)**: the assignment is blocked. Remedies: assign a different budget, or move funds via transfer/new budget first (amounts are immutable; topping up a running budget is not possible). The invoice may be entered with unassigned costs — payment stays blocked on them.
-- **Rate-pending bookings are invisible to the capacity check** (it counts only converted amounts). Accepted risk, chosen deliberately: available is overstated until rates are entered, so silent over-commitment is possible in that window.
+- **Rate-pending bookings are invisible to the capacity check** (it counts only converted amounts). Accepted risk, chosen deliberately: available is overstated until rates are entered, so silent over-commitment is possible in that window. **Amended 2026-11-06**: for a budget whose currency differs from the *current* home currency, no rate can ever be entered (rates target the home currency only, §2) — its foreign-currency bookings stay pending permanently and the capacity rule is disabled for them. This is intended for grants that age out when the books switch currency, and the budget detail page flags it instead of leaving it silent. The blindness is deliberate end-to-end: CODA keeps no FX rate source of its own, so no check is possible at commitment, and **nothing re-checks at rate entry either** — gating rate entry on capacity would corrupt bookkeeping (the money has already left). What the system provides is detection, not prevention: once the rate lands, the booking converts to spent and the derived exceeded status and the Rate Pending chip surface it.
+- **Review splits must be decided in the budget's currency** (amended 2026-11-06): splits are stored currency-less and counted as-is in the budget's currency (ADR 0001), so a split decided in a foreign currency would be silently skipped by the capacity guard *and* mis-stated on read. `update_review` (the review-save flow) rejects such splits with a typed error, together with splits referencing a non-budget funding source. The invoice-path blindness above does not extend here: a reviewer's decision has a known currency, so there is nothing to wait for. One consequence: a review's decided funding carries a single currency, so one review cannot attribute across budgets of different currency eras — attributing to a legacy foreign-currency budget puts the whole decision in that budget's currency.
 
 *Amendments during implementation (2026-11-05)*:
 - **Cost basis (ADR [0001](../adr/0001-budget-cost-basis.md), §3)**: budgets commit gross-of-tax amounts; the capacity check's delta and its persisted-totals snapshot switch basis together — a mixed pair would silently re-introduce the re-save double-count. The review-side check is already gross-consistent (splits carry the decided amount as-is).
@@ -75,6 +77,8 @@ A budget carries, directly on the existing `Budget` FundingSource (domain datacl
   - *Available-funds transfer*: books **debit** on the source (available drops) and **credited** on the target.
   - *Exceeded-source transfer*: books the overrun as **debit** on the target (inherited debt, available reduced); the source stays exceeded, and the debit's provenance records the source budget plus the spent amounts composing the overrun.
 - **Capacity rule vs transfers**: outgoing positive transfers obey the source's capacity rule — a budget not allowed to go over cannot be driven below zero by transferring out. Debt transfers (negative amounts) are exempt. Incoming transfers are never blocked; a target may end up exceeded and displays it, derived like any other status.
+- **Same-currency endpoints only** (amended 2026-11-06, budget-currency invariants): a transfer books the same amount on both budgets, so source and target must share a currency; the service rejects mismatched pairs, and the transfer dialog only offers matching targets. **Add-funds are booked in the target's currency** (amended 2026-11-06) — transfer rows carry a bare decimal, so a foreign-currency amount would be silently counted as the target's currency; the service rejects it like any cross-currency transfer. Together with the split rule (§4) this means a legacy foreign-currency budget is fundable only in its own currency — via a decided split, a transfer, or add-funds denominated in that currency — which is the intended reading of "the budget keeps the currency of its era" (§2).
+- **Transfers are atomic and serialized** (amended 2026-11-06): the transfer row and both ledger legs commit in one transaction; the endpoint rows are locked (`select_for_update`) so concurrent transfers to the same budgets cannot race past the capacity check and leave a one-sided ledger. `ensure_capacity` returns the verdict it enforced on (or `None` for a rate-pending commitment) so callers never re-derive it.
 
 ## 6. Integration and architecture
 
@@ -131,4 +135,4 @@ The schema already carries every dimension the discussion's monitoring use cases
 
 ## 10. Open items for implementation planning
 
-None carried over from the map. Implementation-level choices deliberately left open: exact DTO shapes, migration mechanics, check-constraint details, and the system-wide currency setting's configuration surface.
+None carried over from the map. Implementation-level choices deliberately left open: exact DTO shapes, migration mechanics, and check-constraint details. The currency-setting open item is resolved (amended 2026-11-06): the budget currency is the existing `GlobalPreferences` home currency at budget creation, frozen thereafter (§2) — no new setting.

@@ -26,6 +26,7 @@
                         {% for error in form.budget_amount.errors %}<small class="mt-1">{{ error }}</small>{% endfor %}
                         <label for="{{ form.budget_currency.id_for_label }}">Currency</label>
                         {{ form.budget_currency }}
+                        <p><small>Budgets are denominated in the home currency — fixed at creation, not editable.</small></p>
                         <label for="{{ form.allow_over.id_for_label }}">{{ form.allow_over }} Allow going over budget</label>
                         <label for="{{ form.allowance_amount.id_for_label }}">Overage allowance</label>
                         {{ form.allowance_amount }}

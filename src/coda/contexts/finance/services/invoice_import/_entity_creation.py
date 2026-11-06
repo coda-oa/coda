@@ -15,6 +15,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
+from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.import_dtos import (
     ContractPositionImportDto,
     InvoiceImportDto,
@@ -26,6 +27,7 @@ from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.money import Money
 from coda.domain.publication.publication import PublicationId
 
 
@@ -48,6 +50,12 @@ def build_creditor_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str,
     return {name: CreditorId(existing_map[name].pk) for name in creditors}
 
 
+def _placeholder_budget(name: str) -> Budget:
+    """Creates an import placeholder budget, denominated in the home
+    currency at creation, like form-created budgets."""
+    return Budget.new(name, amount=Money(0, GlobalPreferences.get_home_currency()))
+
+
 def build_funding_source_lookup(
     invoice_dtos: Iterable[InvoiceImportDto],
 ) -> dict[str, FundingSourceId]:
@@ -64,7 +72,9 @@ def build_funding_source_lookup(
     existing_map = {fs.name: FundingSourceId(fs.pk) for fs in existing}
     missing = [name for name in funding_sources if name not in existing_map]
     if missing:
-        created_ids = funding_source_repository.create_many([Budget.new(name) for name in missing])
+        created_ids = funding_source_repository.create_many(
+            [_placeholder_budget(name) for name in missing]
+        )
         existing_map.update(zip(missing, created_ids))
 
     return existing_map
@@ -150,7 +160,7 @@ def build_funding_assignments_lookup(
 
     # Add budgets
     for name in budgets:
-        funding_sources_to_create.append(Budget.new(name))
+        funding_sources_to_create.append(_placeholder_budget(name))
         lookup_keys.append(name)
 
     # Add institutions (need to fetch institution IDs first)

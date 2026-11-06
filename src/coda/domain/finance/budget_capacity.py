@@ -1,4 +1,4 @@
-"""Capacity rule for budgets (docs/design/budget-system.md §4, §5).
+"""Capacity rule for budgets.
 
 A new commitment is allowed iff committed + new <= amount + allowance, where
 an empty allowance means unbounded when going over is allowed. Functions
@@ -51,9 +51,11 @@ def check_capacity(bookings: BudgetBookings, new: Money) -> CapacityVerdict:
 
 
 def check_transfer_out(bookings: BudgetBookings, amount: Money) -> CapacityVerdict:
-    """An outgoing positive transfer counts as a commitment on the source
-    (budget-system.md §5); a debt transfer (negative amount) is exempt and
-    leaves the source's available unchanged."""
+    """Checks whether an outgoing transfer fits the source budget.
+
+    An outgoing positive transfer counts as a commitment on the source. A
+    debt transfer (negative amount) is exempt and leaves the source's
+    available unchanged."""
     if amount.amount < 0:
         return CapacityVerdict(allowed=True, available_after=available(bookings))
 
