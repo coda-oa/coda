@@ -18,6 +18,12 @@ from coda.contexts.fundingrequest.services import checks, fundingrequests
 from coda.domain.errors import DomainError
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId
+from coda.domain.fundingrequest.review import (
+    DecidedFunding,
+    FundingSplits,
+    Review,
+    ReviewSplit,
+)
 from coda.domain.money import Currency, Money
 
 
@@ -97,7 +103,9 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
             data["funding_splits-TOTAL_FORMS"] = str(total + 1)
             return self._rerender(data)
         if "form_action_remove" in request.POST:
-            return self._rerender(_without_split_row(request.POST, request.POST["form_action_remove"]))
+            return self._rerender(
+                _without_split_row(request.POST, request.POST["form_action_remove"])
+            )
         return super().post(request, *args, **kwargs)
 
     def _rerender(self, data: QueryDict) -> HttpResponse:
@@ -153,20 +161,57 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         context |= self._split_section(context["fundingrequest"], split_data, budgets)
         return context
 
+    _review_cache: Review | None = None
+
+    def _review(self) -> Review:
+        """The request's review, round-tripped through the domain (its
+        funding splits included). One query per render; the ``fundingrequest``
+        object from ``get_by_id`` carries no splits."""
+        if self._review_cache is None:
+            self._review_cache = repository.get_review(self._fid())
+        return self._review_cache
+
+    def _own_split_totals(self) -> dict[int, Decimal]:
+        """The review's own persisted split totals per funding source.
+
+        Amounts pinned to the persisted decision's currency (the round-trip's
+        pin); keyed by funding source id."""
+        totals: dict[int, Decimal] = {}
+        for split in self._review().funding_splits.splits:
+            totals[split.funding_source] = (
+                totals.get(split.funding_source, Decimal(0)) + split.amount.amount
+            )
+        return totals
+
     def _budgets(self) -> list[dict[str, Any]]:
-        # The review page's per-budget available excludes this review's own
-        # persisted splits (opt-in display exclusion — the budget detail page's
-        # default semantics are unchanged): the reviewer deciding a re-opened
-        # review sees the capacity they are actually deciding against.
-        own: dict[int, Decimal] = {}
-        for funding_source_id, amount in repository.persisted_review_splits(self._fid()):
-            own[funding_source_id] = own.get(funding_source_id, Decimal(0)) + amount
+        """The budgets for the review page's split section.
+
+        Per-budget available excludes this review's own persisted splits, so
+        the reviewer deciding a re-opened review sees the capacity they are
+        actually deciding against. The budget detail page keeps its default
+        semantics."""
+        own = self._own_split_totals()
+        # Own amounts are pinned to the persisted decision's currency; adding
+        # them back into a budget's available is only meaningful when that
+        # matches the budget's currency — a stale decision's amounts must not
+        # be re-interpreted (the save rejects them too).
+        persisted_currency = self._review().decided_funding.currency
         return [
             {
                 "id": str(budget.pk),
                 "name": budget.name,
+                # Budget-type rows always carry a currency: the form and the
+                # database require it. The fallback mirrors the balance
+                # lookup below, so a legacy null can never render a
+                # currencyless mismatch message.
+                "currency": budget.budget_currency or "EUR",
                 "available": budget_query.budget_balances(FundingSourceId(budget.pk)).available
-                + Money(own.get(budget.pk, Decimal(0)), Currency[budget.budget_currency or "EUR"]),
+                + Money(
+                    own.get(budget.pk, Decimal(0))
+                    if persisted_currency.code == (budget.budget_currency or "EUR")
+                    else Decimal(0),
+                    Currency[budget.budget_currency or "EUR"],
+                ),
             }
             for budget in FundingSource.objects.filter(type="budget")
         ]
@@ -178,20 +223,21 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
         budgets: list[dict[str, Any]],
     ) -> dict[str, Any]:
         # The review's own persisted splits sit in the balance until
-        # save_review replaces them (§8.3.6 delta semantics) — the prefill
-        # reads them and the capacity verdicts exempt them (only the positive
-        # delta over own totals is capacity-checked, mirroring the write path).
-        persisted = repository.persisted_review_splits(self._fid())
-        own: dict[int, Decimal] = {}
-        for persisted_source_id, persisted_amount in persisted:
-            own[persisted_source_id] = own.get(persisted_source_id, Decimal(0)) + persisted_amount
+        # save_review replaces them — the prefill reads them and the
+        # capacity verdicts exempt them: only the positive delta over own
+        # totals is capacity-checked, mirroring the write path.
+        persisted = [
+            (split.funding_source, split.amount.amount)
+            for split in self._review().funding_splits.splits
+        ]
+        own = self._own_split_totals()
 
         if split_data is not None:
             formset = ReviewSplitFormSet(split_data, prefix="funding_splits")
         else:
-            # GET (re-open): prefill editable rows from the persisted splits
-            # (§8.3.4), feeding both the formset and the feedback/sum path
-            # (the synthesized data below is what the feedback loop reads).
+            # GET (re-open): prefill editable rows from the persisted splits,
+            # feeding both the formset and the feedback/sum path (the
+            # synthesized data below is what the feedback loop reads).
             initial = [
                 {"funding_source": str(persisted_source_id), "amount": persisted_amount}
                 for persisted_source_id, persisted_amount in persisted
@@ -206,11 +252,18 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
 
         decided = fundingrequest.funding_amount
         parsed_decided = _decimal_or_none(split_data.get("decided_funding_amount"))
+        # The posted currency is authoritative — save validates splits against
+        # it, so the preview must judge the same currency the reviewer chose,
+        # not the persisted one. Unknown codes (crafted POSTs) keep the
+        # persisted currency rather than crashing the render.
+        posted_currency = split_data.get("decided_funding_currency")
+        if posted_currency in Currency.allcodes():
+            decided = Money(decided.amount, Currency.from_code(posted_currency))
         if split_data.get("decided_funding_amount") and parsed_decided is not None:
-            decided = Money(parsed_decided, fundingrequest.funding_amount.currency)
+            decided = Money(parsed_decided, decided.currency)
 
         entries: list[tuple[int, ReviewSplitForm, str, Decimal, bool]] = []
-        commitments: list[tuple[FundingSourceId, Money]] = []
+        review_splits: list[ReviewSplit] = []
         for index, split_form in enumerate(formset):
             source = split_data.get(f"funding_splits-{index}-funding_source") or ""
             raw_amount = split_data.get(f"funding_splits-{index}-amount")
@@ -220,27 +273,61 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
             source_id = _source_id(source)
             if source_id is not None:
                 # The preview checks capacity on the sum of all rows per
-                # budget, in the decided-funding currency — exactly the basis
-                # save-time ensure_capacity uses. The cross-currency
-                # comparison TypeError for foreign-currency budgets is
-                # pre-existing at save time and out of scope here.
-                commitments.append((source_id, Money(amount or Decimal(0), decided.currency)))
+                # budget, in the decided-funding currency — the same basis
+                # save-time ensure_capacity uses once _validate_splits has
+                # pinned every split to its budget's currency.
+                review_splits.append(
+                    ReviewSplit(source_id, Money(amount or Decimal(0), decided.currency))
+                )
 
-        committed = budget_service.committed_per_funding_source(commitments)
-        # Delta semantics (§8.3.6): the verdict is computed on the positive
-        # delta over the review's own persisted totals — an unchanged
-        # re-opened review renders "fits", not a false over figure.
-        verdicts = {
-            source_id: budget_service.capacity_verdict(
-                source_id,
-                Money(
-                    max(Decimal(0), amount.amount - own.get(source_id, Decimal(0))),
-                    amount.currency,
-                ),
+        posted = DecidedFunding(decided, FundingSplits.of(review_splits))
+        committed = posted.splits.totals()
+        budget_currencies = {budget["id"]: budget["currency"] for budget in budgets}
+        budget_names = {budget["id"]: budget["name"] for budget in budgets}
+        # A stale decision's persisted splits are not exempted from the
+        # capacity check: the save rejects them (the decided currency changed),
+        # so the preview flags them instead of rendering a verdict. They are
+        # also kept out of the persisted side of the delta — their amounts
+        # belong to the old decision's currency and must not be re-interpreted.
+        persisted_splits = self._review().funding_splits
+        persisted_currency = self._review().decided_funding.currency
+        stale_sources: set[FundingSourceId] = set()
+        if persisted_currency != decided.currency:
+            stale_sources = {sid for sid in committed if sid in persisted_splits.sources()}
+            persisted_splits = FundingSplits.of(
+                [
+                    split
+                    for split in persisted_splits.splits
+                    if split.funding_source not in stale_sources
+                ]
             )
-            for source_id, amount in committed.items()
-            if str(source_id) in {budget["id"] for budget in budgets}
-        }
+        deltas = posted.delta_over(persisted_splits)
+        verdicts = {}
+        currency_mismatches: dict[FundingSourceId, str] = {}
+        for source_id, committed_amount in committed.items():
+            if str(source_id) not in budget_currencies:
+                continue
+            if source_id in stale_sources:
+                currency_mismatches[source_id] = (
+                    f"the persisted funding splits belong to the old decision "
+                    f"({persisted_currency.code}) — re-enter the funding splits"
+                )
+                continue
+            if budget_currencies[str(source_id)] != committed_amount.currency.code:
+                # Splits are counted in the budget's currency; the save path
+                # rejects a cross-currency split, so the preview renders that
+                # reason instead of a cross-currency comparison that would
+                # crash with TypeError.
+                currency_mismatches[source_id] = (
+                    f"funding split for budget '{budget_names[str(source_id)]}' is decided in "
+                    f"{committed_amount.currency.code}, but the budget is denominated in "
+                    f"{budget_currencies[str(source_id)]}"
+                )
+                continue
+            verdicts[source_id] = budget_service.capacity_verdict(
+                source_id,
+                deltas.get(source_id, Money(0, committed_amount.currency)),
+            )
 
         rows = []
         total = Decimal(0)
@@ -248,6 +335,18 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
             total += amount
             source_id = _source_id(source)
             capacity = verdicts.get(source_id) if source_id is not None else None
+            mismatch = currency_mismatches.get(source_id) if source_id is not None else None
+            if mismatch is not None:
+                rows.append(
+                    {
+                        "index": index,
+                        "form": split_form,
+                        "gross_left": "",
+                        "feedback": mismatch,
+                        "amount_invalid": False,
+                    }
+                )
+                continue
             if capacity is None or source_id is None:
                 rows.append(
                     {
@@ -273,15 +372,13 @@ class ReviewView(LoginRequiredMixin, FormView[ReviewForm]):
                 {
                     "index": index,
                     "form": split_form,
-                    # Aggregated across all rows on this budget (spec §8.3.1):
-                    # the verdict is computed on the delta over the review's
-                    # own persisted splits (§8.3.6), so the displayed figure
-                    # adds them back — it agrees with the own-excluded
-                    # per-budget available in the budgets context.
+                    # Aggregated across all rows on this budget: the verdict
+                    # is computed on the delta over the review's own persisted
+                    # splits, so the displayed figure adds them back. It
+                    # agrees with the own-excluded per-budget available in
+                    # the budgets context.
                     "gross_left": capacity.available_after
-                    + Money(
-                        own.get(source_id, Decimal(0)), capacity.available_after.currency
-                    ),
+                    + Money(own.get(source_id, Decimal(0)), capacity.available_after.currency),
                     "feedback": feedback,
                     "amount_invalid": amount_invalid,
                 }

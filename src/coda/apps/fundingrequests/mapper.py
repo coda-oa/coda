@@ -4,60 +4,19 @@ from collections.abc import Iterable
 from typing import Any
 
 from coda.apps.fundingrequests import models as fundingrequest_models
-from coda.apps.publications.mappers import PublicationDomainMapper
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
-    FilledContact,
-    FundingOrganizationId,
-    FundingRequest,
     FundingRequestContact,
     FundingRequestId,
-    NoContact,
     Payment,
-    PaymentMethod,
     Review,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.fundingrequest.review import FundingSplits, ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-from coda.domain.string import NonEmptyStr
-
-
-def as_domain_object(model: fundingrequest_models.FundingRequest) -> AnyFundingRequest:
-    """Convert FundingRequestModel to domain object."""
-    fr_id = FundingRequestId(model.pk)
-    review = _as_review_domain_object(getattr(model, "review", None), fr_id)
-
-    fr = FundingRequest(
-        id=fr_id,
-        request_id=PublicFundingRequestId.from_str(model.request_id),
-        publication=PublicationDomainMapper.map(model.publication),
-        extra_contact=(
-            FilledContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
-            if model.extra_contact
-            else NoContact
-        ),
-        estimated_cost=Payment(
-            amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),
-            method=PaymentMethod(model.payment_method),
-            external_costsplitting=model.external_costsplitting,
-        ),
-        external_funding=[
-            ExternalFunding(
-                organization=FundingOrganizationId(ef.organization_id),
-                project_id=NonEmptyStr(ef.project_id),
-                project_name=ef.project_name,
-            )
-            for ef in getattr(model, "external_funding").all()
-        ],
-        request_remarks=model.request_remarks,
-        review=review,
-        legacy_request_id=model.legacy_request_id,
-    )
-
-    return fr
 
 
 def as_django_model(fundingrequest: AnyFundingRequest) -> fundingrequest_models.FundingRequest:
@@ -89,9 +48,16 @@ def synchronize_relationships(
     fundingrequest: AnyFundingRequest, model: fundingrequest_models.FundingRequest
 ) -> None:
     """Synchronize relationships between domain object and Django model."""
-    # Handle review - always create new review model
-    model.review = _create_review_model(fundingrequest._review)
-    model.review.save()
+    # Update the review row in place — replacing it (the old "always create
+    # new review model" behavior) orphaned the previous row together with its
+    # funding split rows: the splits belong to the review.
+    review_model = _create_review_model(fundingrequest._review)
+    try:
+        review_model.pk = model.review.pk
+    except fundingrequest_models.FundingRequestReview.DoesNotExist:
+        pass
+    review_model.save()
+    model.review = review_model
 
     # Handle contact
     _synchronize_contact(model, fundingrequest.extra_contact)
@@ -161,14 +127,26 @@ def _as_review_domain_object(
         return Review(fr_id)
 
     review_result = ReviewResult.of(model.review_result)
+    decided_funding = Money(
+        model.decided_funding_amount or 0,
+        Currency.from_code(model.decided_funding_currency or "EUR"),
+    )
+    # The splits belong to the review and are denominated in its decided
+    # funding currency; the rows themselves store currency-less amounts.
     return Review(
         fr_id,
-        decided_funding=Money(
-            model.decided_funding_amount or 0,
-            Currency.from_code(model.decided_funding_currency or "EUR"),
-        ),
+        decided_funding=decided_funding,
         remarks=model.remarks,
         result=review_result,
+        funding_splits=FundingSplits.from_persisted(
+            (
+                (FundingSourceId(source_id), amount)
+                for source_id, amount in model.funding_splits.values_list(
+                    "funding_source_id", "amount"
+                )
+            ),
+            decided_funding.currency,
+        ),
     )
 
 

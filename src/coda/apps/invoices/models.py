@@ -137,7 +137,7 @@ class FundingAssignment(models.Model):
 
 
 class BudgetTransfer(models.Model):
-    """A movement of funds between budgets (budget-system.md §5).
+    """A movement of funds between budgets.
 
     Positive amounts transfer available funds: debit on the source, credited
     on the target. Negative amounts transfer an exceeded budget's overrun as
@@ -157,7 +157,7 @@ class BudgetTransfer(models.Model):
 
 
 class BudgetLedgerEntry(models.Model):
-    """Append-only event history for a budget (budget-system.md §6.5).
+    """Append-only event history for a budget.
 
     One row per budget-relevant event; balances are never derived from these
     rows. Amounts are in the event's original currency."""

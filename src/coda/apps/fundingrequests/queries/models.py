@@ -188,7 +188,7 @@ class EstimatedCostDetail:
 class FundingSplitAttribution:
     """A review's committed split, resolved for display: the budget it
     attributes to (id + name for the link) and the gross-of-tax amount
-    (splits carry no tax rate and count as-is — ADR 0001)."""
+    (splits carry no tax rate and count as-is)."""
 
     budget_id: int
     budget_name: str

@@ -9,6 +9,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.invoices import budget_query
 from coda.apps.invoices import repository as invoice_repository
 from coda.apps.invoices.models import FundingSource
+from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.money import Currency, Money
 from tests import modelfactory
 from tests.invoices import budget_setup
@@ -132,10 +133,9 @@ def test__transfer_dialog__opens_as_fragment(client: Client) -> None:
     """The GET fragment endpoint renders the htmx `<dialog open>` partial
     with the transfer form posting to the existing budget_transfer URL."""
     budget, budget_id = budget_setup.a_budget(name="Source", amount=Money("5000", EUR))
+    budget_setup.a_budget(name="Target", amount=Money("5000", EUR))
 
-    response = client.get(
-        reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id})
-    )
+    response = client.get(reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id}))
 
     assert response.status_code == 200
     content = response.content.decode()
@@ -149,7 +149,10 @@ def test__transfer_dialog__opens_as_fragment(client: Client) -> None:
     detail = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
     detail_content = detail.content.decode()
     assert 'hx-swap="beforeend"' in detail_content
-    assert f'hx-get="{reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id})}"' in detail_content
+    assert (
+        f'hx-get="{reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id})}"'
+        in detail_content
+    )
 
 
 @pytest.mark.django_db
@@ -158,6 +161,7 @@ def test__transfer_dialog__add_funds_mode__renders_add_funds_form(client: Client
     """The add-funds mode (?mode=add_funds) renders the add-funds copy and no
     target select — credited-only, per the add-funds money rule."""
     budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("1000", EUR))
+    budget_setup.a_budget(name="Target", amount=Money("5000", EUR))
 
     response = client.get(
         reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id}),
@@ -181,8 +185,8 @@ def test__transfer_dialog__add_funds_mode__renders_add_funds_form(client: Client
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__transfer_dialog__add_funds_mode__books_credited_row(client: Client) -> None:
-    """Add-funds (no target — credited-only, §8.4/ticket 06) books one
-    credited ledger row and raises available by the added amount."""
+    """Add-funds (no target — credited-only) books one credited ledger row
+    and raises available by the added amount."""
     budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("1000", EUR))
 
     response = client.post(
@@ -227,6 +231,46 @@ def test__transfer_dialog__add_funds__rejects_nonpositive_and_blank_provenance(
         assert "<dialog open>" in response.content.decode()  # the fragment re-renders
         assert "Error" in response.content.decode()
 
+    from coda.apps.invoices.models import BudgetTransfer
+
+    assert BudgetTransfer.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__transfer_dialog__no_same_currency_target__renders_empty_state(client: Client) -> None:
+    """With no other same-currency budget the dialog renders an empty-state
+    message instead of a blank target select (create_transfer would reject
+    cross-currency pairs)."""
+    _budget, budget_id = budget_setup.a_budget(name="Only", amount=Money("1000", EUR))
+
+    response = client.get(reverse("invoices:budget_transfer_dialog", kwargs={"pk": budget_id}))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "<dialog open>" in content
+    assert 'name="target"' not in content
+    assert "No other budget in EUR" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize("target", ["", "abc"])
+def test__budget_transfer__missing_target__renders_readable_error(
+    client: Client, target: str
+) -> None:
+    """A transfer without a target renders a human-readable message — not the
+    KeyError stringification `'target'` or a raw int-parse error."""
+    _source, source_id = budget_setup.a_budget(name="Source", amount=Money("5000", EUR))
+    budget_setup.a_budget(name="Target", amount=Money("5000", EUR))
+
+    response = client.post(
+        reverse("invoices:budget_transfer", kwargs={"pk": source_id}),
+        {"mode": "transfer", "amount": "100", "provenance_note": "x", "target": target},
+    )
+
+    assert response.status_code == 200
+    assert "no target budget selected" in response.content.decode()
     from coda.apps.invoices.models import BudgetTransfer
 
     assert BudgetTransfer.objects.count() == 0
@@ -425,6 +469,62 @@ def test__budget_update__amount_field_is_disabled_after_period_start(client: Cli
     assert "immutable once the period has started" in content
 
 
+# --- Budget currency = home currency ---
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_create__currency_is_fixed_to_home_currency(client: Client) -> None:
+    GlobalPreferences.set_home_currency(EUR)
+    response = client.post(
+        reverse("invoices:fundingsource_create"),
+        {
+            "name": "DARK 2026",
+            "budget_amount": "10000",
+            "budget_currency": "USD",  # posted value is ignored — home currency wins
+            "period_start": "2026-01-01",
+            "period_end": "2026-12-31",
+        },
+    )
+
+    assert response.status_code == 302
+    assert FundingSource.objects.get(name="DARK 2026").budget_currency == "EUR"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_update__currency_is_frozen(client: Client) -> None:
+    _budget, budget_id = budget_setup.a_budget(name="DARK 2026", amount=Money("10000", EUR))
+
+    response = client.post(
+        reverse("invoices:fundingsource_update", kwargs={"pk": budget_id}),
+        {
+            "name": "DARK 2026",
+            "budget_amount": "10000",
+            "budget_currency": "USD",
+            "period_start": "2026-01-01",
+            "period_end": "2026-12-31",
+        },
+    )
+
+    assert response.status_code == 302
+    assert FundingSource.objects.get(pk=budget_id).budget_currency == "EUR"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__budget_detail__flags_currency_not_matching_home(client: Client) -> None:
+    GlobalPreferences.set_home_currency(EUR)
+    _budget, budget_id = budget_setup.a_budget(name="SEK grant", amount=Money("5000", Currency.SEK))
+
+    content = client.get(
+        reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id})
+    ).content.decode()
+
+    assert "This budget's currency (SEK)" in content
+    assert "current home currency (EUR)" in content
+
+
 # --- Amendment — budget UI completion: cycle 1 (funding-source rendering) ---
 
 
@@ -498,11 +598,14 @@ def test__budget_detail__shows_available_figure_and_balance_bar(client: Client) 
     content = response.content.decode()
     assert "Available (gross-of-tax)" in content
     assert "5500.00 EUR" in content  # available figure
+    assert "This budget's currency" not in content  # home-currency budget: no retirement flag
     assert "budget-balance-bar" in content
     assert "budget-balance-bar__available" in content
     assert "width: calc(36.67% - 2.0px)" in content  # available segment (base fill)
     assert "budget-balance-bar__spent" in content
-    assert "width: calc(16.67% - 2.0px)" in content  # 2500 of 10000 spent, block capped at amount + allowance
+    assert (
+        "width: calc(16.67% - 2.0px)" in content
+    )  # 2500 of 10000 spent, block capped at amount + allowance
     assert "budget-balance-bar__reserved" in content
     assert "width: calc(13.33% - 2.0px)" in content  # 2000 of 10000 reserved
     assert "budget-balance-bar__over" not in content  # no over-segment within amount + allowance
@@ -513,7 +616,7 @@ def test__budget_detail__shows_available_figure_and_balance_bar(client: Client) 
 @pytest.mark.usefixtures("logged_in")
 def test__budget_detail__zero_bookings__renders_full_available_bar(client: Client) -> None:
     """The bar is never invisible: zero bookings renders one full-width
-    available segment (§8.1.1 base fill)."""
+    available segment."""
     budget, budget_id = budget_setup.a_budget(name="Fresh 2027", amount=Money("10000", EUR))
 
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": budget_id}))
@@ -545,7 +648,9 @@ def test__budget_detail__exceeded__shows_red_available_and_over_segment(client: 
     assert "budget-balance-bar__available" not in content  # available floored at 0
     assert "budget-balance-bar__reserved" not in content  # zero-width segments gated
     assert "budget-balance-bar__over" in content
-    assert "width: calc(93.75% - 1.5px)" in content  # committed block capped at amount + allowance (1500/1600)
+    assert (
+        "width: calc(93.75% - 1.5px)" in content
+    )  # committed block capped at amount + allowance (1500/1600)
     assert "width: calc(6.25% - 1.5px)" in content  # hatched over-segment (100/1600)
 
 
@@ -684,10 +789,14 @@ def test__institution_source__detail_redirects_to_institution_page(client: Clien
 
     response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": source.pk}))
     assert response.status_code == 302
-    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert response.headers["Location"] == reverse(
+        "institutions:detail", kwargs={"pk": institution.pk}
+    )
 
     deleted.archive()
-    response = client.get(reverse("invoices:fundingsource_detail", kwargs={"pk": deleted_source.pk}))
+    response = client.get(
+        reverse("invoices:fundingsource_detail", kwargs={"pk": deleted_source.pk})
+    )
     assert response.status_code == 302
     assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": deleted.pk})
 
@@ -710,10 +819,14 @@ def test__institution_source__update_redirects_to_institution_page(client: Clien
 
     response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": source.pk}))
     assert response.status_code == 302
-    assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert response.headers["Location"] == reverse(
+        "institutions:detail", kwargs={"pk": institution.pk}
+    )
 
     deleted.archive()
-    response = client.get(reverse("invoices:fundingsource_update", kwargs={"pk": deleted_source.pk}))
+    response = client.get(
+        reverse("invoices:fundingsource_update", kwargs={"pk": deleted_source.pk})
+    )
     assert response.status_code == 302
     assert response.headers["Location"] == reverse("institutions:detail", kwargs={"pk": deleted.pk})
 

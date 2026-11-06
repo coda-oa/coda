@@ -19,13 +19,21 @@
                 </p>
             {% endif %}
             {% if mode != "add_funds" %}
-                <label for="transfer-target">Target budget</label>
-                <select id="transfer-target" name="target">
-                    {% for target in transfer_targets %}
-                        <option value="{{ target.id }}">{{ target.name }}</option>
-                    {% endfor %}
-                </select>
+                {% if transfer_targets %}
+                    <label for="transfer-target">Target budget</label>
+                    <select id="transfer-target" name="target">
+                        {% for target in transfer_targets %}
+                            <option value="{{ target.id }}">{{ target.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <p class="small mt-1">
+                        No other budget in {{ fundingsource.budget_currency }} to transfer to —
+                        create one first, or add funds to this budget instead.
+                    </p>
+                {% endif %}
             {% endif %}
+            {% if mode == "add_funds" or transfer_targets %}
             <label for="transfer-amount">Amount {% if mode == "add_funds" %}(positive){% else %}(negative = debt transfer){% endif %}</label>
             <input id="transfer-amount" required
                    name="amount"
@@ -54,6 +62,7 @@
                     {% if mode == "add_funds" %}Add funds{% else %}Transfer{% endif %}
                 </button>
             </footer>
+            {% endif %}
         </form>
     </article>
 </dialog>

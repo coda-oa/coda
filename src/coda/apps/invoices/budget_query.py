@@ -1,4 +1,4 @@
-"""Read model for budget balances (docs/design/budget-system.md §3).
+"""Read model for budget balances.
 
 Balances are derived from existing rows; only transfers persist budget
 records. This module is the single place that computes reserved / spent /
@@ -143,10 +143,10 @@ def budget_balances(funding_source_id: FundingSourceId) -> BudgetBalance:
         elif status == PaymentStatus.Unpaid.value:
             reserved += total * rate
 
-    # Reservation precedence (budget-system.md §3): an invoice assignment for
-    # a request replaces its review split — unpaid assignments count as
-    # reserved, paid ones as spent (paying releases the FR reservation).
-    # Splits count only for requests without any assignment on this budget.
+    # Reservation precedence: an invoice assignment for a request replaces
+    # its review split — unpaid assignments count as reserved, paid ones as
+    # spent (paying releases the FR reservation). Splits count only for
+    # requests without any assignment on this budget.
     split_totals = (
         ReviewFundingSplitModel.objects.filter(funding_source_id=funding_source_id)
         .order_by()  # defensive: default Meta ordering would leak into GROUP BY
@@ -162,9 +162,9 @@ def budget_balances(funding_source_id: FundingSourceId) -> BudgetBalance:
         start=Decimal(0),
     )
 
-    # Transfers (budget-system.md §5): available-funds transfers book debit on
-    # the source and credited on the target; a debt transfer (negative amount)
-    # books its overrun as debit on the target and leaves the source unchanged.
+    # Transfers: available-funds transfers book debit on the source and
+    # credited on the target; a debt transfer (negative amount) books its
+    # overrun as debit on the target and leaves the source unchanged.
     credited = _transfer_sum(target_id=funding_source_id, positive=True)
     debit = _transfer_sum(source_id=funding_source_id, positive=True) + abs(
         _transfer_sum(target_id=funding_source_id, positive=False)

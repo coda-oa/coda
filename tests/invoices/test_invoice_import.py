@@ -11,6 +11,7 @@ from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import funding_source_repository, invoice_query, repository
 from coda.apps.invoices.models import BudgetLedgerEntry, Creditor, FundingSource
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
@@ -420,6 +421,22 @@ def test__invoice_with_budget_and_non_existing_institution__import_invoices__doe
 
     with pytest.raises(funding_source_repository.FundingSourceNotFound):
         funding_source_repository.get_by_name("valid budget")
+
+
+@pytest.mark.django_db
+def test__imported_placeholder_budget__is_denominated_in_home_currency() -> None:
+    """Import-created placeholder budgets are denominated in the home
+    currency at creation, like form-created ones — otherwise a non-EUR home
+    leaves every imported placeholder permanently foreign."""
+    GlobalPreferences.set_home_currency(Currency.USD)
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = "Unknown Grant"
+    import_dto = invoice_import_list_dto([position_dto])
+
+    _ = import_invoices_from_dto_json(import_dto)
+
+    budget = FundingSource.objects.get(name="Unknown Grant", type="budget")
+    assert budget.budget_currency == "USD"
 
 
 @pytest.mark.django_db

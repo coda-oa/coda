@@ -1,10 +1,20 @@
+from decimal import Decimal
+
 import pytest
 from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
-from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest, Review
-from coda.domain.fundingrequest.review import ReviewResult
+from coda.contexts.fundingrequest.dto.commands import ReviewSplitDto, UpdateReviewDto
+from coda.contexts.fundingrequest.services import fundingrequests as fr_services
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest import (
+    FundingOrganizationId,
+    FundingRequest,
+    FundingRequestId,
+    Review,
+)
+from coda.domain.fundingrequest.review import FundingSplits, ReviewResult, ReviewSplit
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
@@ -194,6 +204,151 @@ def test__review_submit__invalid_input__re_renders_form_and_stores_nothing(
     assert actual.review() == before.review()
     assert actual.funding_amount == before.funding_amount
     assert actual.review_remarks == before.review_remarks
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_submit__split_in_foreign_currency__renders_error_and_stores_nothing(
+    client: Client,
+) -> None:
+    """Splits are counted in the budget's currency: a split decided in a
+    foreign currency is rejected on save — and the re-rendered preview shows
+    the currency reason instead of crashing on a cross-currency comparison."""
+    fr = fundingrequest()
+    fr.id = repository.create(fr)
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.SEK))
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": fr.id}),
+        {
+            "action": "approved",
+            "decided_funding_amount": "100",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "100",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    # The message renders twice: once as the save's form error and once as
+    # the preview row's feedback — pinning both surfaces, not just one.
+    assert content.count("denominated in SEK") == 2
+    actual = repository.get_by_id(fr.id)
+    assert actual.review() == ReviewResult.Open
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_preview__posted_currency_matching_budget__shows_no_mismatch(
+    client: Client,
+) -> None:
+    """The preview judges the *posted* decided currency — the one save
+    validates against: a SEK-decided split on a SEK budget renders a capacity
+    verdict, not a currency mismatch, even though the FR was funded in EUR."""
+    fr = fundingrequest()
+    fr.id = repository.create(fr)
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.SEK))
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": fr.id}),
+        {
+            # Blank amount forces form_invalid → the preview re-renders with
+            # the posted split data.
+            "action": "approved",
+            "decided_funding_amount": "",
+            "decided_funding_currency": "SEK",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "100",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "denominated in SEK" not in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_preview__decided_currency_changed__flags_stale_splits(client: Client) -> None:
+    """A currency change voids the persisted splits: the preview flags them
+    instead of exempting them from the capacity verdict — matching the save's
+    rejection instead of showing capacity room the save will refuse."""
+    fr = fundingrequest()
+    fr.id = repository.create(fr)
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.EUR))
+
+    repository.save_review(
+        Review(FundingRequestId(fr.id)).update_review(
+            ReviewResult.Approved,
+            Money("1000", Currency.SEK),
+            funding_splits=FundingSplits.of(
+                [ReviewSplit(FundingSourceId(budget_id), Money("1000", Currency.SEK))]
+            ),
+        )
+    )
+
+    response = client.post(
+        reverse("fundingrequests:review", kwargs={"pk": fr.id}),
+        {
+            "action": "approved",
+            "decided_funding_amount": "",
+            "decided_funding_currency": "EUR",
+            "reviewer_remarks": "",
+            "funding_splits-TOTAL_FORMS": "1",
+            "funding_splits-INITIAL_FORMS": "0",
+            "funding_splits-0-funding_source": str(budget_id),
+            "funding_splits-0-amount": "1000",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "belong to the old decision" in content
+    assert "fits" not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__review_page__legacy_foreign_currency_split__renders_currency_reason(
+    client: Client,
+) -> None:
+    """Datasets created before the save guard can hold a split whose decided
+    currency differs from the FR's funding currency. Re-opening that review
+    must render the currency reason — not crash on a cross-currency
+    comparison."""
+    fr = fundingrequest()
+    fr.id = repository.create(fr)
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.SEK))
+
+    # Approve with a SEK-decided split (valid: matches the budget's currency),
+    # then rewind the review's decided funding to EUR — the legacy
+    # inconsistency the save guard now prevents.
+    fr_services.update_review(
+        FundingRequestId(fr.id),
+        UpdateReviewDto(
+            decided_funding_amount=Decimal(1000),
+            decided_funding_currency="SEK",
+            reviewer_remarks="",
+            result="approved",
+            funding_splits=[ReviewSplitDto(funding_source_id=budget_id, amount=Decimal(1000))],
+        ),
+    )
+    from coda.apps.fundingrequests.models import FundingRequestReview
+
+    FundingRequestReview.objects.filter(fundingrequest=fr.id).update(
+        decided_funding_amount=Decimal(100), decided_funding_currency="EUR"
+    )
+
+    response = client.get(reverse("fundingrequests:review", kwargs={"pk": fr.id}))
+
+    assert response.status_code == 200
+    assert "denominated in SEK" in response.content.decode()
 
 
 @pytest.mark.django_db

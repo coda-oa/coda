@@ -38,10 +38,58 @@ def test__re_approval__does_not_double_count_own_splits() -> None:
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
 
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
 
     assert budget_query.budget_balances(budget_id).reserved == Money("600", EUR)
+
+
+@pytest.mark.django_db
+def test__review_split_in_foreign_decided_currency__is_rejected() -> None:
+    """Splits are stored currency-less and counted as-is in the budget's
+    currency: a split decided in a currency other than the budget's would be
+    silently unchecked by the capacity guard and mis-stated on read —
+    rejected instead."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.SEK))
+    funding_request = modelfactory.fundingrequest()
+
+    dto = UpdateReviewDto(
+        decided_funding_amount=Decimal(1000),
+        decided_funding_currency="EUR",
+        reviewer_remarks="",
+        result="approved",
+        funding_splits=[_split_dto(budget_id, Decimal(1000))],
+    )
+
+    with pytest.raises(services.InvalidFundingSplit):
+        services.update_review(FundingRequestId(funding_request.pk), dto)
+
+    # Nothing persisted: no reservation on the budget.
+    assert budget_query.budget_balances(budget_id).reserved == Money("0", Currency.SEK)
+
+
+@pytest.mark.django_db
+def test__review_split_in_budget_currency__is_accepted() -> None:
+    """The rule is decided-currency == budget-currency, not EUR: a SEK budget
+    takes SEK-decided splits normally."""
+    _budget, budget_id = budget_setup.a_budget(amount=Money("5000", Currency.SEK))
+    funding_request = modelfactory.fundingrequest()
+
+    dto = UpdateReviewDto(
+        decided_funding_amount=Decimal(1000),
+        decided_funding_currency="SEK",
+        reviewer_remarks="",
+        result="approved",
+        funding_splits=[_split_dto(budget_id, Decimal(1000))],
+    )
+
+    services.update_review(FundingRequestId(funding_request.pk), dto)
+
+    assert budget_query.budget_balances(budget_id).reserved == Money("1000", Currency.SEK)
 
 
 @pytest.mark.django_db
@@ -49,8 +97,12 @@ def test__re_approval__raised_split_beyond_remaining__rejected() -> None:
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
 
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900))
+    )
 
     with pytest.raises(budget_service.BudgetCapacityExceededError):
         services.update_review(
@@ -134,13 +186,18 @@ def test__review_page__split_inputs_carry_live_refresh_attrs(client: Client) -> 
     response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
 
     content = response.content.decode()
-    assert f'hx-post="{reverse("fundingrequests:review", kwargs={"pk": funding_request.pk})}"' in content
+    assert (
+        f'hx-post="{reverse("fundingrequests:review", kwargs={"pk": funding_request.pk})}"'
+        in content
+    )
     assert 'hx-trigger="change from:#split-table"' in content
     assert 'hx-include="closest form"' in content
     assert '{"form_action_refresh": "1"}' in content
     assert 'id="split-table"' in content
     assert "htmx" in content  # htmx itself is loaded (base: {% htmx_script %})
-    assert "{#" not in content  # a multi-line {# #} leaks as literal text (no DOTALL in Django's tag_re)
+    assert (
+        "{#" not in content
+    )  # a multi-line {# #} leaks as literal text (no DOTALL in Django's tag_re)
 
 
 @pytest.mark.django_db
@@ -162,7 +219,9 @@ def test__fundingrequest_detail__shows_funding_attributions(client: Client) -> N
     path, not the template walking the reverse manager."""
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
 
     from coda.apps.fundingrequests.queries import detail as detail_queries
 
@@ -201,7 +260,9 @@ def test__review_page__prefills_persisted_splits(client: Client) -> None:
     verdict — not blank inputs."""
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
 
     response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
 
@@ -227,8 +288,12 @@ def test__review_page__prefilled_gross_left_after_raise(client: Client) -> None:
     budgets list."""
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(900))
+    )
 
     response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
 
@@ -244,7 +309,9 @@ def test__review_page__available_excludes_own_persisted_splits(client: Client) -
     persisted splits (the capacity the reviewer is actually deciding against)."""
     _budget, budget_id = budget_setup.a_budget(amount=Money("1000", EUR))
     funding_request = modelfactory.fundingrequest()
-    services.update_review(FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600)))
+    services.update_review(
+        FundingRequestId(funding_request.pk), _approve_dto(budget_id, Decimal(600))
+    )
 
     response = client.get(reverse("fundingrequests:review", kwargs={"pk": funding_request.pk}))
 
@@ -532,9 +599,7 @@ def test__review_page__add_row_round_trips(client: Client) -> None:
 def _split_table_rows(content: str) -> list[str]:
     """The review page's split-table rows, in formset order."""
     return [
-        row
-        for row in re.findall(r"<tr>.*?</tr>", content, re.DOTALL)
-        if "funding_splits-" in row
+        row for row in re.findall(r"<tr>.*?</tr>", content, re.DOTALL) if "funding_splits-" in row
     ]
 
 

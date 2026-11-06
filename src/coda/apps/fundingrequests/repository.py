@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from decimal import Decimal
 from typing import Any, TypeIs
@@ -111,18 +112,12 @@ class UnsavedFundingRequest(ValueError):
         self.fundingrequest = fundingrequest
 
 
-def persisted_review_splits(fundingrequest_id: FundingRequestId) -> list[tuple[int, Decimal]]:
-    """The funding request's currently persisted review splits as
-    (funding source id, amount) pairs — the snapshot for re-approval delta
-    checks and ledger dedupe, taken before ``save_review`` replaces them."""
-    return list(
-        ReviewFundingSplit.objects.filter(review__fundingrequest=fundingrequest_id)
-        .values_list("funding_source_id", "amount")
-    )
-
-
 @transaction.atomic
 def save_review(review: Review) -> list[ReviewFundingSplit]:
+    """Returns the review's splits that this save newly committed.
+
+    Rows matching the previously persisted splits are not returned: an
+    unchanged re-approval books no further commitment."""
     review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
     fundingrequest_mapper._update_review_model(review, review_model)
     review_model.save()
@@ -132,15 +127,38 @@ def save_review(review: Review) -> list[ReviewFundingSplit]:
 def _synchronize_review_splits(
     review_model: FundingRequestReview, review: Review
 ) -> list[ReviewFundingSplit]:
-    review_model.funding_splits.all().delete()
+    """Synchronizes the review's split rows with the domain review's splits.
+
+    Unchanged rows (same funding source and amount) keep their identity, so
+    ledger rows' ``review_split`` links survive; only genuinely new rows are
+    created and unconsumed rows deleted. A deleted split's ledger rows lose
+    their link (``SET_NULL``) — correct, since the booked split no longer
+    exists. Duplicate splits on one budget are legal and matched one-for-one.
+
+    Returns the rows this save newly created — the booking set, booked at full
+    row amount; capacity checks are delta-based on the positive delta over the
+    review's own persisted totals."""
+    wanted: Counter[tuple[int, Decimal]] = Counter(
+        (split.funding_source, split.amount.amount) for split in review.funding_splits.splits
+    )
+    deleted_ids: list[int] = []
+    for row in ReviewFundingSplit.objects.filter(review=review_model).order_by("pk"):
+        key = (row.funding_source_id, row.amount)
+        if wanted[key] > 0:
+            wanted[key] -= 1
+        else:
+            deleted_ids.append(row.pk)
+    if deleted_ids:
+        ReviewFundingSplit.objects.filter(pk__in=deleted_ids).delete()
     return list(
         ReviewFundingSplit.objects.bulk_create(
             ReviewFundingSplit(
                 review=review_model,
-                funding_source_id=split.funding_source,
-                amount=split.amount.amount,
+                funding_source_id=source_id,
+                amount=amount,
             )
-            for split in review.funding_splits
+            for (source_id, amount), count in wanted.items()
+            for _ in range(count)
         )
     )
 

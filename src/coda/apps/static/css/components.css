@@ -273,10 +273,10 @@ span.icon-tooltip[data-tooltip] {
     display: block;
 }
 
-/* Budget balance overview (budget-system spec §8.1.1): the big colored
-   Available (gross-of-tax) figure beside a slim stacked bar of spent (red)
-   and reserved (amber) out of the amount; the bar caps at full width on
-   exceeded budgets — the red figure carries the state. */
+/* Budget balance overview: the big colored Available (gross-of-tax) figure
+   beside a slim stacked bar of spent (red) and reserved (amber) out of the
+   amount; the bar caps at full width on exceeded budgets — the red figure
+   carries the state. */
 .budget-balance-overview {
     display: flex;
     align-items: baseline;

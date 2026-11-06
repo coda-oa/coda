@@ -31,7 +31,11 @@ def test__budget_with_only_unpaid_assignment__nothing_is_spent_yet() -> None:
 
     actual = budget_query.budget_balances(budget_id)
 
+    # Unpaid money is reserved, not spent — it still reduces what is
+    # available for new commitments.
     assert actual.spent == Money("0", EUR)
+    assert actual.reserved == Money("2500", EUR)
+    assert actual.available == Money("7500", EUR)
 
 
 @pytest.mark.django_db

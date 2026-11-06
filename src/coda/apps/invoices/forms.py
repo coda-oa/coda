@@ -89,7 +89,7 @@ class FundingSourceForm(forms.ModelForm[FundingSource]):
             "allowance_amount",
         ]
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, home_currency: Callable[[], Currency], **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         instance = self.instance
         if not instance.pk or instance.type == "budget":
@@ -102,6 +102,15 @@ class FundingSourceForm(forms.ModelForm[FundingSource]):
                 "period_end",
             ):
                 self.fields[field_name].required = True
+            # Budgets are denominated in the home currency: invoice conversion
+            # rates target the home currency only, so it is the one currency
+            # the balance pipeline can always reach. Not a choice — fixed at
+            # creation, frozen on edit; a disabled field keeps the instance's
+            # value on POST. The instance value wins over field.initial, so
+            # legacy budgets keep their currency.
+            self.fields["budget_currency"].disabled = True
+            if not instance.pk:
+                self.fields["budget_currency"].initial = home_currency().code
         else:
             # Institution rows carry no budget terms (and the currency field
             # is required by default) — editing one must not demand them.
@@ -114,8 +123,8 @@ class FundingSourceForm(forms.ModelForm[FundingSource]):
                 self.fields[field_name].required = False
 
         if instance.pk and instance.period_start and instance.period_start <= datetime.date.today():
-            # The amount is immutable once the period has started (spec §2):
-            # disabled fields fall back to the instance's value on POST.
+            # The amount is immutable once the period has started: disabled
+            # fields fall back to the instance's value on POST.
             self.fields["budget_amount"].disabled = True
 
     def clean_name(self) -> str:

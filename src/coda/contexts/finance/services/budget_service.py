@@ -1,4 +1,4 @@
-"""Budget accounting services (docs/design/budget-system.md §4, §6).
+"""Budget accounting services.
 
 The capacity rule itself lives in the domain
 (`coda.domain.finance.budget_capacity`); this module assembles a budget's
@@ -7,9 +7,9 @@ applies to review decisions and manual/UI funding assignments — invoice
 import is a recorded fact and does not run these checks."""
 
 from collections import Counter
-from collections.abc import Iterable
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import DecimalField, F, Sum
 from django.db.models.functions import Round
 
@@ -18,6 +18,7 @@ from coda.apps.invoices.funding_source_repository import get_by_id
 from coda.apps.invoices.models import BudgetLedgerEntry as BudgetLedgerEntryModel
 from coda.apps.invoices.models import BudgetTransfer as BudgetTransferModel
 from coda.apps.invoices.models import FundingAssignment as FundingAssignmentModel
+from coda.apps.invoices.models import FundingSource as FundingSourceModel
 from coda.domain.errors import DomainError
 from coda.domain.finance.budget_capacity import (
     BudgetBookings,
@@ -35,48 +36,47 @@ class BudgetCapacityExceededError(DomainError):
     pass
 
 
-def committed_per_funding_source(
-    commitments: Iterable[tuple[FundingSourceId, Money]],
-) -> dict[FundingSourceId, Money]:
-    """Sums commitments per funding source — a source's capacity must be
-    checked against the total committed to it, not against each commitment."""
-    totals: dict[FundingSourceId, Money] = {}
-    for funding_source, amount in commitments:
-        totals[funding_source] = totals.get(funding_source, Money(0, amount.currency)) + amount
-    return totals
-
-
 def capacity_verdict(funding_source_id: FundingSourceId, new: Money) -> CapacityVerdict:
     budget = _budget(funding_source_id)
     return check_capacity(_bookings(funding_source_id, budget), new)
 
 
-def ensure_capacity(funding_source_id: FundingSourceId, new: Money) -> None:
+def ensure_capacity(funding_source_id: FundingSourceId, new: Money) -> CapacityVerdict | None:
+    """Enforces the capacity rule at a commitment point.
+
+    Raises ``BudgetCapacityExceededError`` when the commitment does not fit.
+    Returns the verdict it enforced on, so a caller that also needs the
+    figures does not re-derive them. A commitment in a foreign currency is
+    rate-pending and invisible to the check; the function returns ``None``.
+
+    The rule is derived, never booked; the caller persists its own state
+    after the guard passes."""
     budget = _budget(funding_source_id)
     if new.currency.code != budget.amount.currency.code:
-        return  # rate-pending commitment: invisible to the check (spec §4)
+        return None  # rate-pending commitment: invisible to the check
 
-    verdict = capacity_verdict(funding_source_id, new)
+    verdict = check_capacity(_bookings(funding_source_id, budget), new)
     if not verdict.allowed:
         over = verdict.available_after * -1
         raise BudgetCapacityExceededError(
             f"committing {new.amount} {new.currency.code} to budget '{budget.name}' "
             f"exceeds its capacity by {over.amount} {over.currency.code}"
         )
+    return verdict
 
 
 def ensure_assignment_capacity(invoice: Invoice) -> None:
-    """Capacity rule at the invoice-assignment commitment point (spec §4).
+    """Enforces the capacity rule at the invoice-assignment commitment point.
 
     Only budget-type funding sources are checked; institution sources are
     cost-sharing and carry no budget. Foreign-currency assignments are
     rate-pending and invisible to the check (enforced in ensure_capacity).
 
     Only the *change* over the invoice's own persisted assignments is a new
-    commitment: existing commitments are never re-checked (spec §4), so
-    re-saving an invoice never counts its existing commitment against itself —
-    even if other invoices consumed the budget in the meantime. Both sides of
-    the delta are gross-of-tax: the new amounts read via
+    commitment: existing commitments are never re-checked, so re-saving an
+    invoice never counts its existing commitment against itself — even if
+    other invoices consumed the budget in the meantime. Both sides of the
+    delta are gross-of-tax: the new amounts read via
     ``funding_assignments(CostBasis.gross)``, the persisted totals via the
     same gross expression the read model uses."""
     previous = _persisted_assignment_totals(invoice.id)
@@ -131,67 +131,85 @@ def _persisted_assignment_totals(
     return totals
 
 
-def transfer_out_verdict(funding_source_id: FundingSourceId, amount: Money) -> CapacityVerdict:
-    """The capacity rule applied to an outgoing transfer (spec §5): positive
-    transfers are commitments on the source; debt transfers are exempt."""
-    budget = _budget(funding_source_id)
-    bookings = _bookings(funding_source_id, budget)
-    return check_transfer_out(bookings, amount)
-
-
 def create_transfer(
     source_id: FundingSourceId, target_id: FundingSourceId, amount: Money, provenance_note: str
 ) -> None:
     if source_id == target_id:
         raise InvalidTransfer("a budget cannot transfer to itself")
 
-    source = _transfer_endpoint(source_id)
-    _transfer_endpoint(target_id)
-    if amount.currency.code != source.amount.currency.code:
-        raise InvalidTransfer(
-            "transfers are booked in the budget's currency "
-            f"({source.amount.currency.code}), not {amount.currency.code}"
-        )
+    with transaction.atomic():
+        # Lock in ascending-id order so opposite transfers (A→B vs B→A) cannot
+        # deadlock on each other's rows; then bind the endpoints by argument —
+        # the locked rows are used directly, and the capacity verdict below is
+        # computed after the locks, not against a snapshot another transfer is
+        # invalidating.
+        locked = {
+            endpoint_id: _transfer_endpoint(endpoint_id, lock=True)
+            for endpoint_id in sorted((source_id, target_id))
+        }
+        source, target = locked[source_id], locked[target_id]
+        if amount.currency.code != source.amount.currency.code:
+            raise InvalidTransfer(
+                "transfers are booked in the budget's currency "
+                f"({source.amount.currency.code}), not {amount.currency.code}"
+            )
+        if target.amount.currency.code != source.amount.currency.code:
+            raise InvalidTransfer(
+                "transfers require budgets in the same currency "
+                f"({source.amount.currency.code} → {target.amount.currency.code})"
+            )
 
-    verdict = transfer_out_verdict(source_id, amount)
-    if not verdict.allowed:
-        over = verdict.available_after * -1
-        raise BudgetCapacityExceededError(
-            f"transferring {amount.amount} {amount.currency.code} from budget "
-            f"'{source.name}' exceeds its capacity by {over.amount} {over.currency.code}"
-        )
+        verdict = check_transfer_out(_bookings(source_id, source), amount)
+        if not verdict.allowed:
+            over = verdict.available_after * -1
+            raise BudgetCapacityExceededError(
+                f"transferring {amount.amount} {amount.currency.code} from budget "
+                f"'{source.name}' exceeds its capacity by {over.amount} {over.currency.code}"
+            )
 
-    transfer = BudgetTransferModel.objects.create(
-        source_id=source_id,
-        target_id=target_id,
-        amount=amount.amount,
-        provenance_note=provenance_note,
-    )
-    record_transfer(source_id, amount, transfer.pk)
-    record_transfer(target_id, amount, transfer.pk)
+        transfer = BudgetTransferModel.objects.create(
+            source_id=source_id,
+            target_id=target_id,
+            amount=amount.amount,
+            provenance_note=provenance_note,
+        )
+        record_transfer(source_id, amount, transfer.pk)
+        record_transfer(target_id, amount, transfer.pk)
 
 
 def add_funds(target_id: FundingSourceId, amount: Money, provenance_note: str) -> None:
-    """Adds funds from outside CODA (§5, Budget Review & Transfers Polish
-    map): a nullable-source transfer variant that books ``credited`` on the
-    target with no debit — the pseudo-mutability of an immutable budget
-    amount lives entirely in ``credited``. No capacity check runs (incoming
-    transfers are exempt, §5). Amounts must be strictly positive (a negative
-    add-funds would be a withdrawal without a debit leg) and the provenance
-    note is mandatory — with no source row it is the only audit trail."""
-    _transfer_endpoint(target_id)  # validates that the target exists
+    """Adds funds from outside CODA.
+
+    A nullable-source transfer variant: it books ``credited`` on the target
+    with no debit — the pseudo-mutability of an immutable budget amount lives
+    entirely in ``credited``. No capacity check runs; incoming transfers are
+    exempt. Amounts must be strictly positive (a negative add-funds would be
+    a withdrawal without a debit leg). The provenance note is mandatory;
+    with no source row it is the only audit trail."""
+    target = _transfer_endpoint(target_id)  # validates that the target exists
     if amount.amount <= 0:
         raise InvalidTransfer("add-funds amounts must be positive")
     if not provenance_note.strip():
         raise InvalidTransfer("a provenance note is required to audit added funds")
+    if amount.currency.code != target.amount.currency.code:
+        # Transfers carry a bare decimal (the currency is the budget's), so a
+        # foreign-currency amount would be silently counted as the target's
+        # currency — same rule as create_transfer.
+        raise InvalidTransfer(
+            "add-funds are booked in the budget's currency "
+            f"({target.amount.currency.code}), not {amount.currency.code}"
+        )
 
-    transfer = BudgetTransferModel.objects.create(
-        source=None,
-        target_id=target_id,
-        amount=amount.amount,
-        provenance_note=provenance_note,
-    )
-    record_transfer(target_id, amount, transfer.pk)
+    # Atomic: the transfer row and its credited ledger leg must appear
+    # together or not at all (double-entry invariant).
+    with transaction.atomic():
+        transfer = BudgetTransferModel.objects.create(
+            source=None,
+            target_id=target_id,
+            amount=amount.amount,
+            provenance_note=provenance_note,
+        )
+        record_transfer(target_id, amount, transfer.pk)
 
 
 class InvalidTransfer(DomainError):
@@ -225,7 +243,7 @@ def _booked_amount(row: FundingAssignmentModel) -> Money:
 def record_assignment_commitments(
     invoice_id: InvoiceId, previous: Counter[tuple[int, str, Decimal]] | None = None
 ) -> None:
-    """Book one commitment ledger row per assignment (spec §4).
+    """Books one commitment ledger row per assignment.
 
     ``previous`` carries the invoice's budget assignments as persisted before
     the save (multiset of funding-source id, cost currency, amount).
@@ -288,7 +306,14 @@ def _append_ledger_entry(
     )
 
 
-def _transfer_endpoint(funding_source_id: FundingSourceId) -> Budget:
+def _transfer_endpoint(funding_source_id: FundingSourceId, *, lock: bool = False) -> Budget:
+    if lock:
+        # Serializes concurrent transfers to the same budget: the row lock is
+        # held until the surrounding transaction commits, so the capacity
+        # verdict computed after it cannot be invalidated mid-write.
+        # select_for_update requires an open transaction — only pass
+        # lock=True inside transaction.atomic().
+        FundingSourceModel.objects.select_for_update().get(pk=funding_source_id)
     source = get_by_id(funding_source_id)
     if not isinstance(source, Budget):
         raise InvalidTransfer(f"funding source {funding_source_id} is not a budget")

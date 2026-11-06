@@ -75,7 +75,7 @@
             {% if funding_splits.non_form_errors %}
                 <small class="mt-1">{{ funding_splits.non_form_errors.0 }}</small>
             {% endif %}
-            {# Live fit (§8.3.5): change events POST the whole form with the refresh marker; the view re-renders the full page. #}
+            {# Live fit: change events POST the whole form with the refresh marker; the view re-renders the full page. #}
             <div
                 hx-post="{% url 'fundingrequests:review' pk=fundingrequest.id %}"
                 hx-trigger="change from:#split-table"

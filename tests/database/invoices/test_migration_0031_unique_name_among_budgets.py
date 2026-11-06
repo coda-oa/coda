@@ -7,8 +7,7 @@ from django_test_migrations.contrib.unittest_case import MigratorTestCase
 class TestUniqueNameAmongBudgets(MigratorTestCase):
     """The partial unique constraint (0031) applies only to budget-type
     funding sources; the migration's loud pre-check refuses to apply it over
-    data that already violates it (docs/design/budget-system-test-plan.md,
-    cost-basis amendment)."""
+    data that already violates it (cost-basis amendment)."""
 
     migrate_from = ("invoices", "0030_fundingsource_budget_type_has_amount_and_period")
     migrate_to = ("invoices", "0031_unique_name_among_budgets")

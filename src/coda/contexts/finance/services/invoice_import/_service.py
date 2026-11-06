@@ -104,9 +104,9 @@ def _process_invoices(
     invoice_ids = repository.create_many(invoices)
     _assign_invoice_ids(invoices, invoice_ids)
     update_publication_payment_statuses(invoices)
-    # Import bypasses the capacity check by design (spec §7) but books ledger
-    # rows: commitments for every created invoice, payments for imports
-    # arriving paid — so its balance movements stay auditable.
+    # Import bypasses the capacity check by design but books ledger rows:
+    # commitments for every created invoice, payments for imports arriving
+    # paid — so its balance movements stay auditable.
     for invoice in invoices:
         assert invoice.id is not None
         budget_service.record_assignment_commitments(invoice.id)
