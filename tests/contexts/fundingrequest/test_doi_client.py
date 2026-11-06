@@ -176,9 +176,9 @@ def test__fetch_publications_batch__two_valid_dois__returns_both(
 
     assert len(results) == 2
     for doi_str, result in results.items():
-        assert isinstance(
-            result, ExternalPublicationMetadata
-        ), f"Expected metadata for {doi_str}, got {type(result).__name__}: {result}"
+        assert isinstance(result, ExternalPublicationMetadata), (
+            f"Expected metadata for {doi_str}, got {type(result).__name__}: {result}"
+        )
         assert result.title
 
 

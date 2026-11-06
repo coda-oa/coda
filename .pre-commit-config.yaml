@@ -61,15 +61,11 @@ repos:
             'pytest-playwright',
           ]
 
-  - repo: https://github.com/psf/black
-    rev: 26.10.1
-    hooks:
-      - id: black
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.4
     hooks:
       - id: ruff
+      - id: ruff-format
 
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.4

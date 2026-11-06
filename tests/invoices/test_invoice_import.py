@@ -628,9 +628,9 @@ def paid_invoice_dto(
 
 def expected_publication_position(import_dto: PublicationPositionImportDto) -> Position:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
-    assert (
-        funding_source is not None
-    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
+    assert funding_source is not None, (
+        f"FundingSource '{import_dto.funding_source}' should exist in the database"
+    )
     request = fundingrequest_repository.get_by_request_id(
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
@@ -674,9 +674,9 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> Positio
 
 def expected_free_position(import_dto: FreePositionImportDto) -> Position:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
-    assert (
-        funding_source is not None
-    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
+    assert funding_source is not None, (
+        f"FundingSource '{import_dto.funding_source}' should exist in the database"
+    )
     description = import_dto.description
     position = invoice_positions.create(
         item=FreeItem(

@@ -163,7 +163,9 @@ def test__institutions_exist__export_and_reimport_with_affiliation_change__updat
     None
 ):
     inst = Institution.objects.create(
-        name="Test Institution", internal_id="inst_003", virtual=True  # Not usable for affiliations
+        name="Test Institution",
+        internal_id="inst_003",
+        virtual=True,  # Not usable for affiliations
     )
 
     csv_export = services.export_to_csv()

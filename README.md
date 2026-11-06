@@ -169,7 +169,7 @@ CODA uses a strict `pre-commit` configuration that runs checks before allowing a
 
 1. **mypy** — static type checking in strict mode
 2. **ruff** — linting and code style enforcement
-3. **black** — deterministic code formatting
+3. **ruff format** — deterministic code formatting
 4. **djlint** — Django template linting
 5. **commitizen** — enforces <a href="https://www.conventionalcommits.org/en/v1.0.0/" target="_blank" rel="noopener noreferrer">conventional commits</a>
 
