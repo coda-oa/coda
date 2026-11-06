@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-trixie
 
 # Install required system dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
