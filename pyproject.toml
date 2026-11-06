@@ -69,6 +69,12 @@ ignore_errors = true
 module = "environ"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# Django's test client decorates responses with `context`/`wsgi_request` at
+# runtime (setup_test_environment), but django-stubs doesn't model them.
+module = "tests.*"
+disable_error_code = ["attr-defined"]
+
 [tool.django-stubs]
 strict_settings = false
 django_settings_module = "config.settings.production"
