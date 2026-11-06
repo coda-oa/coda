@@ -82,7 +82,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py315"
 
 force-exclude = true
 line-length = 100

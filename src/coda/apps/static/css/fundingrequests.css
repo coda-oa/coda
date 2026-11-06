@@ -130,6 +130,16 @@ li.fundingrequest-check {
   --label-bg-color: var(--coda-warning-color);
 }
 
+.label.new {
+  --label-border-color: var(--coda-primary-background);
+  --label-bg-color: var(--coda-primary-background);
+}
+
+.label.exists {
+  --label-border-color: var(--coda-validation-valid-color);
+  --label-bg-color: var(--coda-validation-valid-color);
+}
+
 a:has(.label) {
   text-decoration: none;
 }

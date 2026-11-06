@@ -1,9 +1,8 @@
 import datetime
-import itertools
+import logging
 import random
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from decimal import Decimal
 from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
@@ -236,11 +235,10 @@ def update_publication_metadata(
     fr = repository.get_by_id(fundingrequest_id)
     publication = fr.publication
 
-    import logging
-
+    logger = logging.getLogger(__name__)
     meta = command.meta
 
-    logging.info(repr(meta))
+    logger.info(repr(meta))
     incoming_publication_type = meta.publication_type.to_concept()
     incoming_subject_area = meta.subject_area.to_concept()
 
@@ -396,4 +394,4 @@ def get_institutions_allowed_as_affiliation(
         if not any(affiliation == inst.pk for inst in allowed_institutions)
     }
     author_institutions = list(institution_repository.get_many_by_id(author_affiliations))
-    return itertools.chain(author_institutions, allowed_institutions)
+    return (*it for it in (author_institutions, allowed_institutions))
