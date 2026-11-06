@@ -161,7 +161,7 @@ When launching the devcontainer, CODA will automatically be started at `localhos
 
 ### Project management
 
-CODA uses `pdm` to manage the project and its dependencies. See <a href="https://pdm-project.org/en/latest/" target="_blank" rel="noopener noreferrer">pdm's documentation</a> for more details.
+CODA uses `uv` to manage the project and its dependencies. See <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv's documentation</a> for more details.
 
 ### Pre-commit configuration
 
@@ -178,7 +178,7 @@ CODA uses a strict `pre-commit` configuration that runs checks before allowing a
 As we use `commitizen` to ensure correct commit formatting, we recommend using its command-line tool to generate the commit message:
 
 ```
-pdm run cz commit
+uv run cz commit
 ```
 
 

@@ -510,7 +510,7 @@ For system administrators, CODA provides a command-line import tool:
 ./commands/import.sh --local import_fundingrequests /path/to/requests.json
 
 # Or directly via Django management command
-pdm run manage.py import_fundingrequests /path/to/requests.json
+uv run manage.py import_fundingrequests /path/to/requests.json
 ```
 
 This is useful for large batch imports that might timeout in the browser

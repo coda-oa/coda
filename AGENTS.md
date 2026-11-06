@@ -2,7 +2,7 @@ Django app for managing open-access publication funding requests (submission →
 
 ## Layout
 
-- `src/coda/` — Python package (`coda.*`), on the path via pdm.
+- `src/coda/` — Python package (`coda.*`), on the path via uv.
   - `apps/` — Django layer (models, views, urls, forms, repositories).
     **Templates for ALL apps live centrally in `src/coda/apps/templates/<app>/`**, not inside app dirs.
   - `domain/` — pure domain model: frozen dataclasses, value objects; update via `dataclasses.replace`; **no Django imports**.
@@ -21,14 +21,18 @@ Django app for managing open-access publication funding requests (submission →
 ## Running things
 
 Local dev stack (Django on :8000 + Postgres): `commands/start-coda.sh -l` / `stop-coda.sh -l`.
-The host `.venv` has no configured database — run tests/lint/management **in the django container via pdm** (repo mounted at `/app`):
+The host `.venv` has no configured database — run tests/lint/management **in the django container via uv** (repo mounted at `/app`):
 
 ```bash
-docker exec -w /app coda_local_django pdm run pytest tests/fundingrequests -q
-docker exec -w /app coda_local_django sh -lc 'pdm run ruff format <files> && pdm run ruff check <files>'
+docker exec -w /app coda_local_django uv run pytest tests/fundingrequests -q
+docker exec -w /app coda_local_django sh -lc 'uv run ruff format <files> && uv run ruff check <files>'
 ```
 
-Test selection via pdm scripts: `unittests`, `integrationtests`, `migrationtests`, `uitests`. DB-suite scripts run parallel via `pytest-xdist` — new tests must be parallel-safe (no fixed ports, no shared module state, no execution-order deps). Tests use `--reuse-db` (in `addopts`), so pass `--create-db` after schema/migration changes. `tests/database/conftest.py` gives migration tests their own databases because `django_test_migrations` mutates schema mid-run.
+Test selection via pytest markers — DB suites run parallel via `pytest-xdist` — new tests must be parallel-safe (no fixed ports, no shared module state, no execution-order deps). Tests use `--reuse-db` (in `addopts`), so pass `--create-db` after schema/migration changes. `tests/database/conftest.py` gives migration tests their own databases because `django_test_migrations` mutates schema mid-run.
+- Unit suite: `uv run pytest -m 'not integration and not migration_test and not performance and not ui_test' -n auto`
+- Integration suite: `uv run pytest -m 'not migration_test and not performance and not ui_test' -n auto`
+- Migration suite: `uv run pytest -m 'migration_test' -n auto`
+- UI suite: `uv run pytest -m 'ui_test'`
 Pre-commit runs ruff, djlint (templates), mypy `--strict` (+django/pydantic stubs), commitizen.
 
 ## Tests

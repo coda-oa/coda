@@ -34,16 +34,8 @@ docs = [
   "sphinx-copybutton>=0.5.2",
 ]
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.pdm.scripts]
-coverage = "pytest --cov"
-unittests = "pytest -m 'not integration and not migration_test and not performance and not ui_test' --ff -n auto"
-integrationtests = "pytest -m 'not migration_test and not performance and not ui_test' --ff -n auto"
-migrationtests = "pytest -m 'migration_test' --ff -n auto"
-uitests = "pytest -m 'ui_test'"
-alltests = "pytest -vv -n auto"
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
 
 [tool.black]
 line-length = 100

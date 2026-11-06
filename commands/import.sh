@@ -38,4 +38,4 @@ fi
 MOUNT_DIR="$(cd "$(dirname "${remaining_args[1]}")" && pwd)" || exit 1
 FILE_NAME="$(basename "${remaining_args[1]}")"
 
-$COMPOSE_BASE_CMD run --rm -v "$MOUNT_DIR:/imports" django pdm run manage.py "$MANAGE_CMD" "/imports/$FILE_NAME"
+$COMPOSE_BASE_CMD run --rm -v "$MOUNT_DIR:/imports" django uv run manage.py "$MANAGE_CMD" "/imports/$FILE_NAME"
