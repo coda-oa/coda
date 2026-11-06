@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import logging
 import random
 from collections.abc import Iterable
@@ -394,4 +395,4 @@ def get_institutions_allowed_as_affiliation(
         if not any(affiliation == inst.pk for inst in allowed_institutions)
     }
     author_institutions = list(institution_repository.get_many_by_id(author_affiliations))
-    return (*it for it in (author_institutions, allowed_institutions))
+    return itertools.chain(author_institutions, allowed_institutions)
