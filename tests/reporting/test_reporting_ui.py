@@ -277,3 +277,54 @@ def test__statistics_table__column_header__sorts_the_rows(
     count_header.click()
     expect(first_row).to_have_text("Big Ticket Press")
     expect(count_header).to_have_attribute("aria-sort", "ascending")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__reporting_page__treemap_leaf_tile__filters_and_does_not_drill(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    """Clicking a leaf tile filters the page like its table row: the region
+    swaps, the URL gains the facet param, and no plotly drilldown animates
+    (the tile set stays the root's). Clicking a branch tile drills without
+    any facet param."""
+    fixture = seed()
+    _goto_statistics(coda_page, live_server, tab="attribution")
+    _wait_for_charts(coda_page)
+
+    treemap = coda_page.locator("[data-chart='chart-institution-treemap']")
+    tiles_before = treemap.locator("g.slice").count()
+
+    # Leaf click: the tile's label links to the institution facet. The seed's
+    # institution name is faker-random, so pick the linked tile via the
+    # figure payload's tile_links (label → URL carrying institution=pk).
+    leaf_label = coda_page.evaluate(
+        """pk => { const fig = JSON.parse(
+              document.getElementById('chart-institution-treemap').textContent);
+            const e = Object.entries(fig.tile_links).find(([, v]) => v &&
+              v.includes(`institution=${pk}`));
+            return e ? e[0] : null; }""",
+        fixture.institution.pk,
+    )
+    assert leaf_label, "seeded institution has no linked treemap tile"
+    leaf = treemap.locator("g.slice").filter(has_text=leaf_label.split("<br>")[0]).last
+    leaf.click()
+    coda_page.wait_for_url(lambda url: f"institution={fixture.institution.pk}" in url)
+    # The region swap replaces the chart element; re-anchor, then assert no
+    # drilldown: the re-rendered treemap still shows the root view. (The tile
+    # count varies with the filter — the seed yields a small tree.)
+    treemap = coda_page.locator("[data-chart='chart-institution-treemap']")
+    expect(treemap.locator("g.slice").filter(has_text="All institutions")).to_have_count(1)
+
+    # Branch click: drills into the subtree, no facet param. "All institutions"
+    # is the root's pathbar label, not a clickable slice in the root view —
+    # drill via the faculty tile instead (the only branch with children here).
+    branch = treemap.locator("g.slice").filter(has_text=leaf_label.split("<br>")[0])
+    branch.first.click(position={"x": 5, "y": 5})
+    coda_page.wait_for_url(lambda url: "institution=" not in url)
+    coda_page.wait_for_function(
+        """n => document.querySelectorAll(
+              "[data-chart='chart-institution-treemap'] g.slice"
+            ).length !== n""",
+        arg=tiles_before,
+    )

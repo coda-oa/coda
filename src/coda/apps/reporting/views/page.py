@@ -31,7 +31,7 @@ from coda.apps.invoices.models import Invoice
 from coda.apps.listfilters import ListRegionMixin, build_url, params_without
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.reporting import dataset, factcache, queries
-from coda.apps.reporting.drilldown import DrilldownLinks, list_view_url
+from coda.apps.reporting.drilldown import DrilldownLinks, _group_pks, list_view_url
 from coda.apps.reporting.treemap import institution_treemap
 from coda.apps.widgets import DateRangeWidget
 from coda.contexts.statistics import aggregation, charts
@@ -351,21 +351,29 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     )
     report = charts.report(facts, active_dimensions)
 
-    sections = _sections(
-        report,
-        DrilldownLinks.build(
-            request,
-            region_url_name=_REGION_URL,
-            vocabularies=vocabularies,
-            lookups=_needed_lookups(active_dimensions),
-        ),
-        comparison=comparison_report,
+    # One DrilldownLinks serves the sections' table rows and the treemap's
+    # leaf-tile links; the lookup tables are built once. The institution list
+    # feeds both the hierarchy walk and the link table via ``prebuilt``, so
+    # no second query runs.
+    institutions = list(Institution.objects.all())
+    links = DrilldownLinks.build(
+        request,
+        region_url_name=_REGION_URL,
+        vocabularies=vocabularies,
+        lookups=_needed_lookups(active_dimensions),
+        prebuilt={
+            "institution": _group_pks((n.pk, getattr(n, n.facet_label_field)) for n in institutions)
+        },
     )
-    # The treemap reads the whole fact set, not the active group's dimensions,
-    # and costs ~4ms. It is computed unconditionally and shown on the group that owns
-    # it. Its presence keeps the attribution tab in the nav even when the
-    # institution section itself has no rows.
-    treemap = institution_treemap(facts, Institution.objects.all())
+    sections = _sections(report, links, comparison=comparison_report)
+    # The treemap reads the whole fact set and renders on the attribution
+    # tab; its presence keeps that tab in the nav even when the institution
+    # section has no rows.
+    treemap = institution_treemap(
+        facts,
+        institutions,
+        label_link=lambda label: links.label_link("institution", label),
+    )
     sections_by_id = {section.dimension_id: section for section in sections}
 
     def group_sections(group: DimensionGroup) -> list[DimensionSection]:

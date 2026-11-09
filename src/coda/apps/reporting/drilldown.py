@@ -66,29 +66,46 @@ class DrilldownLinks:
         region_url_name: str,
         vocabularies: PreloadedVocabularyProvider | None = None,
         lookups: Collection[str] | None = None,
+        prebuilt: Mapping[str, dict[str, list[str]]] | None = None,
     ) -> "DrilldownLinks":
         """``lookups`` narrows the label→value tables to the given facet
         lookup keys (None: all). A page that renders only a subset of the
         dimensions pays only for their tables; ``_facet_values`` touches a
         table exactly when the row's dimension names its lookup, so the set
-        must be derived from the rendered dimensions, not guessed."""
+        must be derived from the rendered dimensions, not guessed.
+        ``prebuilt`` merges caller-supplied tables, so a view that already
+        loaded the rows pays no second round-trip."""
         if vocabularies is None:
             vocabularies = GlobalPreferences.preloaded()
+        prebuilt = prebuilt or {}
+        # A lookup name in ``prebuilt`` skips the builder: the caller already
+        # loaded those rows, and rebuilding them would repeat the query.
+        if lookups is None:
+            wanted: Collection[str] | None = [n for n in _TABLE_BUILDERS if n not in prebuilt]
+        else:
+            wanted = [n for n in _TABLE_BUILDERS if n in lookups and n not in prebuilt]
         return cls(
             request=request,
             _region_url_name=region_url_name,
-            _by_name=_lookup_tables(vocabularies, lookups=lookups),
+            _by_name={**_lookup_tables(vocabularies, lookups=wanted), **prebuilt},
         )
 
     def link(self, dimension_id: str, row: GroupRow) -> str | None:
         if row.kind is not RowKind.VALUE:
             return None
+        if dimension_id == "contract":
+            return self._contract_link(row.ref)
+        return self.label_link(dimension_id, row.label)
+
+    def label_link(self, dimension_id: str, label: str) -> str | None:
+        """The link for a bare dimension value, without the row-kind check:
+        treemap labels are grouping rows by construction. Contract rows are
+        not resolvable from a label — they carry a (pk, year) ref instead, so
+        this returns None for them; :meth:`link` routes them to their ref."""
         facet = by_id(dimension_id).facet
         if facet is None:
             return None
-        if dimension_id == "contract":
-            return self._contract_link(row.ref)
-        values = self._facet_values(facet, row.label)
+        values = self._facet_values(facet, label)
         if not values:
             return None
         return self._url({facet.param: (values, facet.multi)})

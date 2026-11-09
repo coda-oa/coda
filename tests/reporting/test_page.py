@@ -141,10 +141,11 @@ def sections_of(response: "_MonkeyPatchedWSGIResponse") -> dict[str, DimensionSe
 def sections_by_id(client: Client, **query: str) -> dict[str, DimensionSection]:
     """Every dimension's section, gathered from the tab that renders it.
     The page shows one tab's sections at a time, so a cross-tab view takes
-    one request per tab."""
+    one request per tab. Tabs derive from the registry so a group rename
+    cannot silently drop one from this view."""
     merged: dict[str, DimensionSection] = {}
-    for tab in ("publication", "venues", "cost", "attribution"):
-        merged |= sections_of(goto(client, tab=tab, **query))
+    for group in DIMENSION_GROUPS:
+        merged |= sections_of(goto(client, tab=group.id, **query))
     return merged
 
 
