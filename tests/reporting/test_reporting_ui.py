@@ -154,6 +154,7 @@ def test__journal_facet__typing__narrow_options_server_side(
     for index in range(_FACET_CHOICE_LIMIT + 20):
         modelfactory.journal(publisher_id=publisher.pk, title=f"Facet {index:03d}")
     match = modelfactory.journal(publisher_id=publisher.pk, title="Qwertyuiop unique")
+    rematch = modelfactory.journal(publisher_id=publisher.pk, title="Zxcvbnm unique")
     _goto_statistics(coda_page, live_server)
     _open_filter_drawer(coda_page)
 
@@ -169,6 +170,16 @@ def test__journal_facet__typing__narrow_options_server_side(
     expect(facet.locator("option")).to_have_text(match.title)
     active = coda_page.evaluate("() => document.activeElement?.shadowRoot?.activeElement?.value")
     assert active == "qwerty"
+
+    # The swapped-in fragment must itself carry a usable endpoint: a second
+    # search issues a fresh fetch instead of silently dead-ending on
+    # data-endpoint="".
+    search_box.fill("zxcvb")
+    expect(facet.locator('input[name="journal_q"]')).to_have_value("zxcvb")
+    expect(facet.locator("option")).to_have_count(1)
+    expect(facet.locator("option")).to_have_text(rematch.title)
+    active = coda_page.evaluate("() => document.activeElement?.shadowRoot?.activeElement?.value")
+    assert active == "zxcvb"
 
 
 @pytest.mark.ui_test

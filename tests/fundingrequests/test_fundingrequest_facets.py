@@ -234,9 +234,7 @@ def test__searching_by_open_access_type__returns_only_requests_with_the_selected
 
 
 @pytest.mark.django_db
-def test__searching_by_entity_type__splits_articles_and_monographs_on_the_shared_rule() -> (
-    None
-):
+def test__searching_by_entity_type__splits_articles_and_monographs_on_the_shared_rule() -> None:
     article = modelfactory.fundingrequest("Journal article")
 
     monograph = modelfactory.fundingrequest("Monograph")
@@ -594,6 +592,12 @@ def test__facet_options_endpoint__narrowed_options_and_selected(client: Client) 
     assert "Field Notes" not in rendered  # narrowed away
     assert "remote-search" in rendered
     assert 'data-q="darkroom"' in rendered
+    # The fragment replaces the widget in place: without an endpoint the
+    # component silently stops issuing the next typeahead fetch, and without
+    # the facet param the follow-up fetch would 404.
+    endpoint = re.search(r'data-endpoint="([^"]*)"', rendered)
+    assert endpoint is not None
+    assert endpoint.group(1) == f"{reverse('fundingrequests:facet_options')}?facet=journal"
 
 
 @pytest.mark.django_db
