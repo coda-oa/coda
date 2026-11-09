@@ -56,7 +56,7 @@ def institution_treemap(
     # second, pre-order pass — plotly resolves parent-child area relations in
     # row order, so a child row preceding its parent packs the tree into a
     # corner of the root tile.
-    placed: set[str] = set()
+    placed: set[int] = set()
     subtree_sums: dict[str, tuple[int, Decimal]] = {}
     subtree_leaf: dict[str, bool] = {}
 
@@ -71,47 +71,52 @@ def institution_treemap(
             any_drawn_child = any_drawn_child or c_drawn
         drawn = publications >= MIN_SUBTREE_PUBLICATIONS
         if drawn:
-            placed.add(node.name)
-            subtree_sums[node.name] = (publications, amount)
-            subtree_leaf[node.name] = not any_drawn_child
+            placed.add(pk)
+            subtree_sums[f"i{pk}"] = (publications, amount)
+            subtree_leaf[f"i{pk}"] = not any_drawn_child
         return publications, amount, drawn
 
     def add_node(pk: int, parent_id: str) -> None:
         node = nodes[pk]
-        if node.name not in placed:
+        if pk not in placed:
             return
         own_publications, own_amount = by_name.get(node.name, (0, Decimal(0)))
-        _, amount = subtree_sums[node.name]
+        row_id = f"i{pk}"
+        _, amount = subtree_sums[row_id]
         # A branch with drawn children hangs a synthetic own-publication row
         # below, so its remainder becomes a labeled tile instead of unlabeled
         # parent area; the branch row itself then carries 0. The two rows
         # share a display label, so identity moves to ids (unique per row);
-        # parents reference ids.
-        has_own_leaf = own_publications > 0 and subtree_leaf[node.name] is False
+        # parents reference ids. Ids are pk-based — two institutions can
+        # share a name, and plotly renders zero tiles for duplicate ids.
+        has_own_leaf = own_publications > 0 and subtree_leaf[row_id] is False
         labels.append(node.name)
-        ids.append(node.name)
+        ids.append(row_id)
+        id_names[row_id] = node.name
         parents.append(parent_id)
         values.append(0 if has_own_leaf else own_publications)
         colors.append(amount)
-        subtree_publications.append(subtree_sums[node.name][0])
+        subtree_publications.append(subtree_sums[row_id][0])
         for child_pk in sorted(children_of.get(pk, []), key=lambda p: nodes[p].name):
-            add_node(child_pk, node.name)
+            add_node(child_pk, row_id)
         if has_own_leaf:
             # Not subtree_leaf: the institution facet expands every selected
             # pk to its whole subtree (InstitutionCriteria), so a link here
             # would show more than the tile's area. Tracked in
             # synthetic_labels — the row's id, not its display label.
-            own_id = f"{node.name}\x00own"
+            own_id = f"i{pk}\x00own"
             ids.append(own_id)
+            id_names[own_id] = node.name
             synthetic_labels.add(own_id)
             labels.append(node.name)
-            parents.append(node.name)
+            parents.append(f"i{pk}")
             values.append(own_publications)
             colors.append(own_amount)
             subtree_publications.append(own_publications)
 
     labels: list[str] = [ROOT_LABEL]
-    ids: list[str] = [ROOT_LABEL]
+    ids: list[str] = ["root"]
+    id_names: dict[str, str] = {"root": ROOT_LABEL}
     parents: list[str] = [""]
     synthetic_labels: set[str] = set()
     # Root value 0: it is a pure container. A non-zero root value reserves a
@@ -122,51 +127,48 @@ def institution_treemap(
 
     for root_pk in sorted(children_of.get(None, []), key=lambda p: nodes[p].name):
         subtree_stats(root_pk)
-        add_node(root_pk, ROOT_LABEL)
+        add_node(root_pk, "root")
 
-    # Names outside any (unarchived) node — e.g. the "Unknown" bucket — carry
-    # their exact value under the root.
+    # Names outside any (unarchived) node — e.g. the "Unknown" bucket, or a
+    # name whose institution is archived — carry their exact value under the
+    # root.
+    drawn_names = {nodes[pk].name for pk in placed}
     for name, (publications, amount) in by_name.items():
-        if name not in placed:
+        if name not in drawn_names:
             labels.append(name)
-            ids.append(name)
-            parents.append(ROOT_LABEL)
+            ids.append(f"u{name}")
+            id_names[f"u{name}"] = name
+            parents.append("root")
             values.append(publications)
             colors.append(amount)
             subtree_publications.append(publications)
-            subtree_leaf[name] = True
+            subtree_leaf[f"u{name}"] = True
 
-    # Wrap long display labels at word boundaries. Rows are identified by
-    # ids (unique per row — a branch and its own-publication row share a
-    # display label); labels carry the wrapped display string, keyed to ids.
-    # Container rows — branches, their own-publication rows, root — wrap
-    # wide: their rects are the biggest on screen.
-    container_ids = (
-        {row_id for row_id, leaf in subtree_leaf.items() if not leaf}
-        | synthetic_labels
-        | {ROOT_LABEL}
-    )
+    # Display labels drop the "Fakultät (für)" / "Institut für" honorifics —
+    # a one-line container label cannot fit a narrow tile otherwise, and the
+    # leaf labels gain room to wrap. Container rows stay on one line; leaves
+    # wrap at word boundaries. The full name stays in customdata for the
+    # hover. Rows are identified by ids (unique per row — a branch and its
+    # own-publication row share a display label); labels carry the wrapped
+    # display string, keyed to ids.
+    leaf_ids = {row_id for row_id, leaf in subtree_leaf.items() if leaf} - synthetic_labels
     id_wrap_map = {
-        row_id: _wrap_label(label, width=46 if row_id in container_ids else 18)
+        row_id: (
+            _wrap_label(re.sub(r"^(?:Fakultät|Institut) (?:für )?", "", label))
+            if row_id in leaf_ids
+            else re.sub(r"^(?:Fakultät|Institut) (?:für )?", "", label)
+        )
         for row_id, label in zip(ids, labels)
     }
     labels = [id_wrap_map[row_id] for row_id in ids]
     # parents stay ids verbatim (the walk emits ids): plotly resolves them
-    # against the ids array, and wrapping them would orphan children of
-    # every long-named node.
-    # wrapped display label -> original (unwrapped, unduplicated) name for
-    # the facet lookup; own rows resolve to their branch's name.
-    tile_link_labels = {id_wrap_map[row_id]: row_id.split("\x00")[0] for row_id in ids}
+    # against the ids array.
+    # id -> original (unwrapped, unduplicated) name for the facet lookup;
+    # built at emission time (id_names), so no string surgery on ids.
+    tile_link_labels = dict(id_names)
 
-    # Container rows get a dedicated display size (a share-based 22px inside
-    # a 1000px-wide faculty rect reads as a caption). Leaves scale with their
-    # subtree share, normalized by the largest subtree — not the total,
-    # which double counts overlapping subtrees (ADR-0007).
-    largest = max(subtree_publications) or 1
-    font_sizes = [
-        36.0 if row_id in container_ids else _leaf_font_size(publications, largest)
-        for row_id, publications in zip(ids, subtree_publications)
-    ]
+    # Font sizes: plotly's own fit (default textfont sizing) owns the label
+    # size — the server-side tiers only fought it (and the client pass).
 
     # Leaf tiles link like the drilldown filters (§2 #7); branch tiles keep
     # plotly's own drilldown (the subtree filter doubles as the walk
@@ -178,7 +180,7 @@ def institution_treemap(
     if label_link is not None:
         tile_links = {
             row_id: (
-                label_link(tile_link_labels[id_wrap_map[row_id]])
+                label_link(tile_link_labels[row_id])
                 if subtree_leaf.get(row_id, False) and row_id not in synthetic_labels
                 else None
             )
@@ -199,10 +201,8 @@ def institution_treemap(
                 # name] — templates show subtree figures (not the row's
                 # remainder value) and the unwrapped name.
                 "customdata": [
-                    [float(c), p, original]
-                    for c, p, original in zip(
-                        colors, subtree_publications, (tile_link_labels[l] for l in labels)
-                    )
+                    [float(c), p, tile_link_labels[row_id]]
+                    for c, p, row_id in zip(colors, subtree_publications, ids)
                 ],
                 "marker": {
                     "colors": [float(c) for c in colors],
@@ -220,7 +220,6 @@ def institution_treemap(
                     "%{customdata[2]}: %{customdata[1]} publications,"
                     " €%{customdata[0]:,.2f}<extra></extra>"
                 ),
-                "insidetextfont": {"size": font_sizes},
             }
         ],
         "layout": {
@@ -250,13 +249,6 @@ def _wrap_label(label: str, width: int = 18) -> str:
     if current:
         lines.append(current)
     return "<br>".join(line.rstrip() for line in lines)
-
-
-def _leaf_font_size(publications: int, largest: int) -> float:
-    """Leaf-tile text size from the share of the largest drawn subtree;
-    sqrt-compressed, clamped to a readable band."""
-    share: float = (publications / (largest or 1)) ** 0.5
-    return round(max(12.0, min(22.0, 10.0 + 12.0 * share * 4)), 1)
 
 
 def _title() -> str:
