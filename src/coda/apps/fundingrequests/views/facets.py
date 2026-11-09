@@ -10,6 +10,7 @@ through the region request; typing browses, selecting filters.
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from coda.apps.fundingrequests.facets import FACET_FIELDS, facet_choices
@@ -33,6 +34,10 @@ def facet_options(request: HttpRequest) -> HttpResponse:
     )
     widget.remote_search = True
     widget.remote_query = query
+    # The fragment replaces the widget in place, so it must stay searchable:
+    # without an endpoint the component silently stops issuing typeahead
+    # fetches until the next region swap re-renders it via the form.
+    widget.remote_endpoint = f"{reverse('fundingrequests:facet_options')}?facet={facet}"
     model = FACET_FIELDS[facet]
     widget.choices = facet_choices(model, selected, query)
 

@@ -194,11 +194,14 @@ class SearchSelectMulti extends HTMLElement {
             if (hidden) {
                 hidden.value = query;
             }
-            window.__facetSearchFocused = this.getAttribute('name');
             const endpoint = this.dataset.endpoint;
             if (!endpoint) {
                 return;
             }
+            // Only a swap that recreates this element may consume the focus
+            // marker; a missing endpoint or a failed fetch never swaps, so
+            // the marker must not be set for those.
+            window.__facetSearchFocused = this.getAttribute('name');
             const url = new URL(endpoint, window.location.href);
             url.searchParams.set('q', query);
             url.searchParams.delete('selected');
@@ -210,9 +213,15 @@ class SearchSelectMulti extends HTMLElement {
                 .then((html) => {
                     if (html) {
                         this.outerHTML = html;
+                    } else {
+                        // A failed region fetch means no swap and no reconnect
+                        // would consume the focus marker; drop it so the next
+                        // unrelated swap cannot steal focus. htmx error events
+                        // never fire for this plain fetch.
+                        clearFacetSearchFocus();
                     }
                 })
-                .catch(() => {});
+                .catch(() => clearFacetSearchFocus());
         }, 300);
     }
 
@@ -442,8 +451,8 @@ class SearchSelectMulti extends HTMLElement {
 
 customElements.define('search-select-multi', SearchSelectMulti);
 
-// A failed region fetch means no swap and no reconnect would consume the
-// focus marker; drop it so the next unrelated swap cannot steal focus.
+// htmx-issued region requests that fail also leave no reconnect to consume
+// the focus marker; drop it so the next unrelated swap cannot steal focus.
 const clearFacetSearchFocus = () => {
     window.__facetSearchFocused = null;
 };
