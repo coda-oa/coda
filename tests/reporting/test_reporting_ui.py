@@ -297,13 +297,18 @@ def test__reporting_page__treemap_leaf_tile__filters_and_does_not_drill(
 
     # Leaf click: the tile's label links to the institution facet. The seed's
     # institution name is faker-random, so pick the linked tile via the
-    # figure payload's tile_links (label → URL carrying institution=pk).
+    # figure payload's tile_links (id → URL carrying institution=pk) and get
+    # the display label from the row's customdata (ids are pk-based, labels
+    # are display strings).
     leaf_label = coda_page.evaluate(
         """pk => { const fig = JSON.parse(
               document.getElementById('chart-institution-treemap').textContent);
+            const d = fig.data[0];
             const e = Object.entries(fig.tile_links).find(([, v]) => v &&
               v.includes(`institution=${pk}`));
-            return e ? e[0] : null; }""",
+            if (!e) return null;
+            const i = d.ids.indexOf(e[0]);
+            return d.customdata[i][2]; }""",
         fixture.institution.pk,
     )
     assert leaf_label, "seeded institution has no linked treemap tile"

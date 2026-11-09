@@ -156,7 +156,6 @@ const renderChart = (element) => {
     const config = { responsive: true, ...figure.config };
     element.dataset.plotlyRendered = "true";
     Plotly.newPlot(element, figure.data, figure.layout, config).then(() => {
-        // Attach after newPlot resolves; `element.on` exists reliably only then.
         if (figure.tile_links) {
             attachTileLinks(element, figure.tile_links);
         }
@@ -172,11 +171,13 @@ const attachTileLinks = (element, tileLinks) => {
         const point = event?.points?.[0];
         if (!point) return;
         const link = tileLinks[point.id];
-        if (!link) return;
-        // Returning false is this bundle's drilldown gate (plotly_<type>click):
-        // it also suppresses the downstream plotly_click, so the fetch lives here.
-        htmx.ajax("GET", link, { target: "#reporting-region", swap: "innerHTML", push: link });
-        return false;
+        if (link) {
+            // Returning false is this bundle's drilldown gate
+            // (plotly_<type>click): it also suppresses the downstream
+            // plotly_click, so the fetch lives here.
+            htmx.ajax("GET", link, { target: "#reporting-region", swap: "innerHTML", push: link });
+            return false;
+        }
     });
 };
 
