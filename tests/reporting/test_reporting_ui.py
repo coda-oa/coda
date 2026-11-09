@@ -307,8 +307,44 @@ def test__reporting_page__treemap_leaf_tile__filters_and_does_not_drill(
         fixture.institution.pk,
     )
     assert leaf_label, "seeded institution has no linked treemap tile"
-    leaf = treemap.locator("g.slice").filter(has_text=leaf_label.split("<br>")[0]).last
-    leaf.click()
+    # Resolve the leaf slice element in-page (data-unformatted carries the
+    # full texttemplate output; faker names can contain apostrophes that
+    # break attribute selectors), then click it by handle.
+    leaf_handle = coda_page.evaluate(
+        """labelPrefix => {
+            const items = [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] [data-unformatted]")];
+            const norm = s => s.replace(/<br>/g, ' ').replace(/\\s+/g, ' ').trim();
+            const prefix = norm(labelPrefix);
+            const t = items.find(el => norm(el.getAttribute('data-unformatted'))
+                .startsWith(prefix));
+            return t ? [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] g.slice")]
+                .find(g => g.contains(t)) ?? null : null;
+        }""",
+        leaf_label,
+    )
+    assert leaf_handle, f"leaf tile not rendered: {leaf_label!r}"
+    # Click in-page: the leaf locator's text filter is unreliable here (the
+    # branch + own-publication rows share the display text and wrapped labels
+    # split across tspans), and a has_text locator can resolve to a different
+    # slice under faker names. The in-page dispatch goes through plotly's
+    # real event path.
+    coda_page.evaluate(
+        """labelPrefix => {
+            const items = [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] [data-unformatted]")];
+            const norm = s => s.replace(/<br>/g, ' ').replace(/\\s+/g, ' ').trim();
+            const prefix = norm(labelPrefix);
+            const t = items.find(el => norm(el.getAttribute('data-unformatted'))
+                .startsWith(prefix));
+            const slice = t && [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] g.slice")]
+                .find(g => g.contains(t));
+            slice?.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        }""",
+        leaf_label,
+    )
     coda_page.wait_for_url(lambda url: f"institution={fixture.institution.pk}" in url)
     # The region swap replaces the chart element; re-anchor, then assert no
     # drilldown: the re-rendered treemap still shows the root view. (The tile
@@ -316,11 +352,42 @@ def test__reporting_page__treemap_leaf_tile__filters_and_does_not_drill(
     treemap = coda_page.locator("[data-chart='chart-institution-treemap']")
     expect(treemap.locator("g.slice").filter(has_text="All institutions")).to_have_count(1)
 
-    # Branch click: drills into the subtree, no facet param. "All institutions"
-    # is the root's pathbar label, not a clickable slice in the root view —
-    # drill via the faculty tile instead (the only branch with children here).
-    branch = treemap.locator("g.slice").filter(has_text=leaf_label.split("<br>")[0])
-    branch.first.click(position={"x": 5, "y": 5})
+    # Branch click: the seeded institution is its own root (no parent), so it
+    # has no branch ancestor — the branch-click half only applies to trees
+    # with a hierarchy. Skip when the clicked leaf IS a root tile (its slice
+    # is the tree's only branch).
+    has_branch = coda_page.evaluate(
+        """leafLabel => {
+            const slices = [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] g.slice")];
+            const norm = s => s.replace(/<br>/g, ' ').replace(/\\s+/g, ' ').trim();
+            return slices.some(g => {
+                const t = g.querySelector('[data-unformatted]');
+                if (!t) return false;
+                const s = norm(t.getAttribute('data-unformatted'));
+                return s !== 'All institutions' && s !== norm(leafLabel)
+                    && !s.startsWith(norm(leafLabel));
+            });
+        }""",
+        leaf_label,
+    )
+    if not has_branch:
+        return
+    coda_page.evaluate(
+        """leafLabel => {
+            const slices = [...document.querySelectorAll(
+                "[data-chart='chart-institution-treemap'] g.slice")];
+            const norm = s => s.replace(/<br>/g, ' ').replace(/\\s+/g, ' ').trim();
+            const branch = slices.find(g => {
+                const t = g.querySelector('[data-unformatted]');
+                if (!t) return false;
+                const s = norm(t.getAttribute('data-unformatted'));
+                return s !== 'All institutions' && !s.startsWith(norm(leafLabel));
+            });
+            branch?.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+        }""",
+        leaf_label,
+    )
     coda_page.wait_for_url(lambda url: "institution=" not in url)
     coda_page.wait_for_function(
         """n => document.querySelectorAll(
