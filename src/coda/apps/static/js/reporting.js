@@ -155,7 +155,29 @@ const renderChart = (element) => {
     const figure = JSON.parse(source.textContent);
     const config = { responsive: true, ...figure.config };
     element.dataset.plotlyRendered = "true";
-    Plotly.newPlot(element, figure.data, figure.layout, config);
+    Plotly.newPlot(element, figure.data, figure.layout, config).then(() => {
+        // Attach after newPlot resolves; `element.on` exists reliably only then.
+        if (figure.tile_links) {
+            attachTileLinks(element, figure.tile_links);
+        }
+    });
+};
+
+// Leaf tiles filter (like the table-row links), branch tiles keep plotly's
+// drilldown. Lookup is by point.id: a branch and its own-publication row
+// share a display label, and the id is stable across drilldown — pointNumber
+// indexes the drilled view, point.label collides for the shared label.
+const attachTileLinks = (element, tileLinks) => {
+    element.on("plotly_treemapclick", (event) => {
+        const point = event?.points?.[0];
+        if (!point) return;
+        const link = tileLinks[point.id];
+        if (!link) return;
+        // Returning false is this bundle's drilldown gate (plotly_<type>click):
+        // it also suppresses the downstream plotly_click, so the fetch lives here.
+        htmx.ajax("GET", link, { target: "#reporting-region", swap: "innerHTML", push: link });
+        return false;
+    });
 };
 
 const renderCharts = (root) => {
