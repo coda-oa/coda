@@ -98,7 +98,7 @@
                                         {% elif column.measure == "publications" %}
                                             {{ column.total }} publications
                                         {% else %}
-                                            {{ column.total|floatformat:2 }} €
+                                            {{ column.total|floatformat:"2g" }} €
                                         {% endif %}
                                     </td>
                                 {% endfor %}
