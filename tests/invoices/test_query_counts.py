@@ -22,7 +22,7 @@ from coda.apps.publications.models import Publication
 from tests import modelfactory
 
 LIST_BUDGET = 14  # measured 11 (+3 slack) with six invoices carrying positions
-DETAIL_BUDGET = 25  # measured 23 (+2 slack) with four positions; see note below
+DETAIL_BUDGET = 13  # measured 11 (+2 slack) with four positions
 
 
 def _query_count(client: Client, url: str) -> int:
@@ -100,9 +100,7 @@ def test__invoice_detail__query_count_within_budget(client: Client) -> None:
     _query_count(client, url)  # warmup: first request pays one-off middleware inserts
     count = _query_count(client, url)
 
-    # The remaining ~2-3 queries/position slope is a pre-existing N+1 in the
-    # currency-conversion view-model path: invoice_import._contract.to_itemdto
-    # re-fetches each position's contract via contract_repository.get_by_id
-    # even though it is already loaded (stack-verified). The domain mapping
-    # itself is query-free (guarded by the repository test above).
+    # The domain mapping is query-free (guarded by the repository test above).
+    # ContractParser.to_itemdto reads the contract from the loaded ContractYear,
+    # so position count adds no queries.
     assert count <= DETAIL_BUDGET

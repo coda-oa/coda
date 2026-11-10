@@ -24,16 +24,13 @@ class ContractParser(PositionParser):
 
     def to_itemdto(self, position: Position) -> ItemDto:
         assert _is_contractitem(position.item)
-        if not position.item.item.contract_id:
-            raise ValueError("Contract ID is required for ContractPosition")
-
-        contract = repository.get_by_id(position.item.item.contract_id)
-        assert contract.id is not None
+        contract_year = position.item.item
+        assert contract_year.id is not None
         return ContractItemDto(
-            id=contract.id,
-            name=contract.name,
+            id=contract_year.id,
+            name=contract_year.name,
             cost_type=position.item.cost_type.value,
-            year=position.item.item.year,
+            year=contract_year.year,
         )
 
 
