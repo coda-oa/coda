@@ -7,7 +7,7 @@ funding request list. The filter rail, chips and region mechanics are the
 funding request list's own — reused through ``partials/filter_layout.html``.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
@@ -23,6 +23,7 @@ from django.views.generic import TemplateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests.filters import build_filter_summary
 from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
@@ -50,6 +51,7 @@ from coda.contexts.statistics.timeline import (
     timeline_figure,
 )
 from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
+from coda.domain.money import Currency
 
 _PAGE_URL = "reporting:stats_fundingrequests"
 _REGION_URL = "reporting:stats_fundingrequests_region"
@@ -112,10 +114,11 @@ class ChartPanel:
 @dataclass(frozen=True)
 class DimensionSection:
     """One section of the page: a dimension, its combined figure and one
-    count-plus-spend table for the whole facet. ``value_count`` is the number
-    of distinct values the facet produced (the "Other" fold counts once);
-    ``unattributed`` the requests the facet could not express as a value —
-    the data-quality signal in the section header."""
+    count-plus-spend table for the whole facet. ``value_count`` is the
+    number of distinct values the facet produced; ``unattributed`` counts
+    the requests the facet could not express as a value, the data-quality
+    signal in the section header. Each section also carries the URL of its
+    per-dimension CSV export (plan §6, §7)."""
 
     dimension_id: str
     label: str
@@ -124,6 +127,7 @@ class DimensionSection:
     columns: tuple[MeasureColumn, ...]
     value_count: int
     unattributed: int = 0
+    export_url: str = ""
 
 
 @breadcrumb("Funding Request Statistics", parent_url_name="reporting:home")
@@ -300,14 +304,7 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     # The home currency is page-wide (both periods convert into it); one
     # lookup serves both facts_for calls.
     home_currency = GlobalPreferences.get_home_currency()
-
-    def build_facts(comparison: DateRange | None) -> tuple[RequestFact, ...]:
-        if comparison is None:
-            return dataset.build_facts(queries.fetch_requests(criteria), home_currency)
-        comparison_criteria = filter_form.search_criteria(
-            date_override=(comparison.start, comparison.end)
-        )[0]
-        return dataset.build_facts(queries.fetch_requests(comparison_criteria), home_currency)
+    build_facts = facts_builder(filter_form, criteria, home_currency)
 
     facts = factcache.facts_for(request.GET, home_currency, build_facts)
     # The comparison window is user-owned: the compare inputs carry it, and
@@ -316,24 +313,15 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     # one-sided dates disable the comparison instead of failing the page, so
     # the rejected value stays visible in its input and the error renders
     # below the switch.
-    comparison_period: DateRange | None = None
-    comparison_error: str | None = None
-    if compare_requested:
-        if "compare_range" in filter_form.errors:
-            comparison_error = str(filter_form.errors["compare_range"][0])
-        else:
-            compare_range = filter_form.cleaned_data.get("compare_range")
-            main_range: DateRange | None = filter_form.cleaned_data.get("date_range")
-            if compare_range is None or compare_range.is_unbounded():
-                comparison_period = main_range.prior_window() if main_range is not None else None
-            elif compare_range.start == date.min or compare_range.end == date.max:
-                comparison_error = "Both comparison dates are required."
-                # Because the view produced this error, compress never ran and
-                # the inputs are not yet marked invalid — do it here so screen
-                # readers can associate the message via aria-describedby.
-                cast(DateRangeWidget, filter_form.fields["compare_range"].widget).mark_invalid()
-            else:
-                comparison_period = compare_range
+    comparison_period, comparison_error = resolve_comparison_period(
+        filter_form, compare_requested=compare_requested
+    )
+    if comparison_error is not None and "compare_range" not in filter_form.errors:
+        # The one-sided-sentinel error is the view's own, so compress never
+        # ran and the inputs are not yet marked invalid. Mark them here so
+        # screen readers can associate the message via aria-describedby. The
+        # export view renders no widget and skips this side effect.
+        cast(DateRangeWidget, filter_form.fields["compare_range"].widget).mark_invalid()
     comparison_facts: tuple[RequestFact, ...] = ()
     if comparison_period:
         comparison_facts = factcache.facts_for(
@@ -365,7 +353,13 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
             "institution": _group_pks((n.pk, getattr(n, n.facet_label_field)) for n in institutions)
         },
     )
-    sections = _sections(report, links, comparison=comparison_report)
+    sections = _sections(
+        report,
+        facts,
+        links,
+        request.GET,
+        comparison=comparison_report,
+    )
     # The treemap reads the whole fact set and renders on the attribution
     # tab; its presence keeps that tab in the nav even when the institution
     # section has no rows.
@@ -444,6 +438,65 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
     }
 
 
+def resolve_comparison_period(
+    filter_form: FundingRequestListFilterForm, *, compare_requested: bool
+) -> tuple[DateRange | None, str | None]:
+    """The comparison window behind the compare toggle (§5.1). Explicit
+    compare dates win over the main range's prior window. One-sided or
+    invalid ranges disable the comparison instead of failing. Returns
+    ``(period, error)`` and touches no widgets. The one-sided-sentinel case
+    also needs ``DateRangeWidget.mark_invalid()`` on the page, because the
+    message must be associated with its inputs. That side effect belongs to
+    the callers. The export treats an error as compare-off."""
+    if not compare_requested:
+        return None, None
+    if "compare_range" in filter_form.errors:
+        return None, str(filter_form.errors["compare_range"][0])
+    compare_range = filter_form.cleaned_data.get("compare_range")
+    main_range: DateRange | None = filter_form.cleaned_data.get("date_range")
+    if compare_range is None or compare_range.is_unbounded():
+        return (main_range.prior_window() if main_range is not None else None), None
+    if compare_range.start == date.min or compare_range.end == date.max:
+        return None, "Both comparison dates are required."
+    return compare_range, None
+
+
+def facts_builder(
+    filter_form: FundingRequestListFilterForm,
+    criteria: list[fundingrequest_query.FundingRequestSearchCriteria],
+    home_currency: Currency,
+) -> Callable[[DateRange | None], tuple[RequestFact, ...]]:
+    """The facts pipeline behind both periods (§5): the main set without a
+    date override, the comparison set under the overridden dates. Shared by
+    the page and the export view so the two cannot drift."""
+
+    def build(comparison: DateRange | None) -> tuple[RequestFact, ...]:
+        if comparison is None:
+            return dataset.build_facts(queries.fetch_requests(criteria), home_currency)
+        comparison_criteria = filter_form.search_criteria(
+            date_override=(comparison.start, comparison.end)
+        )[0]
+        return dataset.build_facts(queries.fetch_requests(comparison_criteria), home_currency)
+
+    return build
+
+
+#: The per-dimension CSV export endpoint (plan §7).
+_EXPORT_URL = "reporting:stats_fundingrequests_export"
+
+
+def _export_url(request_get: QueryDict, dimension_id: str) -> str:
+    """The CSV export URL for one dimension: the page's whole filter set,
+    minus the display state (§7). Deliberately not ``list_view_url``'s prune
+    set, because that one strips the compare dates. The compare dates define
+    the comparison window the export mirrors."""
+    params = params_without(request_get, "tab", "page", "resolution")
+    url = reverse(_EXPORT_URL, args=(dimension_id,))
+    if not params:
+        return url
+    return f"{url}?{params.urlencode()}"
+
+
 def _default_period_url(request: HttpRequest) -> str:
     """Same URL, current calendar year as the period (§8.5): the redirect makes
     the effective period visible in the URL and in every drill-down link."""
@@ -492,14 +545,20 @@ def _dimension_row(
 
 def _sections(
     report: StatisticsReport,
+    facts: Sequence[RequestFact],
     links: DrilldownLinks,
+    request_get: QueryDict,
     comparison: StatisticsReport | None = None,
+    comparison_facts: Sequence[RequestFact] | None = None,
     comparison_label: str = "previous period",
 ) -> list[DimensionSection]:
-    """Figure and shared table under their dimension, in registry order;
-    dimensions without a non-empty grouping do not get an empty section.
-    ``comparison`` carries the comparison period's report when compare is
-    on, and its rows join by label into the delta columns."""
+    """Figure and shared table under their dimension, in registry order.
+    Dimensions without a non-empty grouping do not get an empty section.
+
+    Each section carries its export URL: the per-dimension CSV download
+    mirrors the section's complete value set under the page's filters
+    (plan §6, §7). ``comparison`` feeds the figure's comparison series and
+    joins its rows by label into the comparison columns."""
     specs = {spec.dimension_id: spec for spec in report.charts}
     comparison_specs = {spec.dimension_id: spec for spec in comparison.charts} if comparison else {}
     sections: list[DimensionSection] = []
@@ -542,6 +601,7 @@ def _sections(
                 unattributed=sum(
                     row.publications for row in spec.rows if row.kind is RowKind.UNKNOWN
                 ),
+                export_url=_export_url(request_get, dimension.id),
             )
         )
     return sections

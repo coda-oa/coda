@@ -1,5 +1,6 @@
 from django.urls import path
 
+from coda.apps.reporting.views.export import csv_export
 from coda.apps.reporting.views.home import reporting_home
 from coda.apps.reporting.views.page import reporting_page, reporting_region
 
@@ -12,5 +13,10 @@ urlpatterns = [
         "stats/fundingrequests/region/",
         reporting_region,
         name="stats_fundingrequests_region",
+    ),
+    path(
+        "stats/fundingrequests/export/<str:dimension_id>/",
+        csv_export,
+        name="stats_fundingrequests_export",
     ),
 ]
