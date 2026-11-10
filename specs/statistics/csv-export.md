@@ -134,8 +134,9 @@ label;publications;comparison_publications                                     #
 label;currency;amount;comparison_amount                                        # cost type (no count)
 ```
 
-`funding_source`'s `amount` is *funded by*, not spend — accepted ambiguity of the uniform
-name; the display labels ("spend incl. tax" / "funded by incl. tax") stay on the page.
+`funding_source_budget` and `funding_source_institution` export `amount` as *funded by*, not
+spend — accepted ambiguity of the uniform name; the display labels ("spend incl. tax" /
+"funded by incl. tax") stay on the page.
 
 - A dedicated **`currency` column** follows the `label` column when the dimension has a
   money measure (funder, no money, has no empty currency column). It holds the home

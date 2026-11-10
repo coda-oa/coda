@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from coda.contexts.statistics.dimensions import OTHER, UNASSIGNED, UNKNOWN, ZERO, Dimension
+from coda.contexts.statistics.dimensions import OTHER, UNKNOWN, ZERO, Dimension
 from coda.contexts.statistics.dto import Grouping, GroupRow, Measure, RequestFact, RowKind
 
 DEFAULT_TOP_N = 10
@@ -79,8 +79,6 @@ def group_by(
     def _row_kind(label: str) -> RowKind:
         if label == UNKNOWN:
             return RowKind.UNKNOWN
-        if label == UNASSIGNED:
-            return RowKind.UNASSIGNED
         return RowKind.VALUE
 
     def rank(label: str) -> tuple[Decimal, int, str]:
@@ -93,8 +91,7 @@ def group_by(
         publications = -len(accs[label].request_ids) if counts_values else 0
         return (amount, publications, label)
 
-    # Without a count column, a zero-money row could show nothing at all —
-    # it is noise (cf. UNASSIGNED, contributed only when non-zero).
+    # A zero-money row with no count column can show nothing. It is noise.
     labels = sorted(
         (label for label in accs if counts_values or accs[label].amount != ZERO),
         key=rank,

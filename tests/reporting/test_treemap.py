@@ -7,8 +7,8 @@ the builder's contract directly.
 """
 
 from datetime import date
-from typing import Any
 from decimal import Decimal
+from typing import Any
 
 import pytest
 

@@ -175,7 +175,7 @@ def _add_position(
             report_currency, exchange
         )
         source = FundingSourceDomainMapper.map(assignment.funding_source)
-        ref = FundingSourceRef(source.name)
+        ref = FundingSourceRef(source.name, source.kind())
         money.funded_by[ref] = money.funded_by.get(ref, ZERO) + amount.amount
         assigned += amount.amount
 

@@ -118,8 +118,8 @@ def dimension_csv(
     currency: Currency,
 ) -> bytes:
     """The grouping as CSV (plan §6): ``;``-separated, ``utf-8-sig``-encoded,
-    rows in the grouping's rank order (the table's order), UNKNOWN and
-    UNASSIGNED included. The ``currency`` column follows the ``label``
+    rows in the grouping's rank order (the table's order), UNKNOWN included.
+    The ``currency`` column follows the ``label``
     column when the dimension has a money measure and holds the home
     currency's code on every row, comparison cells included: one page-wide
     currency per ADR-0003, so the code is file-level, not per period. A row

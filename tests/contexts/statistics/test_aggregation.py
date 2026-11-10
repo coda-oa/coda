@@ -157,15 +157,18 @@ def test__group_by_funder__counts_publications_in_full_and_carries_no_amount() -
     assert grouping.total(Measure.PUBLICATIONS) is None
 
 
-def test__group_by_funding_source__splits_money_and_counts_publications_non_additively() -> None:
+def test__group_by_funding_source_budget__splits_money_and_counts_publications_non_additively() -> (
+    None
+):
     facts = (
         make_fact(
             funded_by={
                 source("Budget A"): Decimal("60.00"),
                 source("Budget B"): Decimal("20.00"),
+                source("External Fund", kind="institution"): Decimal("10.00"),
             },
             unassigned=Decimal("20.00"),
-            paid_out_total=Decimal("100.00"),
+            paid_out_total=Decimal("110.00"),
         ),
         make_fact(
             funded_by={source("Budget A"): Decimal("50.00")},
@@ -173,16 +176,39 @@ def test__group_by_funding_source__splits_money_and_counts_publications_non_addi
         ),
     )
 
-    grouping = group_by(facts, dimensions.by_id("funding_source"))
+    grouping = group_by(facts, dimensions.by_id("funding_source_budget"))
 
     assert [(r.label, r.publications, r.amount) for r in grouping.rows] == [
         ("Budget A", 2, Decimal("110.00")),
         ("Budget B", 1, Decimal("20.00")),
-        ("Unassigned", 1, Decimal("20.00")),
     ]
     assert grouping.non_additive == frozenset({Measure.PUBLICATIONS})
     assert grouping.total(Measure.PUBLICATIONS) is None
-    assert grouping.total(Measure.FUNDED_BY) == Decimal("150.00")
+    # The charts show assigned money only. The unassigned remainder belongs
+    # to no source.
+    assert grouping.total(Measure.FUNDED_BY) == Decimal("130.00")
+
+
+def test__group_by_funding_source_institution__shows_only_institution_kind_sources() -> None:
+    facts = (
+        make_fact(
+            funded_by={
+                source("Budget A"): Decimal("60.00"),
+                source("University A", kind="institution"): Decimal("30.00"),
+                source("University B", kind="institution"): Decimal("10.00"),
+            },
+            unassigned=Decimal("20.00"),
+            paid_out_total=Decimal("120.00"),
+        ),
+    )
+
+    grouping = group_by(facts, dimensions.by_id("funding_source_institution"))
+
+    assert [(r.label, r.publications, r.amount) for r in grouping.rows] == [
+        ("University A", 1, Decimal("30.00")),
+        ("University B", 1, Decimal("10.00")),
+    ]
+    assert grouping.total(Measure.FUNDED_BY) == Decimal("40.00")
 
 
 def test__group_by__folds_rows_beyond_the_top_n_into_an_other_row() -> None:
@@ -282,7 +308,7 @@ def test__group_by_contract__counts_the_request_and_its_money_under_each_contrac
     assert grouping.non_additive == frozenset({Measure.PUBLICATIONS, Measure.PAID_OUT})
 
 
-def test__registry__covers_the_twelve_dimensions_of_the_spec_table() -> None:
+def test__registry__covers_the_thirteen_dimensions_of_the_spec_table() -> None:
     assert {d.id for d in dimensions.DIMENSIONS} == {
         "institution",
         "subject_area",
@@ -295,7 +321,8 @@ def test__registry__covers_the_twelve_dimensions_of_the_spec_table() -> None:
         "cost_type",
         "contract",
         "funder",
-        "funding_source",
+        "funding_source_budget",
+        "funding_source_institution",
     }
 
 
@@ -319,7 +346,7 @@ def test__group_by__publications_equal_distinct_request_ids_per_label() -> None:
         make_fact(funded_by={source("Central Fund"): Decimal("10.00")}),
     )
 
-    grouping = group_by(facts, dimensions.by_id("funding_source"))
+    grouping = group_by(facts, dimensions.by_id("funding_source_budget"))
 
     (row,) = grouping.rows
     assert row.label == "Central Fund"
