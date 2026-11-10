@@ -33,6 +33,20 @@ headline cards above them; this class only keeps the anchor id addressable. */
     max-width: 100%;
 }
 
+/* Plotly paints its own light theme into an SVG the server prebuilt, so dark
+   mode inverts the painted result instead of re-theming every figure. The
+   hue-rotate keeps colors' hues (not channels) flipped: data colors invert
+   along with the chrome — an accepted tradeoff of this shortcut. */
+:root[data-theme="dark"] .statistics-chart {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+@media screen and (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .statistics-chart {
+        filter: invert(1) hue-rotate(180deg);
+    }
+}
+
 /* Plotly honors an explicit height; the treemap has no bar-count to size by. */
 .statistics-treemap {
     height: 720px;
