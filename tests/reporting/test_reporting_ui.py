@@ -5,14 +5,16 @@ funding-request list with the active filters."""
 
 import re
 from decimal import Decimal
+from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
 from django.urls import reverse
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 from pytest_django.live_server_helper import LiveServer
 
 from coda.apps.fundingrequests.facets import _FACET_CHOICE_LIMIT
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from tests import modelfactory
 from tests.page_objects import filter_ui_selectors
@@ -288,6 +290,189 @@ def test__statistics_table__column_header__sorts_the_rows(
     count_header.click()
     expect(first_row).to_have_text("Big Ticket Press")
     expect(count_header).to_have_attribute("aria-sort", "ascending")
+
+
+def _computed_color(locator: "Locator") -> str:
+    """The element's computed text color."""
+    color: str = locator.evaluate("(el) => getComputedStyle(el).color")
+    return color
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__statistics_table__fold_toggle__reveals_and_rehides_the_tail(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    """Expanding the Other fold REPLACES the fold row with the tail values
+    (plan §9, as shipped): the unveiled rows join the main tbody, so the
+    fold row disappears, the collapse control appears (only while
+    expanded), and sorting covers the unveiled values too. Collapsing moves
+    the tail back into its hidden tbody and restores the fold row."""
+    for index in range(1, 13):
+        journal = modelfactory.journal(title=f"Journal {index:02d}")
+        request = helpers.request(f"Fold paper {index:02d}")
+        request.publication.article_journal = journal
+        request.publication.save()
+        if index == 10:  # one paid value, so the server rank differs from A→Z
+            position = helpers.position(request.publication.pk, Decimal("500.00"), Decimal("0.00"))
+            helpers.invoice([position])
+
+    _goto_statistics(coda_page, live_server, tab="venues")
+
+    # The exact-value table lives in a collapsed <details>; open it first.
+    coda_page.locator("#statistics-journal details.statistics-exact summary").click()
+    table = coda_page.locator("#statistics-journal table.statistics-values")
+    main_body = table.locator("tbody").first
+    folded_body = table.locator("tbody#folded-journal")
+    other_row = main_body.locator("tr.statistics-aggregate")
+    expand_control = main_body.locator("a.statistics-fold-toggle")
+    collapse_control = table.locator("tfoot tr.statistics-collapse-row")
+
+    expect(other_row).to_be_visible()
+    expect(folded_body).to_be_hidden()
+    expect(collapse_control).to_be_hidden()
+    expect(main_body.locator("tr")).to_have_count(11)  # top 10 + Other
+
+    # The toggles must render as plain links, identical to the section's
+    # export link. A regression to Pico's filled [role=button] look (its
+    # form-button text color) fails this equality loudly.
+    export_link = coda_page.locator("#statistics-journal details.statistics-exact a[download]")
+    link_color = _computed_color(export_link)
+    assert _computed_color(expand_control) == link_color
+    assert _computed_color(collapse_control.locator("a")) == link_color
+
+    # Row-label drilldown links keep the link color but no underline
+    # (reporting.css: .statistics-values th a). A Pico upgrade or CSS
+    # reorder that restores underlines fails here.
+    row_link = main_body.locator("tr th a").first
+    assert row_link.evaluate("(el) => getComputedStyle(el).textDecorationLine") == "none"
+    assert _computed_color(row_link) == link_color
+
+    # The href-less toggles lost Pico's [role=button] focus treatment, so
+    # their keyboard focus indicator is pinned: reach the expand control
+    # with genuine Tab key presses (a scripted el.focus() would not match
+    # Chromium's :focus-visible heuristic; the walk below is the
+    # deterministic route), then require a visible indicator.
+    toggle_reached = False
+    for _ in range(20):
+        coda_page.keyboard.press("Tab")
+        if coda_page.evaluate(
+            "() => document.activeElement?.classList.contains('statistics-fold-toggle')"
+        ):
+            toggle_reached = True
+            break
+    assert toggle_reached, "fold toggle not reachable via keyboard Tab"
+    focus_style = coda_page.evaluate(
+        "() => { const s = getComputedStyle(document.activeElement);"
+        " return {outlineStyle: s.outlineStyle, outlineWidth: s.outlineWidth,"
+        " boxShadow: s.boxShadow}; }"
+    )
+    assert (
+        focus_style["outlineStyle"] != "none"
+        or focus_style["outlineWidth"] not in ("0px", "")
+        or focus_style["boxShadow"] != "none"
+    ), focus_style
+
+    expand_control.click()
+    # The Other row yields; the tail is now ordinary sortable rows in the
+    # main tbody, and the collapse control takes over.
+    expect(other_row).to_be_hidden()
+    expect(expand_control).to_be_hidden()  # it lives in the Other row
+    expect(collapse_control).to_be_visible()
+    expect(collapse_control.locator("a")).to_have_attribute("aria-expanded", "true")
+    expect(main_body.locator("tr")).to_have_count(13)  # 12 values + hidden Other
+    expect(main_body.locator("th", has_text="Journal 11")).to_be_visible()
+
+    # Sorting covers the unveiled values: the label column orders the whole
+    # set, not just the top 10.
+    label_header = table.locator("thead th").first
+    expect(main_body.locator("tr th").first).to_have_text("Journal 10")
+    label_header.click()
+    expect(main_body.locator("tr th").first).to_have_text("Journal 01")
+    expect(main_body.locator("th", has_text="Journal 12")).to_be_visible()
+
+    collapse_control.locator("a").click()
+    expect(other_row).to_be_visible()
+    expect(collapse_control).to_be_hidden()
+    expect(folded_body).to_be_hidden()
+    expect(folded_body.locator("th", has_text="Journal 11")).to_have_count(1)
+    expect(folded_body.locator("th", has_text="Journal 12")).to_have_count(1)
+    expect(main_body.locator("tr")).to_have_count(11)
+    # Server rank order restored: the one paid value leads again.
+    expect(main_body.locator("tr th").first).to_have_text("Journal 10")
+    # The collapse also clears the sort state: no aria-sort on the headers
+    # and no data-sort-* on the table, so the next header click takes the
+    # fresh-state default (label column A→Z) instead of flipping from the
+    # stale direction.
+    expect(table.locator("thead th[aria-sort='ascending']")).to_have_count(0)
+    expect(table.locator("thead th[aria-sort='descending']")).to_have_count(0)
+    expect(table).not_to_have_attribute("data-sort-column", re.compile(".+"))
+    expect(table).not_to_have_attribute("data-sort-direction", re.compile(".+"))
+    label_header.click()
+    expect(main_body.locator("tr th").first).to_have_text("Journal 01")
+
+    # The text links are keyboard-activatable (no href, so reporting.js
+    # mirrors the sortable headers' Enter/Space handling): Enter expands,
+    # Space collapses.
+    expand_control.focus()
+    coda_page.keyboard.press("Enter")
+    expect(other_row).to_be_hidden()
+    expect(main_body.locator("th", has_text="Journal 11")).to_be_visible()
+
+    collapse_control.locator("a").focus()
+    coda_page.keyboard.press(" ")
+    expect(other_row).to_be_visible()
+    expect(collapse_control).to_be_hidden()
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__statistics_table__export_csv__downloads_the_section_csv(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    """The Export CSV link downloads the section's complete value set in a
+    real browser (plan §6, §8): suggested filename names the dimension and a
+    timestamp, the bytes carry the BOM, the header is exact, the row count
+    matches the section's value count, the currency column holds the home
+    currency's code, and amount cells are bare decimals."""
+    seed()
+
+    _goto_statistics(
+        coda_page,
+        live_server,
+        tab="venues",
+        compare="1",
+        compare_start_date="2025-01-01",
+        compare_end_date="2025-12-31",
+    )
+
+    details = coda_page.locator("#statistics-journal details.statistics-exact")
+    details.locator("summary").click()
+    link = details.locator("a[download]", has_text="Export table as CSV")
+
+    with coda_page.expect_download() as download_info:
+        link.click()
+    download = download_info.value
+    assert re.fullmatch(r"journal_export_\d{8}_\d{6}\.csv", download.suggested_filename)
+
+    content = Path(download.path()).read_bytes()
+    assert content.startswith(b"\xef\xbb\xbf")
+    lines = content.decode("utf-8-sig").splitlines()
+    assert lines[0] == (
+        "label;currency;publications;amount;comparison_publications;comparison_amount"
+    )
+
+    summary_text = details.locator("summary").text_content() or ""
+    summary_match = re.search(r"\((\d+) rows\)", summary_text)
+    assert summary_match is not None
+    assert len(lines) - 1 == int(summary_match.group(1))
+
+    code = GlobalPreferences.get_home_currency().code
+    cells = lines[1].split(";")
+    # The currency column carries the home currency's code; the amount is a
+    # bare decimal.
+    assert cells[1] == code
+    assert re.fullmatch(r"\d+(\.\d+)?", cells[3])
 
 
 @pytest.mark.ui_test
