@@ -7,7 +7,7 @@ funding request list. The filter rail, chips and region mechanics are the
 funding request list's own — reused through ``partials/filter_layout.html``.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
@@ -36,6 +36,7 @@ from coda.apps.reporting.drilldown import DrilldownLinks, _group_pks, list_view_
 from coda.apps.reporting.treemap import institution_treemap
 from coda.apps.widgets import DateRangeWidget
 from coda.contexts.statistics import aggregation, charts
+from coda.contexts.statistics.aggregation import DEFAULT_TOP_N
 from coda.contexts.statistics.dimensions import DIMENSIONS, Dimension, by_id
 from coda.contexts.statistics.dto import (
     ChartSpec,
@@ -114,11 +115,14 @@ class ChartPanel:
 @dataclass(frozen=True)
 class DimensionSection:
     """One section of the page: a dimension, its combined figure and one
-    count-plus-spend table for the whole facet. ``value_count`` is the
-    number of distinct values the facet produced; ``unattributed`` counts
-    the requests the facet could not express as a value, the data-quality
-    signal in the section header. Each section also carries the URL of its
-    per-dimension CSV export (plan §6, §7)."""
+    count-plus-spend table for the whole facet. ``rows`` are the visible
+    rows (first ``DEFAULT_TOP_N`` values, then the "Other" fold). ``folded``
+    holds the rows hidden under the Other row's client-side disclosure
+    (§9). Visible and folded rows together are the dimension's complete
+    value set, the same set the CSV export serializes. ``value_count`` is
+    the number of distinct values the facet produced (the full set, not the
+    visible slice). ``unattributed`` counts the requests the facet could
+    not express as a value, the data-quality signal in the section header."""
 
     dimension_id: str
     label: str
@@ -126,6 +130,7 @@ class DimensionSection:
     rows: tuple[DimensionRow, ...]
     columns: tuple[MeasureColumn, ...]
     value_count: int
+    folded: tuple[DimensionRow, ...] = ()
     unattributed: int = 0
     export_url: str = ""
 
@@ -359,6 +364,7 @@ def reporting_context(request: HttpRequest) -> dict[str, Any]:
         links,
         request.GET,
         comparison=comparison_report,
+        comparison_facts=comparison_facts if comparison_period else None,
     )
     # The treemap reads the whole fact set and renders on the attribution
     # tab; its presence keeps that tab in the nav even when the institution
@@ -543,6 +549,24 @@ def _dimension_row(
     )
 
 
+def _joined_row(
+    row: GroupRow,
+    comparison_rows: Mapping[str, GroupRow],
+    dimension: Dimension,
+    links: DrilldownLinks,
+) -> DimensionRow:
+    """One table row for any slice of the unbounded grouping (visible,
+    folded, Other): resolves the row's drilldown link and the dimension's
+    spend flag, then delegates to ``_dimension_row`` for the comparison
+    join."""
+    return _dimension_row(
+        row,
+        comparison_rows.get(row.label),
+        links.link(dimension.id, row),
+        has_spend=dimension.money is not None,
+    )
+
+
 def _sections(
     report: StatisticsReport,
     facts: Sequence[RequestFact],
@@ -555,10 +579,15 @@ def _sections(
     """Figure and shared table under their dimension, in registry order.
     Dimensions without a non-empty grouping do not get an empty section.
 
-    Each section carries its export URL: the per-dimension CSV download
-    mirrors the section's complete value set under the page's filters
-    (plan §6, §7). ``comparison`` feeds the figure's comparison series and
-    joins its rows by label into the comparison columns."""
+    The table's rows come from an *unbounded* grouping (plan §9): the first
+    ``DEFAULT_TOP_N`` values render visible, the rest fold under the Other
+    row's client-side disclosure and carry their links and comparison values
+    like the visible ones. The chart keeps its own bounded grouping. The
+    table is a superset of the chart's row set, and both derive from the
+    same fact set. ``comparison`` feeds the figure's comparison series.
+    ``comparison_facts`` (present when the compare toggle resolved to a
+    period) is grouped unbounded too and joins by label into the comparison
+    columns. The Other row joins the comparison's own Other fold."""
     specs = {spec.dimension_id: spec for spec in report.charts}
     comparison_specs = {spec.dimension_id: spec for spec in comparison.charts} if comparison else {}
     sections: list[DimensionSection] = []
@@ -566,20 +595,40 @@ def _sections(
         spec = specs.get(dimension.id)
         if spec is None:
             continue
-        comparison_rows = (
-            {row.label: row for row in comparison_specs[dimension.id].rows}
-            if dimension.id in comparison_specs
-            else {}
+        full = aggregation.group_by(facts, dimension, top_n=None)
+        visible = full.rows[:DEFAULT_TOP_N]
+        folded_rows = full.rows[DEFAULT_TOP_N:]
+        # The Other fold is the bounded grouping's aggregate row: the same
+        # slice logic group_by applies internally, kept in one place there.
+        other = next(
+            (
+                row
+                for row in aggregation.group_by(facts, dimension).rows
+                if row.kind is RowKind.OTHER
+            ),
+            None,
         )
-        rows = tuple(
-            _dimension_row(
-                row,
-                comparison_rows.get(row.label),
-                links.link(dimension.id, row),
-                has_spend=dimension.money is not None,
+        comparison_rows: dict[str, GroupRow] = {}
+        if comparison_facts is not None:
+            comparison_rows = {
+                row.label: row
+                for row in aggregation.group_by(comparison_facts, dimension, top_n=None).rows
+            }
+            # The Other fold exists only in the comparison's bounded grouping.
+            comparison_spec = comparison_specs.get(dimension.id)
+            other_comparison = (
+                next(
+                    (row for row in comparison_spec.rows if row.kind is RowKind.OTHER),
+                    None,
+                )
+                if comparison_spec
+                else None
             )
-            for row in spec.rows
-        )
+            if other_comparison is not None:
+                comparison_rows[other_comparison.label] = other_comparison
+        rows = tuple(_joined_row(row, comparison_rows, dimension, links) for row in visible)
+        if other is not None:
+            rows += (_joined_row(other, comparison_rows, dimension, links),)
         sections.append(
             DimensionSection(
                 dimension_id=dimension.id,
@@ -588,6 +637,9 @@ def _sections(
                     spec, comparison_specs.get(dimension.id), comparison_label=comparison_label
                 ),
                 rows=rows,
+                folded=tuple(
+                    _joined_row(row, comparison_rows, dimension, links) for row in folded_rows
+                ),
                 columns=tuple(
                     MeasureColumn(
                         measure=column.measure,
@@ -597,9 +649,9 @@ def _sections(
                     )
                     for column in spec.columns
                 ),
-                value_count=len(spec.rows),
+                value_count=len(full.rows),
                 unattributed=sum(
-                    row.publications for row in spec.rows if row.kind is RowKind.UNKNOWN
+                    row.publications for row in full.rows if row.kind is RowKind.UNKNOWN
                 ),
                 export_url=_export_url(request_get, dimension.id),
             )

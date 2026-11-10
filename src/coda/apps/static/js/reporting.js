@@ -240,6 +240,11 @@ const cellValue = (cell) => {
 };
 
 const sortRows = (table, columnIndex, ascending) => {
+    // Only the first tbody sorts. The collapsed tail lives in a second
+    // tbody below it, in the server's rank order by design. Expanding moves
+    // the tail into the first tbody, so the unveiled values sort with the
+    // rest. The Other fold row stays last under any order
+    // (statistics-aggregate pin).
     const body = table.tBodies[0];
     const folds = [...body.rows].filter((row) => row.classList.contains("statistics-aggregate"));
     const entities = [...body.rows].filter((row) => !folds.includes(row));
@@ -278,6 +283,102 @@ document.addEventListener("click", (event) => {
     const header = actionableHeader(event.target);
     if (header) {
         sortByHeader(header);
+        return;
+    }
+    const toggle = foldToggle(event.target);
+    if (toggle) {
+        toggleFold(toggle);
+    }
+});
+
+// The "Other" fold row hides the tail values in a second, hidden tbody.
+// Expanding moves the tail rows into the main tbody, so the unveiled values
+// sort with the rest. Collapsing restores the Other row and the server's
+// rank order via the rows' server indices. The expand control lives in the
+// Other row's label cell, the collapse control in the tfoot (never sorted),
+// and both mirror aria-expanded. They are plain link-styled anchors with
+// tabindex="0": no role="button" (Pico renders that as a filled button) and
+// no href (not natively key-activatable, hence the Enter/Space handler
+// below). Delegated like the sorting, so htmx-swapped tables work as is.
+const foldToggle = (target) =>
+    target instanceof Element ? target.closest("a.statistics-fold-toggle") : null;
+
+const toggleFold = (button) => {
+    const table = button.closest("table");
+    const mainBody = table.tBodies[0];
+    const foldedBody = table.tBodies[1];
+    if (!foldedBody) {
+        return;
+    }
+    const otherRow = mainBody.querySelector("tr.statistics-aggregate");
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    const byServerOrder = (left, right) =>
+        Number(left.dataset.serverIndex) - Number(right.dataset.serverIndex);
+    if (expanded) {
+        const foldedRows = [...mainBody.rows]
+            .filter((row) => row.classList.contains("statistics-folded"))
+            .sort(byServerOrder);
+        for (const row of foldedRows) {
+            row.classList.remove("statistics-folded");
+            foldedBody.append(row);
+        }
+        if (otherRow) {
+            otherRow.hidden = false;
+        }
+        // Undo any client-side sort: the table returns to the server's rank
+        // order (the tail kept its indices from the expand step). The sort
+        // state goes too: otherwise assistive tech announces a sort that is
+        // no longer applied, and the next header click flips from the stale
+        // direction instead of the fresh-state default.
+        for (const row of [...mainBody.rows].sort(byServerOrder)) {
+            mainBody.append(row);
+        }
+        delete table.dataset.sortColumn;
+        delete table.dataset.sortDirection;
+        table
+            .querySelectorAll("thead th")
+            .forEach((th) => th.removeAttribute("aria-sort"));
+    } else {
+        // The Other row is last in the main tbody; the tail's server indices
+        // continue after the visible rows, the Other row's after the tail.
+        const base = mainBody.rows.length - 1;
+        [...mainBody.rows].forEach((row, index) => {
+            row.dataset.serverIndex = String(index);
+        });
+        if (otherRow) {
+            otherRow.dataset.serverIndex = String(base + foldedBody.rows.length);
+        }
+        let index = base;
+        for (const row of [...foldedBody.rows]) {
+            row.dataset.serverIndex = String(index++);
+            row.classList.add("statistics-folded");
+            if (otherRow) {
+                otherRow.before(row);
+            } else {
+                mainBody.append(row);
+            }
+        }
+        if (otherRow) {
+            otherRow.hidden = true;
+        }
+    }
+    table.querySelectorAll("a.statistics-fold-toggle").forEach((toggle) => {
+        toggle.setAttribute("aria-expanded", String(!expanded));
+    });
+    const collapseRow = table.querySelector("tr.statistics-collapse-row");
+    if (collapseRow) {
+        collapseRow.hidden = expanded;
+    }
+};
+
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+        return;
+    }
+    const toggle = foldToggle(event.target);
+    if (toggle) {
+        event.preventDefault();
+        toggleFold(toggle);
     }
 });
 

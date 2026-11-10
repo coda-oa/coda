@@ -58,3 +58,15 @@ _Avoid_: breakdown, grouping
 **Facet**:
 The filter-form half of a dimension: the GET parameter (or parameters) whose values select the requests behind a chart row. A facet value is what one chart row drills down through.
 _Avoid_: filter criterion, chart filter
+
+**Fold**:
+The bundling of a dimension's values beyond the top-ranked ones into a single "Other" entry in a statistics chart or table. The folded values stay individually available: expanded in the table on the page, and complete in a table export.
+_Avoid_: othering, remainder, tail, grouping
+
+**Table export**:
+An on-demand CSV download of one dimension's complete value set under the current filters, carrying the comparison period's raw values when compare is on. Produced per request, never stored. Unqualified "export" means the persisted funding-request export below, not this.
+_Avoid_: report, download (in prose about this feature)
+
+**Funding-request CSV export**:
+A named, persisted CSV snapshot of funding requests created in the exports area and stored as a file.
+_Avoid_: table export

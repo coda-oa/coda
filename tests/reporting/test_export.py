@@ -200,8 +200,9 @@ def test__export__exports_the_complete_set__superset_of_the_page_top10(
 
     region = goto_region(client, tab="venues")
     section = sections_of(region)["journal"]
-    assert section.value_count == 11  # top 10 + the Other fold
+    assert section.value_count == 12
     assert [row.label for row in section.rows] == [*sorted(titles)[:10], "Other"]
+    assert [row.label for row in section.folded] == sorted(titles)[10:]
 
     response = goto_export(client, "journal")
     assert response.status_code == HTTPStatus.OK
@@ -211,6 +212,130 @@ def test__export__exports_the_complete_set__superset_of_the_page_top10(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__page__chart_rows__stay_bounded(client: Client) -> None:
+    """The table is a superset of the chart's row set by design (§9): the
+    figure keeps its own bounded grouping, top-10 plus the Other fold."""
+    titles = seed_tail(12)
+
+    region = goto_region(client, tab="venues")
+    figure = sections_of(region)["journal"].chart.figure
+    assert list(figure["data"][0]["x"]) == [*sorted(titles)[:10], "Other"]
+
+
+# -- Table expansion (§9) ----------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__page__folded_rows__render_in_a_hidden_disclosure(client: Client) -> None:
+    titles = seed_tail(12)
+
+    region = goto_region(client, tab="venues")
+    section = section_dom(region, "journal")
+    visible, hidden = tbodies(section)
+    assert hidden is not None
+    # The export link lives inside the expandable table section, below the
+    # table it exports (as-shipped §8), outside the <summary>, which would
+    # toggle the details on click.
+    details = next(
+        element
+        for element in walk(section)
+        if element.name == "details"
+        and "statistics-exact" in (dict(element.attributes).get("class") or "")
+    )
+    export_div = next(element for element in walk(details) if element.name == "div")
+    export_anchor = next(element for element in walk(export_div) if element.name == "a")
+    anchor_attrs = dict(export_anchor.attributes)
+    assert text_of(export_anchor) == "Export table as CSV"
+    assert anchor_attrs.get("download") is not None
+    assert anchor_attrs.get("href") == sections_of(region)["journal"].export_url
+    # Compact house styling: a small-wrapped plain text link, right-aligned,
+    # no button chrome.
+    assert any(element.name == "small" for element in walk(export_div))
+    assert "justify-end" in (dict(export_div.attributes).get("class") or "")
+    assert "role" not in anchor_attrs
+    assert "outline" not in (anchor_attrs.get("class") or "")
+    # …and it is not the summary itself (that would toggle the details).
+    assert all(element.name != "summary" for element in walk(export_div))
+    # The Other row's expand control is a plain text link: Pico's base `a`
+    # look. No role="button", which triggers Pico's filled form-button
+    # styling, and no undecorated class. tabindex keeps it reachable. The
+    # reveal is reporting.js's delegated toggle, ui-tested end to end.
+    toggle = next(
+        element
+        for element in walk(visible)
+        if element.name == "a"
+        and "statistics-fold-toggle" in (dict(element.attributes).get("class") or "")
+    )
+    toggle_attrs = dict(toggle.attributes)
+    assert "role" not in toggle_attrs
+    assert "undecorated" not in (toggle_attrs.get("class") or "")
+    assert toggle_attrs.get("tabindex") == "0"
+    assert "aria-controls" not in toggle_attrs
+    assert toggle_attrs.get("aria-expanded") == "false"
+    # The collapse control is server-rendered but hidden in the tfoot, a row
+    # sorting never touches, and only shows while expanded. No <button>
+    # remains in the table chrome: both controls are text links.
+    tfoot = next(element for element in walk(section) if element.name == "tfoot")
+    collapse_row = next(
+        element
+        for element in walk(tfoot)
+        if element.name == "tr"
+        and "statistics-collapse-row" in (dict(element.attributes).get("class") or "")
+    )
+    collapse_attrs = dict(collapse_row.attributes)
+    assert "hidden" in collapse_attrs
+    collapse_toggle = next(
+        element
+        for element in walk(collapse_row)
+        if element.name == "a"
+        and "statistics-fold-toggle" in (dict(element.attributes).get("class") or "")
+    )
+    assert text_of(collapse_toggle) == "Show top values only"
+    collapse_toggle_attrs = dict(collapse_toggle.attributes)
+    assert "role" not in collapse_toggle_attrs
+    assert "undecorated" not in (collapse_toggle_attrs.get("class") or "")
+    assert collapse_toggle_attrs.get("tabindex") == "0"
+    assert not [element for element in walk(section) if element.name == "button"]
+    # The label cell carries the toggle's text alongside the label.
+    assert row_labels(visible)[-1].startswith("Other")
+    assert set(row_labels(hidden)) == set(sorted(titles)[10:])
+    # Folded rows are real values: they carry the drilldown links.
+    links = [
+        dict(element.attributes).get("href") for element in walk(hidden) if element.name == "a"
+    ]
+    assert links
+    assert all(link and reverse("reporting:stats_fundingrequests_region") in link for link in links)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__page__folded_rows__carry_comparison_values(client: Client) -> None:
+    titles = seed_tail(12)
+    journal_paper("Prior paper", titles[10], year=2025)
+
+    region = goto_region(client, tab="venues", **_COMPARE)
+    section = sections_of(region)["journal"]
+    folded = {row.label: row for row in section.folded}
+    assert folded[titles[10]].comparison_publications == 1
+    assert folded[titles[11]].comparison_publications == 0
+    assert folded[titles[11]].comparison_amount is None
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__page__visible_plus_folded__equal_the_export_rows(client: Client) -> None:
+    seed_tail(12)
+
+    region = goto_region(client, tab="venues", **_COMPARE)
+    section = sections_of(region)["journal"]
+    page_labels = [row.label for row in section.rows if row.kind != "other"]
+    page_labels += [row.label for row in section.folded]
+
+    response = goto_export(client, "journal", **_COMPARE)
+    assert page_labels == csv_labels(response)
+
+
 # -- Comparison values (§11) -------------------------------------------------
 
 

@@ -309,6 +309,12 @@ headline cards above them; this class only keeps the anchor id addressable. */
     font-weight: 400;
 }
 
+.statistics-values th a {
+    /* Row labels keep the link colour but drop the underline: in a table
+       where every row is a link, underlines are noise. */
+    text-decoration: none;
+}
+
 .headline-delta {
     font-size: 0.9rem;
     font-weight: 400;
