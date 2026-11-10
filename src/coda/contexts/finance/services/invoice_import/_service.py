@@ -27,6 +27,8 @@ from ._entity_creation import (
     build_funding_assignments_lookup,
     build_funding_source_lookup,
     build_publication_lookup,
+    referenced_request_ids,
+    request_publication_ids,
 )
 from ._parsing import create_invoices_from_dtos
 from ._validation import (
@@ -66,7 +68,10 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
 def _process_invoices(
     invoice_dtos: list[InvoiceImportDto],
 ) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
-    invoices_with_missing_publications = find_invoices_with_missing_publications(invoice_dtos)
+    request_publications = request_publication_ids(referenced_request_ids(invoice_dtos))
+    invoices_with_missing_publications = find_invoices_with_missing_publications(
+        invoice_dtos, request_publications
+    )
     invoices_with_missing_institutions = find_invoices_with_missing_institutions(invoice_dtos)
 
     invalid_invoice_numbers = (
@@ -85,7 +90,7 @@ def _process_invoices(
             + build_missing_institution_errors(invoice_dtos, invoices_with_missing_institutions)
         )
 
-    lookups = _build_entity_lookups(valid_invoice_dtos)
+    lookups = _build_entity_lookups(valid_invoice_dtos, request_publications)
     invoices, invoice_processing_errors = create_invoices_from_dtos(valid_invoice_dtos, lookups)
 
     save_many(invoices)
@@ -104,11 +109,13 @@ def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -
         invoice.id = invoice_id
 
 
-def _build_entity_lookups(invoice_dtos: list[InvoiceImportDto]) -> ImportLookups:
+def _build_entity_lookups(
+    invoice_dtos: list[InvoiceImportDto], request_publications: dict[str, int]
+) -> ImportLookups:
     return ImportLookups(
         creditor_lookup=build_creditor_lookup(invoice_dtos),
         funding_sources_lookup=build_funding_source_lookup(invoice_dtos),
-        request_id_lookup=build_publication_lookup(invoice_dtos),
+        request_id_lookup=build_publication_lookup(request_publications),
         contract_lookup=build_contract_lookup(invoice_dtos),
         funding_assignments_lookup=build_funding_assignments_lookup(invoice_dtos),
     )

@@ -45,12 +45,8 @@ def create_invoice(
     return invoice
 
 
-def invoice_key(invoice_dto: InvoiceImportDto) -> str:
-    return str(hash(invoice_dto.model_dump_json()))
-
-
 def build_positions_for_invoices(
-    invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
+    keyed_dtos: list[tuple[str, InvoiceImportDto]], lookups: ImportLookups
 ) -> dict[str, errors.ResultCollection[Position, InvoiceProcessingError]]:
     def to_processing_error(
         ex: ValueError,
@@ -62,10 +58,10 @@ def build_positions_for_invoices(
 
     positions = {}
     with errors.capture(ValueError) as capture:
-        for invoice_dto in invoice_dtos:
+        for key, invoice_dto in keyed_dtos:
             currency = Currency.from_code(invoice_dto.currency)
 
-            positions[invoice_key(invoice_dto)] = errors.results(
+            positions[key] = errors.results(
                 [
                     capture(import_parse, p, currency).map_err(to_processing_error, invoice_dto)
                     for p in invoice_dto.positions
@@ -78,7 +74,10 @@ def build_positions_for_invoices(
 def create_invoices_from_dtos(
     invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
 ) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
-    positions_lookup = build_positions_for_invoices(invoice_dtos, lookups)
+    # The keys only join positions to their invoice within this call, so the
+    # enumeration index suffices and no DTO serialization is needed.
+    keyed_dtos = [(str(index), invoice_dto) for index, invoice_dto in enumerate(invoice_dtos)]
+    positions_lookup = build_positions_for_invoices(keyed_dtos, lookups)
     invoices_with_errors = [
         err
         for results in positions_lookup.values()
@@ -86,8 +85,8 @@ def create_invoices_from_dtos(
         if results.has_errors()
     ]
     valid_invoice_positions = {
-        invoice_key: results.values()
-        for invoice_key, results in positions_lookup.items()
+        key: results.values()
+        for key, results in positions_lookup.items()
         if not results.has_errors()
     }
 
@@ -95,10 +94,10 @@ def create_invoices_from_dtos(
         create_invoice(
             invoice_dto,
             lookups.creditor_lookup[invoice_dto.creditor],
-            valid_invoice_positions[invoice_key(invoice_dto)],
+            valid_invoice_positions[key],
         )
-        for invoice_dto in invoice_dtos
-        if invoice_key(invoice_dto) in valid_invoice_positions
+        for key, invoice_dto in keyed_dtos
+        if key in valid_invoice_positions
     ]
 
     return parsed_invoices, invoices_with_errors
