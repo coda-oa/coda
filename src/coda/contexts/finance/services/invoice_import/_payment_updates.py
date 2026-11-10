@@ -37,8 +37,7 @@ def unpay_deleted_publication_positions(invoice: Invoice) -> None:
     if not invoice.id:
         return
 
-    saved_invoice = repository.get_by_id(invoice.id)
-    saved_publication_positions = set(publication_positions(saved_invoice))
+    saved_publication_positions = set(repository.publication_position_ids(invoice.id))
     new_publication_positions = set(publication_positions(invoice))
     deleted_publication_ids = saved_publication_positions.difference(new_publication_positions)
     for publication in deleted_publication_ids:

@@ -1,8 +1,11 @@
+from decimal import Decimal
 from typing import cast
 
 import pytest
 
 from coda.apps.invoices import repository
+from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Position as PositionModel
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.contexts.finance.services.invoice_import import (
@@ -16,7 +19,11 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import SplitSource
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.finance.invoice_positions import Position
-from coda.domain.publication.payment import Payment, PublicationPayments
+from coda.domain.publication.payment import (
+    InvoiceReceived,
+    Payment,
+    PublicationPayments,
+)
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
@@ -148,7 +155,7 @@ def test__invoice__delete_invoice__invoice_is_deleted() -> None:
 
     delete_invoice(invoice.id)
 
-    with pytest.raises(Exception):
+    with pytest.raises(InvoiceModel.DoesNotExist):
         repository.get_by_id(invoice.id)
 
 
@@ -229,6 +236,47 @@ def test__two_paid_invoices_have_the_same_publication__removing_publication_from
     save(invoice2)
 
     assert_publication_paid(publication, invoice)
+
+
+@pytest.mark.django_db
+def test__dual_contract_and_publication_position__removing_publication_position__leaves_dual_publication_payment_untouched() -> (
+    None
+):
+    """
+    A position row can carry both a contract and a publication. The mapper's
+    precedence makes it a ContractItem, so its publication is not a publication
+    position. The deleted-position sweep must not remove its payment.
+    """
+    publication_1 = create_publication()
+    publication_2 = create_publication()
+    invoice = unpaid_invoice_for_publications(publication_1)
+    invoice.id = save(invoice)
+
+    contract = modelfactory.contract()
+    PositionModel.objects.create(
+        description="OA fee",
+        invoice=InvoiceModel.objects.get(pk=invoice.id),
+        publication_id=publication_2,
+        contract=contract,
+        contract_year=2024,
+        cost_amount=Decimal("100.00"),
+        cost_currency="EUR",
+        cost_type="read",
+        tax_rate=Decimal("19.00"),
+    )
+    publications.update_payment(
+        publication_2,
+        InvoiceReceived(cast(InvoiceId, invoice.id), invoice.number),
+    )
+
+    saved = repository.get_by_id(cast(InvoiceId, invoice.id))
+    saved.positions = [
+        p for p in saved.positions if not isinstance(p.item.item, PublicationId)
+    ]
+    save(saved)
+
+    assert_publication_unpaid(publication_1)
+    assert_invoice_received(saved, publication_2)
 
 
 @pytest.mark.django_db
