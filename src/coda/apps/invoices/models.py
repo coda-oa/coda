@@ -17,6 +17,22 @@ class FundingSource(models.Model):
         budget = ("budget", "Budget")
         institution = ("institution", "Institution")
 
+    #: Label field per source kind: a budget label is its own name; an
+    #: institution source label is the live institution name.
+    label_field_by_type: ClassVar[dict[str, str]] = {
+        TypeChoices.budget: "name",
+        TypeChoices.institution: "institution__name",
+    }
+
+    @classmethod
+    def by_type_labelled(
+        cls, source_type: str
+    ) -> models.QuerySet["FundingSource", tuple[int, str]]:
+        """The sources of one kind, as (pk, label) rows for facet tables."""
+        return cls.objects.filter(type=source_type).values_list(
+            "pk", cls.label_field_by_type[source_type]
+        )
+
     type = models.CharField(max_length=255, default="budget", choices=TypeChoices)
     name = models.CharField(max_length=255, blank=True)
     institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
@@ -67,7 +83,7 @@ class Invoice(models.Model):
     external_invoice_id = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list[models.BaseConstraint]] = [
             models.CheckConstraint(
                 condition=models.Q(status__in=[s.value for s in PaymentStatus]),
                 name="invoice_status_valid",

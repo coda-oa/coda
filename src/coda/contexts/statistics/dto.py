@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +34,19 @@ class ContractRef:
         return f"{self.name} ({self.year})"
 
 
+FundingSourceKind = Literal["budget", "institution"]
+
+
 @dataclass(frozen=True, slots=True)
 class FundingSourceRef:
-    """A cost-splitting funding source, the institution-kind one that pays (ADR-0008)."""
+    """A cost-splitting funding source, tagged by kind (ADR-0008).
+
+    A ``budget`` source pays out of a named budget. An ``institution`` source
+    pays out of an institution's share. The kind splits the funded-by view
+    into one chart per kind. The name alone is not unique across kinds."""
 
     name: str
+    kind: FundingSourceKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +103,6 @@ class RowKind(StrEnum):
 
     VALUE = "value"
     UNKNOWN = "unknown"  # a missing attribute grouped as "Unknown"
-    UNASSIGNED = "unassigned"  # money with no funding-source assignment
     OTHER = "other"  # the top-N fold: aggregates many values
 
 

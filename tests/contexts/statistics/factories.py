@@ -4,7 +4,12 @@ import itertools
 from datetime import date
 from decimal import Decimal
 
-from coda.contexts.statistics.dto import FundingSourceRef, InstitutionRef, RequestFact
+from coda.contexts.statistics.dto import (
+    FundingSourceKind,
+    FundingSourceRef,
+    InstitutionRef,
+    RequestFact,
+)
 
 _request_ids = itertools.count(1)
 _publication_ids = itertools.count(100)
@@ -42,5 +47,5 @@ def institution(name: str) -> InstitutionRef:
     return InstitutionRef(name=name)
 
 
-def source(name: str) -> FundingSourceRef:
-    return FundingSourceRef(name=name)
+def source(name: str, kind: FundingSourceKind = "budget") -> FundingSourceRef:
+    return FundingSourceRef(name=name, kind=kind)

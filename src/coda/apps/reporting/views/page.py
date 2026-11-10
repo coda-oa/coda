@@ -63,7 +63,7 @@ _REGION_ELEMENT_ID = "reporting-region"
 class DimensionRow:
     """One row of a dimension's shared exact-value table; ``link`` filters the
     statistics page to the row's set (toggle off when already active), None
-    when it cannot be expressed as list filters (Other/Unknown/Unassigned).
+    when it cannot be expressed as list filters (Other/Unknown).
     ``comparison_publications``/``comparison_amount`` carry the previous
     period's values when the compare toggle is on, None otherwise."""
 
@@ -703,7 +703,11 @@ DIMENSION_GROUPS: tuple[DimensionGroup, ...] = (
     DimensionGroup(
         id="contracts",
         label="Contracts & Funding",
-        section_ids=("contract", "funding_source"),
+        section_ids=(
+            "contract",
+            "funding_source_budget",
+            "funding_source_institution",
+        ),
     ),
     DimensionGroup(
         id="attribution",

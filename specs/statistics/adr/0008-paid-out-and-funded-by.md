@@ -24,3 +24,8 @@ A position need not be fully assigned to funding sources, so the unassigned rema
 own slice on funded-by charts, which therefore still reconcile to the request total. Where another
 institution paid part of an invoice, the paid-out total legitimately exceeds the sum of the
 institution's own funded-by figures; that difference is information, not an inconsistency.
+
+Update 2026-11-10: the funded-by view is split into one chart per source kind (budget, institution)
+and the unassigned remainder is no longer charted. The funded-by figures therefore count only
+assigned money and do not reconcile to the request total; the difference is the money with no
+funding-source assignment.

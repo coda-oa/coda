@@ -11,11 +11,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 
-from coda.contexts.statistics.dto import Measure, RequestFact
+from coda.contexts.statistics.dto import FundingSourceKind, Measure, RequestFact
 
 UNKNOWN = "Unknown"
 OTHER = "Other"
-UNASSIGNED = "Unassigned"
 
 #: The fact value ``dataset.publication_form`` gives a publication with neither
 #: an article journal nor a monograph publisher. No facet value matches it
@@ -231,19 +230,48 @@ FUNDER = Dimension(
     facet=PageFacet(param="funder", lookup="funder"),
 )
 
-FUNDING_SOURCE = Dimension(
-    id="funding_source",
-    label="Funding source (cost splitting)",
-    kind=DimensionKind.PARTITION,
-    has_publications=True,
-    additive_publications=False,
-    money=Measure.FUNDED_BY,
-    additive_spend=True,
-    contributions=lambda fact: (
-        tuple(Contribution(ref.name, amount) for ref, amount in fact.funded_by.items())
-        + ((Contribution(UNASSIGNED, fact.unassigned),) if fact.unassigned != ZERO else ())
-    ),
-    facet=PageFacet(param="funding_source", lookup="funding_source"),
+
+def _funded_by_of_kind(
+    kind: FundingSourceKind,
+) -> Callable[[RequestFact], tuple[Contribution, ...]]:
+    """Funded-by contributions of one source kind.
+
+    The unassigned remainder belongs to no source. Each chart shows only
+    assigned money. The rows do not add up to the request total."""
+
+    def contributions(fact: RequestFact) -> tuple[Contribution, ...]:
+        return tuple(
+            Contribution(ref.name, amount)
+            for ref, amount in fact.funded_by.items()
+            if ref.kind == kind
+        )
+
+    return contributions
+
+
+def _funding_source_dimension(
+    dimension_id: str, label: str, source_kind: FundingSourceKind
+) -> Dimension:
+    """One funded-by dimension for one cost-splitting source kind (ADR-0008)."""
+    return Dimension(
+        id=dimension_id,
+        label=label,
+        kind=DimensionKind.PARTITION,
+        has_publications=True,
+        additive_publications=False,
+        money=Measure.FUNDED_BY,
+        additive_spend=True,
+        contributions=_funded_by_of_kind(source_kind),
+        facet=PageFacet(param="funding_source", lookup=dimension_id),
+    )
+
+
+FUNDING_SOURCE_BUDGET = _funding_source_dimension(
+    "funding_source_budget", "Funding source (budget)", "budget"
+)
+
+FUNDING_SOURCE_INSTITUTION = _funding_source_dimension(
+    "funding_source_institution", "Funding source (institution)", "institution"
 )
 
 DIMENSIONS: tuple[Dimension, ...] = (
@@ -258,7 +286,8 @@ DIMENSIONS: tuple[Dimension, ...] = (
     COST_TYPE,
     CONTRACT,
     FUNDER,
-    FUNDING_SOURCE,
+    FUNDING_SOURCE_BUDGET,
+    FUNDING_SOURCE_INSTITUTION,
 )
 
 _BY_ID: dict[str, Dimension] = {dimension.id: dimension for dimension in DIMENSIONS}

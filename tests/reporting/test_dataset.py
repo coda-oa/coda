@@ -42,8 +42,8 @@ def test__request_with_two_positions_one_assignment_each__build_facts__sums_spen
         "other": Decimal("500.00"),
     }
     assert dict(fact.funded_by) == {
-        FundingSourceRef("Publisher Budget"): Decimal("1190.00"),
-        FundingSourceRef("Library Fund"): Decimal("500.00"),
+        FundingSourceRef("Publisher Budget", "budget"): Decimal("1190.00"),
+        FundingSourceRef("Library Fund", "budget"): Decimal("500.00"),
     }
     assert fact.unassigned == Decimal("0.00")
     assert fact.has_invoice is True
@@ -191,8 +191,8 @@ def test__partially_assigned_position__build_facts__keeps_remainder_as_unassigne
 
     assert fact.paid_out_total == Decimal("1190.00")
     assert dict(fact.funded_by) == {
-        FundingSourceRef("Publisher Budget"): Decimal("595.00"),
-        FundingSourceRef(institution.name): Decimal("238.00"),
+        FundingSourceRef("Publisher Budget", "budget"): Decimal("595.00"),
+        FundingSourceRef(institution.name, "institution"): Decimal("238.00"),
     }
     assert fact.unassigned == Decimal("357.00")
 

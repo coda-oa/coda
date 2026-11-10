@@ -11,7 +11,7 @@ per-row list links.
 
 Rows grouped by *name* resolve to facet values by name — every model row sharing
 the name contributes its id, so the link covers precisely the chart's merged set.
-The synthetic rows ("Other", "Unknown", "Unassigned") have no link: the shared
+The synthetic rows ("Other", "Unknown") have no link: the shared
 form cannot express their set.
 """
 
@@ -188,8 +188,11 @@ _TABLE_BUILDERS: Mapping[str, Callable[[PreloadedVocabularyProvider], dict[str, 
     "funder": lambda v: _group_pks(
         FundingOrganization.objects.values_list("pk", FundingOrganization.facet_label_field)
     ),
-    "funding_source": lambda v: _group_pks(
-        FundingSource.objects.values_list("pk", FundingSource.facet_label_field)
+    "funding_source_budget": lambda v: _group_pks(
+        FundingSource.by_type_labelled(FundingSource.TypeChoices.budget)
+    ),
+    "funding_source_institution": lambda v: _group_pks(
+        FundingSource.by_type_labelled(FundingSource.TypeChoices.institution)
     ),
     "subject_area": lambda v: {
         concept.name: [str(concept.id)]

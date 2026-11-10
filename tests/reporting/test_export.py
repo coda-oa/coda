@@ -61,9 +61,7 @@ def test__page__one_sided_compare_dates__mark_the_compare_inputs_invalid(
     compare inputs invalid: the page caller owns the widget side effect the
     extracted helper must not perform, so this pins that the extraction
     preserved it."""
-    region = goto_region(
-        client, tab="venues", compare="1", compare_start_date="2025-01-01"
-    )
+    region = goto_region(client, tab="venues", compare="1", compare_start_date="2025-01-01")
     assert region.context["comparison_error"] == "Both comparison dates are required."
     attrs = region.context["filter_form"].fields["compare_range"].widget.attrs
     assert attrs["aria-invalid"] == "true"
@@ -491,7 +489,7 @@ def test__export__repeated_dimension__one_request_counts_under_every_value(
     position.assign_funding(helpers.budget("Fund Two"), Decimal("400.00"))
     helpers.invoice([position])
 
-    rows = {row[0]: row for row in csv_rows(goto_export(client, "funding_source"))[1:]}
+    rows = {row[0]: row for row in csv_rows(goto_export(client, "funding_source_budget"))[1:]}
     assert rows["Fund One"][2] == "1"
     assert rows["Fund Two"][2] == "1"
     assert rows["Fund One"][3] and rows["Fund Two"][3]  # both carry money
@@ -499,18 +497,13 @@ def test__export__repeated_dimension__one_request_counts_under_every_value(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__export__unknown_and_unassigned_rows__exported_as_data_quality_signal(
+def test__export__unknown_rows__exported_as_data_quality_signal(
     client: Client,
 ) -> None:
     fixture = helpers.request("Anonymous paper")
     helpers.position(fixture.publication.pk, Decimal("1000.00"), Decimal("0.20"))
-    fr = helpers.request("Unassigned paper")
-    position = helpers.position(fr.publication.pk, Decimal("1000.00"), Decimal("0.20"))
-    position.assign_funding(helpers.budget("Half Fund"), Decimal("600.00"))
-    helpers.invoice([position])
 
     assert "Unknown" in csv_labels(goto_export(client, "institution"))
-    assert "Unassigned" in csv_labels(goto_export(client, "funding_source"))
 
 
 @pytest.mark.django_db

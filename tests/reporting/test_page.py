@@ -62,6 +62,10 @@ def seed() -> SimpleNamespace:
     position = helpers.position(publication.pk, Decimal("1000.00"), Decimal("0.20"))
     source = helpers.budget("Central Fund")
     position.assign_funding(source, Decimal("600.00"))
+    # The institution-kind source funds the remainder. Both funded-by
+    # dimensions of the §7 registry then get a row from this one request.
+    split_source = helpers.split_source(institution.pk, institution.name)
+    position.assign_funding(split_source, Decimal("400.00"))
     helpers.invoice([position])
 
     # The publication factory randomizes license/open-access type; pin the
@@ -90,6 +94,7 @@ def seed() -> SimpleNamespace:
         publisher=journal.publisher,
         institution=institution,
         source=source,
+        split_source=split_source,
         contract=attached.contract,
         contract_year=attached.contract_year,
         funder=funded.external_funding.get().organization,
@@ -585,8 +590,8 @@ def test__reporting_page__chart_rows__link_to_the_reporting_region(
             "article",
         ),
         "cost_type": (sections["cost_type"], "gold-oa", "cost_type", "gold-oa"),
-        "funding_source": (
-            sections["funding_source"],
+        "funding_source_budget": (
+            sections["funding_source_budget"],
             "Central Fund",
             "funding_source",
             str(fixture.source.id),
@@ -645,15 +650,13 @@ def test__reporting_page__offers_one_list_bridge_in_the_title_row(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__reporting_page__unassigned_and_unknown_rows__have_no_drill_down(
+def test__reporting_page__unknown_rows__have_no_drill_down(
     client: Client,
 ) -> None:
     seed()
 
     sections = sections_by_id(client)
 
-    unassigned = row_by_label(sections["funding_source"], "Unassigned")
-    assert unassigned.link is None
     unknown = row_by_label(sections["institution"], "Unknown")
     assert unknown.link is None
 
@@ -749,11 +752,17 @@ def test__reporting_page__row_links__reproduce_their_chart_sets_in_the_region(
             "publisher",
             str(fixture.publisher.pk),
         ),
-        "funding_source": (
-            sections["funding_source"],
+        "funding_source_budget": (
+            sections["funding_source_budget"],
             "Central Fund",
             "funding_source",
             str(fixture.source.id),
+        ),
+        "funding_source_institution": (
+            sections["funding_source_institution"],
+            fixture.institution.name,
+            "funding_source",
+            str(fixture.split_source.id),
         ),
     }
 
@@ -765,15 +774,21 @@ def test__reporting_page__row_links__reproduce_their_chart_sets_in_the_region(
         region_response = client.get(link, headers={"hx-request": "true"})
 
         assert region_response.status_code == HTTPStatus.OK, dimension_id
-        # The filtered region's own section counts exactly the row's set —
-        # but a partition dimension (funding_source) legitimately keeps the
-        # "Unassigned" remainder row of the same requests.
+        # The filtered region's own section counts exactly the row's set.
         section_rows = sections_of(region_response)[dimension_id].rows
         labels = [row.label for row in section_rows if row.kind != RowKind.OTHER]
-        if dimension_id == "funding_source":
-            assert labels == ["Central Fund", "Unassigned"], dimension_id
-        else:
-            assert labels == [label], dimension_id
+        assert labels == [label], dimension_id
+
+        # The two funded-by dimensions share the `funding_source` param, and
+        # the seed funds one position with both kinds. A kind filter narrows
+        # the request set, not the sibling's assignments: the sibling section
+        # keeps its row.
+        if dimension_id == "funding_source_budget":
+            sibling = sections_of(region_response)["funding_source_institution"]
+            assert [r.label for r in sibling.rows] == [fixture.institution.name], dimension_id
+        if dimension_id == "funding_source_institution":
+            sibling = sections_of(region_response)["funding_source_budget"]
+            assert [r.label for r in sibling.rows] == ["Central Fund"], dimension_id
 
 
 @pytest.mark.usefixtures("logged_in")
