@@ -105,6 +105,20 @@
                             </tr>
                         </tfoot>
                     </table>
+                    {% comment %}
+                        The section's export link (plan §6, §7). Inside the
+                        expandable table section, below the table it exports
+                        and outside the <summary>, which would toggle the
+                        details on click. A plain text link: no button
+                        chrome, right-aligned with the house utilities.
+                    {% endcomment %}
+                    <div class="flex justify-end mt-1">
+                        <small>
+                            <a href="{{ section.export_url }}"
+                               download
+                               title="Download this section's complete value set as CSV">Export table as CSV</a>
+                        </small>
+                    </div>
                 </details>
             </article>
         {% endfor %}
