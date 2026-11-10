@@ -46,8 +46,9 @@ def unpay_deleted_publication_positions(invoice: Invoice) -> None:
 
 
 def update_payments(invoice: Invoice, event: PaymentEvent) -> None:
-    for p in publication_positions(invoice):
-        publications.update_payment(p, event)
+    payment_updates = [(p, event) for p in publication_positions(invoice)]
+    if payment_updates:
+        publications.bulk_update_payments(payment_updates)
 
 
 def publication_positions(invoice: Invoice) -> list[PublicationId]:
