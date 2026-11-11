@@ -1,5 +1,6 @@
 import datetime
 from collections.abc import Iterable, Mapping
+from decimal import Decimal
 from typing import Any, ClassVar, cast
 
 from django import forms
@@ -160,18 +161,7 @@ class PaymentForm(CodaFormBase):
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or {}
-        amount = cleaned.get("amount")
-        currency_code = cleaned.get("currency")
-        if amount is None or currency_code is None:
-            return cleaned
-
-        currency = Currency[currency_code]
-        exponent = amount.as_tuple().exponent
-        if exponent < -currency.minor_units:
-            self.add_error(
-                "amount",
-                f"Ensure that there are no more than {currency.minor_units} decimal places.",
-            )
+        _add_currency_scale_error(self, "amount", cleaned.get("currency"), cleaned.get("amount"))
         return cleaned
 
     def to_dto(self) -> PaymentDto:
@@ -306,6 +296,26 @@ class ChooseLabelForm(forms.Form):
     label = forms.ModelChoiceField[Label](queryset=Label.objects.all(), label="")
 
 
+def _add_currency_scale_error(
+    form: forms.Form, amount_field: str, currency_code: str | None, amount: Decimal | None
+) -> None:
+    """Reject amounts with more decimals than the currency's minor units allow.
+
+    Money quantizes every amount to its currency's minor units, so an amount
+    carrying more decimals than that can never come from the domain.
+    """
+    if amount is None or currency_code is None:
+        return
+
+    currency = Currency[currency_code]
+    exponent = amount.as_tuple().exponent
+    if isinstance(exponent, int) and exponent < -currency.minor_units:
+        form.add_error(
+            amount_field,
+            f"Ensure that there are no more than {currency.minor_units} decimal places.",
+        )
+
+
 class ReviewForm(forms.Form):
     ACTION_RETURN = "return"
 
@@ -315,13 +325,25 @@ class ReviewForm(forms.Form):
     )
     decided_funding_amount = forms.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=4,
         min_value=0,
         label="Decided funding amount",
-        widget=forms.TextInput(attrs={"type": "number", "min": "0", "step": "0.01"}),
+        # step="any": the accepted scale depends on the chosen currency and
+        # is enforced server-side in clean().
+        widget=forms.TextInput(attrs={"type": "number", "min": "0", "step": "any"}),
     )
     decided_funding_currency = fields.currency_field(label="Currency")
     reviewer_remarks = forms.CharField(widget=forms.Textarea, required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        _add_currency_scale_error(
+            self,
+            "decided_funding_amount",
+            cleaned.get("decided_funding_currency"),
+            cleaned.get("decided_funding_amount"),
+        )
+        return cleaned
 
     def to_dto(self) -> UpdateReviewDto:
         result = (

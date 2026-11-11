@@ -2,14 +2,21 @@ from decimal import Decimal
 
 from django.test import SimpleTestCase
 
-from coda.apps.fundingrequests.forms import PaymentForm
+from coda.apps.fundingrequests.forms import PaymentForm, ReviewForm
 from coda.domain.money import Currency
 
 
-def payment_form_data(
-    amount: str, currency: Currency, method: str = "unknown"
-) -> dict[str, str]:
+def payment_form_data(amount: str, currency: Currency, method: str = "unknown") -> dict[str, str]:
     return {"amount": amount, "currency": currency.code, "method": method}
+
+
+def review_form_data(amount: str, currency: Currency) -> dict[str, str]:
+    return {
+        "action": "return",
+        "decided_funding_amount": amount,
+        "decided_funding_currency": currency.code,
+        "reviewer_remarks": "",
+    }
 
 
 class PaymentFormCurrencyScaleTests(SimpleTestCase):
@@ -54,3 +61,30 @@ class PaymentFormCurrencyScaleTests(SimpleTestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["amount"], Decimal("16.710"))
+
+
+class ReviewFormCurrencyScaleTests(SimpleTestCase):
+    def test__three_decimal_amount_for_three_minor_unit_currency__is_valid(self) -> None:
+        form = ReviewForm(data=review_form_data("123.450", Currency.KWD))
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test__three_decimal_amount_for_two_minor_unit_currency__is_invalid(self) -> None:
+        form = ReviewForm(data=review_form_data("10.001", Currency.EUR))
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("decided_funding_amount", form.errors)
+
+    def test__two_decimal_amount_for_two_minor_unit_currency__is_valid(self) -> None:
+        form = ReviewForm(data=review_form_data("500.00", Currency.EUR))
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test__amount_input_accepts_any_decimal_step_client_side(self) -> None:
+        # The browser validates step before the request is sent; a hardcoded
+        # step="0.01" would block the very amounts the server accepts for
+        # three- and four-decimal currencies.
+        form = ReviewForm(data=review_form_data("500.00", Currency.EUR))
+        rendered = str(form["decided_funding_amount"])
+
+        self.assertIn('step="any"', rendered)
