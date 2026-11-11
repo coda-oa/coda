@@ -1,15 +1,16 @@
+import logging
+from typing import Any
+
+from django.http import HttpRequest
+
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, PaymentForm
 from coda.apps.fundingrequests.views.wizard.formrestore import (
     restore_form,
     restore_formset,
 )
-from coda.apps.wizard import TemplateStep, Store
+from coda.apps.wizard import Store, TemplateStep
 
-
-from django.http import HttpRequest
-
-
-from typing import Any
+logger = logging.getLogger(__name__)
 
 
 class FundingStep(TemplateStep):
@@ -27,7 +28,19 @@ class FundingStep(TemplateStep):
         cost_form = PaymentForm(request.POST)
         funding_formset = ExternalFundingFormset(request.POST)
         funding_valid = funding_formset.is_valid() or funding_formset.is_empty()
-        return cost_form.is_valid() and funding_valid
+        valid = cost_form.is_valid() and funding_valid
+
+        if not valid:
+            logger.info(
+                "FundingStep invalid: cost_error_fields=%s form_count=%s "
+                "formset_error_fields=%s formset_empty=%s",
+                sorted(cost_form.errors),
+                len(funding_formset.forms),
+                sorted({field for form in funding_formset.forms for field in form.errors}),
+                funding_formset.is_empty(),
+            )
+
+        return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         cost_form = PaymentForm(request.POST)
@@ -37,5 +50,5 @@ class FundingStep(TemplateStep):
 
         funding_formset = ExternalFundingFormset(request.POST)
         dto = funding_formset.to_dto_list()
-        store["funding"] = list(d.to_post_data() for d in dto)
+        store["funding"] = [d.to_post_data() for d in dto]
         store.save()
