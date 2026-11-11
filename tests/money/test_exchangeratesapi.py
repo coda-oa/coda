@@ -7,12 +7,12 @@ import pytest
 from coda.domain.money import Currency
 from coda.domain.money.exchangeratesapi import ExchangeRateApiJsonSchema, exchange_api
 
-
 EXCHANGE_DATA_PATH = Path(__file__).parent / "exchangeapi_result.json"
 EXCHANGE_DATA: ExchangeRateApiJsonSchema = json.loads(EXCHANGE_DATA_PATH.read_text())
 
 
 @pytest.mark.integration
+@pytest.mark.external
 def test__can_request_rates_from_exchange_api() -> None:
     """
     We are only checking that we get valid currencies, but don't care about the rates.
@@ -25,4 +25,4 @@ def test__can_request_rates_from_exchange_api() -> None:
 
 
 def assert_extracted_valid_currencies(rates: dict[Currency, Decimal]) -> None:
-    assert all(currency.code in EXCHANGE_DATA["rates"].keys() for currency in rates)
+    assert all(currency.code in EXCHANGE_DATA["rates"] for currency in rates)

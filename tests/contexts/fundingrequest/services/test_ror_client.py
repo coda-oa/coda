@@ -258,7 +258,7 @@ def test__ror_client__single_id__builds_query() -> None:
     "client_fixture",
     [
         "fake_ror_single",
-        pytest.param("real_ror_client", marks=pytest.mark.integration),
+        pytest.param("real_ror_client", marks=[pytest.mark.integration, pytest.mark.external]),
     ],
 )
 def test__ror_client__single_id__returns_mapping(

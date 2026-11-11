@@ -29,13 +29,13 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
 from coda.contexts.fundingrequest.dto.preview import PreviewArticle, PreviewMonograph
-from coda.contexts.fundingrequest.services.doi_import.doi_client import (
-    InMemoryDOIMetadataClient,
-    crossref,
-)
 from coda.contexts.fundingrequest.services.doi_import._service import (
     DOIImportService,
     OverrideImport,
+)
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
 )
 from coda.contexts.fundingrequest.services.doi_import.errors import (
     DOIAlreadyImported,
@@ -78,7 +78,7 @@ def get_publication_from_funding_request(
 @pytest.fixture(
     params=[
         "fake",
-        pytest.param("real", marks=[pytest.mark.integration]),
+        pytest.param("real", marks=[pytest.mark.integration, pytest.mark.external]),
     ]
 )
 def nature_scenario(request: pytest.FixtureRequest) -> NatureArticleScenario:
@@ -90,7 +90,7 @@ def nature_scenario(request: pytest.FixtureRequest) -> NatureArticleScenario:
 @pytest.fixture(
     params=[
         "fake",
-        pytest.param("real", marks=[pytest.mark.integration]),
+        pytest.param("real", marks=[pytest.mark.integration, pytest.mark.external]),
     ]
 )
 def springer_scenario(request: pytest.FixtureRequest) -> SpringerBookScenario:
@@ -110,12 +110,12 @@ def test__import_from_doi__article_without_journal__raises_invalid_metadata_erro
         ExternalAuthor,
         ExternalPublicationMetadata,
     )
-    from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
-        InMemoryDOIMetadataClient,
-    )
-    from coda.contexts.fundingrequest.services.doi_import._service import DOIImportService
     from coda.contexts.fundingrequest.services.doi_import._repository_uow import (
         UnitOfWorkDOIRepository,
+    )
+    from coda.contexts.fundingrequest.services.doi_import._service import DOIImportService
+    from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
+        InMemoryDOIMetadataClient,
     )
     from coda.contexts.fundingrequest.services.doi_import.errors import InvalidMetadataError
     from coda.domain.publication.links import Doi
@@ -152,12 +152,12 @@ def test__import_from_doi__article_with_journal_without_eissn__raises_invalid_me
         ExternalJournal,
         ExternalPublicationMetadata,
     )
-    from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
-        InMemoryDOIMetadataClient,
-    )
-    from coda.contexts.fundingrequest.services.doi_import._service import DOIImportService
     from coda.contexts.fundingrequest.services.doi_import._repository_uow import (
         UnitOfWorkDOIRepository,
+    )
+    from coda.contexts.fundingrequest.services.doi_import._service import DOIImportService
+    from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
+        InMemoryDOIMetadataClient,
     )
     from coda.contexts.fundingrequest.services.doi_import.errors import InvalidMetadataError
     from coda.domain.publication.links import Doi
