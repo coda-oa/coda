@@ -45,6 +45,7 @@ from coda.domain.contract import ContractId, ContractYear
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
 
@@ -143,7 +144,10 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
 
 class PaymentForm(CodaFormBase):
     use_required_attribute = False
-    amount = forms.DecimalField(max_digits=10, decimal_places=2, initial=0, label="Estimated cost")
+    # Matches the model's precision; the accepted number of decimal places is
+    # narrowed per currency in clean(), since Money quantizes to the
+    # currency's minor units.
+    amount = forms.DecimalField(max_digits=10, decimal_places=4, initial=0, label="Estimated cost")
     currency = fields.currency_field(label="Currency")
     method = forms.ChoiceField(
         choices=FundingRequest.PAYMENT_METHOD_CHOICES, label="Payment method"
@@ -153,6 +157,22 @@ class PaymentForm(CodaFormBase):
         initial=False,
         label="External cost splitting",
     )
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        amount = cleaned.get("amount")
+        currency_code = cleaned.get("currency")
+        if amount is None or currency_code is None:
+            return cleaned
+
+        currency = Currency[currency_code]
+        exponent = amount.as_tuple().exponent
+        if exponent < -currency.minor_units:
+            self.add_error(
+                "amount",
+                f"Ensure that there are no more than {currency.minor_units} decimal places.",
+            )
+        return cleaned
 
     def to_dto(self) -> PaymentDto:
         return PaymentDto(
