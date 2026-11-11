@@ -118,7 +118,7 @@ def timeline_figure(
     comparison: Sequence[TimelinePoint] | None = None,
     *,
     resolution: TemporalResolution = TemporalResolution.WEEKLY,
-    comparison_label: str = "previous period",
+    comparison_label: str = "comparison period",
 ) -> dict[str, object]:
     """The plotly figure JSON for the timeline: one bar per bucket.
 

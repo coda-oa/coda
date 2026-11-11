@@ -241,7 +241,7 @@ def with_comparison(
     spec: ChartSpec,
     comparison: ChartSpec,
     *,
-    comparison_label: str = "previous period",
+    comparison_label: str = "comparison period",
 ) -> dict[str, Any]:
     """Augment a bars figure with the comparison period's series.
 
@@ -253,7 +253,7 @@ def with_comparison(
     overlaying would hide one behind the other. Non-bar figures pass
     through unchanged (the treemap is out of scope for comparison).
     ``comparison_label`` names the series in legend and hover; the caller
-    owns what the period is called ("previous period" is only the default
+    owns what the period is called ("comparison period" is only the default
     strategy's name)."""
     if not spec.rows or not figure.get("data"):
         return figure

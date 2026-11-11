@@ -1,5 +1,6 @@
 import hashlib
 import re
+from datetime import date
 from decimal import Decimal
 from http import HTTPStatus
 from types import SimpleNamespace
@@ -972,7 +973,7 @@ def test__reporting_page__compare_with_one_sided_range__renders_no_comparison(
     """A one-sided range has a defined start but an undefined prior window —
     the prior period is undefined, not zero. The compare toggle must render
     no comparison at all: no deltas, no zero-filled previous series."""
-    seed()
+    data = seed()
 
     response = goto(client, compare="1", end_date="")
     headline = response.context["headline"]
@@ -986,6 +987,25 @@ def test__reporting_page__compare_with_one_sided_range__renders_no_comparison(
     compared = goto(client, compare="1")
     assert compared.context["compare"] is True
     assert compared.context["comparison"] is not None
+
+    # A counterpart inside the comparison window, same journal as the funded
+    # request, so the journal row joins across periods: each measure column
+    # gains a comparison column with the prior period's own value, and the
+    # current value keeps its percent-only delta span.
+    prior = helpers.request("Prior paper")
+    prior.request_date = date(2025, 3, 15)
+    prior.publication.article_journal = data.journal
+    prior.publication.save()
+    prior.save()
+    helpers.invoice([helpers.position(prior.publication.pk, Decimal("500.00"), Decimal("0.00"))])
+
+    compared_rows = goto(client, compare="1", tab="venues")
+    html = compared_rows.content.decode()
+    assert "(comparison period)</th>" in html, html
+    assert re.search(r'headline-delta delta-(?:up|down)">[+−]\d+%</span>', html), html
+    # The comparison cell carries the prior value and its own share bar
+    # (500 € of the comparison column's 500 € total = full permille).
+    assert re.search(r'>500 €</span>\s*<span class="statistics-share" data-share="', html), html
 
 
 @pytest.mark.django_db

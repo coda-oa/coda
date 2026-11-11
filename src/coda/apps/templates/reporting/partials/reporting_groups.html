@@ -34,12 +34,15 @@
                      aria-label="{{ section.chart.title }}"></div>
                 <details class="statistics-exact">
                     <summary role="button" class="outline secondary">Exact values ({{ section.value_count }} rows)</summary>
-                    <table class="statistics-values">
+                    <table class="statistics-values striped">
                         <thead>
                             <tr>
                                 <th scope="col">{{ section.label }}</th>
                                 {% for column in section.columns %}
                                     <th scope="col" class="statistics-num">{{ column.label }}</th>
+                                    {% if section.comparison_label %}
+                                        <th scope="col" class="statistics-num">{{ column.label }} ({{ section.comparison_label }})</th>
+                                    {% endif %}
                                 {% endfor %}
                             </tr>
                         </thead>
@@ -66,6 +69,9 @@
                                     </th>
                                     {% for column in section.columns %}
                                         <td></td>
+                                        {% if section.comparison_label %}
+                                            <td></td>
+                                        {% endif %}
                                     {% endfor %}
                                 </tr>
                             {% endif %}
@@ -81,6 +87,17 @@
                                             {{ column.total|floatformat:"2g" }} €
                                         {% endif %}
                                     </td>
+                                    {% if section.comparison_label %}
+                                        <td class="statistics-num">
+                                            {% if not column.note and column.comparison_total is not None %}
+                                                {% if column.measure == "publications" %}
+                                                    {{ column.comparison_total }} publications
+                                                {% else %}
+                                                    {{ column.comparison_total|floatformat:"2g" }} €
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
                                 {% endfor %}
                             </tr>
                         </tfoot>
