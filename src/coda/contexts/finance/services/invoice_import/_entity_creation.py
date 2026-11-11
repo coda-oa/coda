@@ -85,7 +85,7 @@ def build_contract_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str,
 
 
 def build_publication_lookup(
-    invoice_dtos: Iterable[InvoiceImportDto],
+    request_publications: dict[str, int],
 ) -> dict[str, PublicationId]:
     """Build lookup mapping request IDs to publication IDs.
 
@@ -93,33 +93,52 @@ def build_publication_lookup(
     first to validate.
 
     Args:
-        invoice_dtos: Invoice DTOs to extract request IDs from
+        request_publications: Mapping from request id (current and legacy) to
+            publication row id, as returned by request_publication_ids().
 
     Returns:
         Dictionary mapping request_id to PublicationId
     """
-    # Extract request IDs from publication positions
-    request_ids = {
+    return {
+        request_id: PublicationId(publication_id)
+        for request_id, publication_id in request_publications.items()
+    }
+
+
+def referenced_request_ids(invoice_dtos: Iterable[InvoiceImportDto]) -> set[str | None]:
+    """Extract request ids referenced by publication positions.
+
+    Entries can be None when a position carries neither a current nor a
+    legacy request id.
+    """
+    return {
         cast(str, position.request_id or position.legacy_request_id)
         for invoice_dto in invoice_dtos
         for position in invoice_dto.positions
         if isinstance(position, PublicationPositionImportDto)
     }
 
+
+def request_publication_ids(request_ids: set[str | None]) -> dict[str, int]:
+    """Map request ids (current and legacy) to publication row ids.
+
+    One query, reading only the id columns.
+    """
     if not request_ids:
         return {}
 
-    # Query funding requests with publications
-    requests = FundingRequest.objects.filter(
+    rows = FundingRequest.objects.filter(
         Q(request_id__in=request_ids) | Q(legacy_request_id__in=request_ids)
-    ).prefetch_related("publication")
+    ).values_list("request_id", "legacy_request_id", "publication_id")
 
-    # Build lookup for both request_id and legacy_request_id
-    return {req.request_id: PublicationId(req.publication.id) for req in requests} | {
-        req.legacy_request_id: PublicationId(req.publication.id)
-        for req in requests
-        if req.legacy_request_id
-    }
+    lookup: dict[str, int] = {}
+    for request_id, legacy_request_id, publication_id in rows:
+        if request_id:
+            lookup[request_id] = publication_id
+        if legacy_request_id:
+            lookup[legacy_request_id] = publication_id
+
+    return lookup
 
 
 def build_funding_assignments_lookup(

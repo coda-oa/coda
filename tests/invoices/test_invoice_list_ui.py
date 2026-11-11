@@ -5,7 +5,7 @@ import pytest
 from playwright.sync_api import Page, Request, Route, expect
 from pytest_django.live_server_helper import LiveServer
 
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from tests import modelfactory
 from tests.page_objects import filter_ui_expectations, filter_ui_selectors
@@ -26,7 +26,7 @@ def create_invoice(
         positions=(),
         status=status,
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
 
 @pytest.mark.ui_test

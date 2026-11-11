@@ -13,7 +13,7 @@ import pytest
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.invoices import repository as invoice_repository
 from coda.apps.publications.repositories import publication_repository
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import CreditorId
 from coda.domain.publication.publication import JournalId
@@ -30,7 +30,7 @@ def test__contract_period_changed__invoice_referencing_contract_year_keeps_old_d
     creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(creditor=creditor)
     invoice.positions = [expected_position]
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     contract.period = DateRange(date(2025, 1, 1), date(2026, 1, 1))
     contract_repository.update(contract)

@@ -4,6 +4,7 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.invoices import repository as invoice_repository
+from coda.apps.publications.models import PublicationPayment
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
@@ -137,6 +138,75 @@ def test__publication_with_paid_invoice__new_invoice_received__publication_is_pa
             invoice_number=next_invoice.number,
             pending=True,
         ),
+    ]
+
+
+@pytest.mark.django_db
+def test__publication_with_paid_invoice__bulk_update_for_second_invoice__keeps_both_payments() -> (
+    None
+):
+    publication_id = create_publication()
+    invoice = pay_publication(publication_id)
+    publications.update_payment(
+        publication_id,
+        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+    )
+
+    next_invoice = create_invoice_for_publication(publication_id)
+    publications.bulk_update_payments(
+        [
+            (
+                publication_id,
+                PublicationPaid(
+                    invoice_id=cast(InvoiceId, next_invoice.id),
+                    invoice_number=next_invoice.number,
+                ),
+            )
+        ]
+    )
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.all_paid()
+    assert payment_status.payments() == [
+        Payment(
+            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
+        ),
+        Payment(
+            invoice_id=cast(InvoiceId, next_invoice.id),
+            invoice_number=next_invoice.number,
+            pending=False,
+        ),
+    ]
+
+
+@pytest.mark.django_db
+def test__bulk_update_with_same_pair_twice__creates_one_payment() -> None:
+    publication_id = create_publication()
+    invoice = create_invoice_for_publication(publication_id)
+    paid = PublicationPaid(cast(InvoiceId, invoice.id), invoice.number)
+
+    publications.bulk_update_payments([(publication_id, paid), (publication_id, paid)])
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.payments() == [
+        Payment(cast(InvoiceId, invoice.id), invoice.number, pending=False)
+    ]
+    assert PublicationPayment.objects.filter(publication_id=publication_id).count() == 1
+
+
+@pytest.mark.django_db
+def test__bulk_update_with_payment_reset__marks_invoice_received() -> None:
+    publication_id = create_publication()
+    invoice = create_invoice_for_publication(publication_id)
+
+    publications.bulk_update_payments(
+        [(publication_id, InvoicePaymentReset(cast(InvoiceId, invoice.id)))]
+    )
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.has_pending_payments()
+    assert payment_status.payments() == [
+        Payment(cast(InvoiceId, invoice.id), invoice.number, pending=True)
     ]
 
 

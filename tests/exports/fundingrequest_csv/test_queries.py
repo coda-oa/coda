@@ -9,7 +9,7 @@ from decimal import Decimal
 from pytest_django import DjangoAssertNumQueries
 
 from coda.apps.invoices import funding_source_repository
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from tests import domainfactory, modelfactory
 from coda.apps.exports.services.fundingrequest_csv.queries import (
     get_concept_id_lookup,
@@ -172,7 +172,7 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
     funding_source_1 = domainfactory.budget()
     funding_source_1.id = funding_source_repository.create(funding_source_1)
     invoice_position.assign_funding(funding_source_1, Decimal("1000.00"))
-    invoice_service.save(invoice1)
+    save(invoice1)
 
     fr2 = modelfactory.fundingrequest(title="FR 2 - Wrong Status")
     fr2.request_date = date(2026, 3, 10)
@@ -297,4 +297,4 @@ def _create_three_fundingrequests_for_performance_check() -> None:
             creditor=CreditorId(creditor.pk),
             positions=positions,
         )
-        invoice_service.save(invoice)
+        save(invoice)

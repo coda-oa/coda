@@ -7,7 +7,7 @@ from decimal import Decimal
 from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.funding_sources import Budget
@@ -88,7 +88,7 @@ def test__funding_request_with_invoice_position_with_funding_assignments__flatte
 
     creditor = modelfactory.creditor()
     invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
-    invoice_service.save(invoice)
+    save(invoice)
 
     export_dto = map_funding_request_to_export_dto(funding_request)
 
@@ -112,7 +112,7 @@ def test__funding_request_with_multiple_invoices__flatten_to_csv__combines_all_r
     creditor = modelfactory.creditor()
     position1 = domainfactory.publication_position(PublicationId(funding_request.publication.id))
     invoice1 = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position1])
-    invoice_service.save(invoice1)
+    save(invoice1)
 
     position2 = domainfactory.publication_position(PublicationId(funding_request.publication.id))
 
@@ -124,7 +124,7 @@ def test__funding_request_with_multiple_invoices__flatten_to_csv__combines_all_r
     position2.assign_remaining(Budget(FundingSourceId(budget_y.pk), budget_y.name))
 
     invoice2 = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position2])
-    invoice_service.save(invoice2)
+    save(invoice2)
 
     export_dto = map_funding_request_to_export_dto(funding_request)
     rows = flatten_detailed(export_dto)
