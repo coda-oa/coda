@@ -1,4 +1,5 @@
 import pytest
+
 from coda import doaj
 from coda.doaj import DoajListedJournal, HasApc
 from coda.domain.issn import Issn
@@ -18,5 +19,6 @@ EXPECTED_JOURNAL = DoajListedJournal(
 
 
 @pytest.mark.integration
+@pytest.mark.external
 def test__doaj__searching_for_listed_issn__returns_journal() -> None:
     assert doaj.find_journal(DOAJ_LISTED_ISSN) == EXPECTED_JOURNAL
