@@ -65,5 +65,30 @@
                 —
             {% endif %}
         </td>
+        {% if section.comparison_label %}
+            {% comment %}
+                The comparison period's own value for this measure — the
+                absolute counterpart the current cell's percent delta is
+                relative to. Same cell kind as the current value's. data-sort
+                stays empty when there is no counterpart; the sort's text
+                fallback maps "—" to 0, so absent and a real zero sort alike
+                — the current-value cells' existing idiom, not a new quirk.
+            {% endcomment %}
+            <td class="statistics-num" data-sort="{% if column.measure == 'publications' %}{{ row.comparison_publications }}{% else %}{{ row.comparison_amount }}{% endif %}">
+                {% if column.measure == "publications" %}
+                    {{ row.comparison_publications }}
+                    {% if column.comparison_total %}
+                        <span class="statistics-share" data-share="{% widthratio row.comparison_publications column.comparison_total 1000 %}"></span>
+                    {% endif %}
+                {% elif row.comparison_amount %}
+                    <span title="{{ row.comparison_amount|floatformat:2 }} €">{{ row.comparison_amount|floatformat:"0g" }} €</span>
+                    {% if column.comparison_total %}
+                        <span class="statistics-share" data-share="{% widthratio row.comparison_amount column.comparison_total 1000 %}"></span>
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        {% endif %}
     {% endfor %}
 </tr>

@@ -85,12 +85,16 @@ class DimensionRow:
 @dataclass(frozen=True)
 class MeasureColumn:
     """One value column of the shared table, with its total — or the ADR-0007
-    note where the measure is non-additive and no total may be shown."""
+    note where the measure is non-additive and no total may be shown. With
+    the compare toggle on, each column pairs with a comparison column of the
+    same measure (``comparison_total`` is its Total row's value, None when
+    the comparison has no rows for the dimension or compare is off)."""
 
     measure: Measure
     label: str
     total: Decimal | int | None
     note: str | None
+    comparison_total: Decimal | int | None = None
 
 
 @dataclass(frozen=True)
@@ -130,6 +134,9 @@ class DimensionSection:
     rows: tuple[DimensionRow, ...]
     columns: tuple[MeasureColumn, ...]
     value_count: int
+    #: Names the comparison columns after each measure column; empty when
+    #: compare is off, so no comparison columns render.
+    comparison_label: str = ""
     folded: tuple[DimensionRow, ...] = ()
     unattributed: int = 0
     export_url: str = ""
@@ -574,7 +581,7 @@ def _sections(
     request_get: QueryDict,
     comparison: StatisticsReport | None = None,
     comparison_facts: Sequence[RequestFact] | None = None,
-    comparison_label: str = "previous period",
+    comparison_label: str = "comparison period",
 ) -> list[DimensionSection]:
     """Figure and shared table under their dimension, in registry order.
     Dimensions without a non-empty grouping do not get an empty section.
@@ -608,6 +615,7 @@ def _sections(
             ),
             None,
         )
+        comparison_spec = comparison_specs.get(dimension.id)
         comparison_rows: dict[str, GroupRow] = {}
         if comparison_facts is not None:
             comparison_rows = {
@@ -615,7 +623,6 @@ def _sections(
                 for row in aggregation.group_by(comparison_facts, dimension, top_n=None).rows
             }
             # The Other fold exists only in the comparison's bounded grouping.
-            comparison_spec = comparison_specs.get(dimension.id)
             other_comparison = (
                 next(
                     (row for row in comparison_spec.rows if row.kind is RowKind.OTHER),
@@ -626,6 +633,11 @@ def _sections(
             )
             if other_comparison is not None:
                 comparison_rows[other_comparison.label] = other_comparison
+        comparison_totals = (
+            {column.measure: column.total for column in comparison_spec.columns}
+            if comparison_spec
+            else {}
+        )
         rows = tuple(_joined_row(row, comparison_rows, dimension, links) for row in visible)
         if other is not None:
             rows += (_joined_row(other, comparison_rows, dimension, links),)
@@ -633,9 +645,7 @@ def _sections(
             DimensionSection(
                 dimension_id=dimension.id,
                 label=dimension.label,
-                chart=_panel(
-                    spec, comparison_specs.get(dimension.id), comparison_label=comparison_label
-                ),
+                chart=_panel(spec, comparison_spec, comparison_label=comparison_label),
                 rows=rows,
                 folded=tuple(
                     _joined_row(row, comparison_rows, dimension, links) for row in folded_rows
@@ -646,9 +656,11 @@ def _sections(
                         label=charts.MEASURE_LABELS[column.measure],
                         total=column.total,
                         note=column.note,
+                        comparison_total=comparison_totals.get(column.measure),
                     )
                     for column in spec.columns
                 ),
+                comparison_label=comparison_label if comparison else "",
                 value_count=len(full.rows),
                 unattributed=sum(
                     row.publications for row in full.rows if row.kind is RowKind.UNKNOWN
@@ -662,7 +674,7 @@ def _sections(
 def _panel(
     spec: ChartSpec,
     comparison: ChartSpec | None = None,
-    comparison_label: str = "previous period",
+    comparison_label: str = "comparison period",
 ) -> ChartPanel:
     figure = spec.figure
     if comparison is not None:
