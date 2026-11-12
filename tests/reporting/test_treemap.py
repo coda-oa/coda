@@ -27,7 +27,6 @@ def facts_for(*institution_names: str) -> list[RequestFact]:
             publication_id=index + 1,
             request_date=date(2026, 3, 15),
             title=f"Fact {index + 1}",
-            subject_area=None,
             publication_type=None,
             publication_form="article",
             license="cc-by",

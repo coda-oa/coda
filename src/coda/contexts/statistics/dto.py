@@ -62,7 +62,6 @@ class RequestFact:
     request_date: date
     title: str
     # single-valued dimensions; None groups as "Unknown"
-    subject_area: str | None
     publication_type: str | None
     publication_form: str
     license: str

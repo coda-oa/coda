@@ -53,7 +53,10 @@ def seed() -> SimpleNamespace:
     institution = modelfactory.institution()
     funded = helpers.request("Funded paper")
     helpers.corresponding_author(funded, institution.pk)
-    _subject_area_from_configured_vocabulary(funded)
+    # The list-filter sidebar still offers subject areas; configure the
+    # vocabulary up front so the render's query budget pays once, not for a
+    # lazily created default.
+    GlobalPreferences.get_subject_classification_vocabulary()
     _named_publication_type(funded)
     publication = funded.publication
     publication.license = License.CC_BY.name
@@ -99,23 +102,9 @@ def seed() -> SimpleNamespace:
         contract=attached.contract,
         contract_year=attached.contract_year,
         funder=funded.external_funding.get().organization,
-        subject_area=publication.subject_area,
         publication_type=publication.publication_type,
         unconvertible_invoice=unconvertible_invoice,
     )
-
-
-def _subject_area_from_configured_vocabulary(funded: FundingRequest) -> None:
-    """Attach a subject-area concept from the vocabulary the facet offers —
-    only those are expressible as list filters, hence only those get links."""
-    GlobalPreferences.get_subject_classification_vocabulary()  # ensures the default is set
-    vocabulary = GlobalPreferences.objects.get().subject_classification_vocabulary
-    assert vocabulary is not None
-    concept = modelfactory.concept(vocabulary=vocabulary)
-    funded.publication.subject_area = PublicationAttachedConcept.objects.create(
-        name=concept.name, vocabulary=concept.vocabulary, entity_id=concept.entity_id
-    )
-    funded.publication.save()
 
 
 def _named_publication_type(funded: FundingRequest) -> None:
@@ -504,7 +493,7 @@ def test__reporting_page__paid_out_nothing__renders_dash_not_zero(client: Client
 def test__reporting_page__additive_dimension__shows_total(client: Client) -> None:
     seed()
 
-    value_column = column(sections_by_id(client)["subject_area"], Measure.PAID_OUT)
+    value_column = column(sections_by_id(client)["publication_type"], Measure.PAID_OUT)
     assert value_column.note is None
     assert value_column.total == Decimal("1200.00")
 
@@ -559,12 +548,6 @@ def test__reporting_page__chart_rows__link_to_the_reporting_region(
             fixture.funder.name,
             "funder",
             str(fixture.funder.pk),
-        ),
-        "subject_area": (
-            sections["subject_area"],
-            fixture.subject_area.name,
-            "subject_area",
-            str(fixture.subject_area.entity_id),
         ),
         "publication_type": (
             sections["publication_type"],
@@ -707,7 +690,6 @@ def test__reporting_page__active_filters__narrow_every_chart_and_survive_in_row_
     sections = sections_by_id(client, license=License.CC_BY.value)
 
     # Only the CC-BY request remains, so the additive totals reflect exactly it.
-    assert column(sections["subject_area"], Measure.PAID_OUT).total == Decimal("1200.00")
     assert sections["journal"].rows[0].publications == 1
 
     journal_link = sections["journal"].rows[0].link
@@ -851,7 +833,7 @@ def test__reporting_region__swaps_sidebar_toolbar_count_and_sections(
 
     html = response.content.decode()
     assert 'hx-swap-oob="innerHTML:#filter-sidebar-form"' in html
-    assert 'data-chart="chart-subject_area"' in html
+    assert 'data-chart="chart-publication_type"' in html
     assert response["HX-Push-Url"].startswith(reverse("reporting:stats_fundingrequests"))
 
 

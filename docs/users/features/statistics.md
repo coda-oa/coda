@@ -47,7 +47,7 @@ The tabs group the breakdowns by theme:
 | Tab | Sections |
 |---|---|
 | **Overview** | headline cards, timeline, institution treemap |
-| **Publication** | subject area, publication type, publication form, license, open access type |
+| **Publication** | publication type, publication form, license, open access type |
 | **Venues** | journal, publisher |
 | **Cost & contracts** | cost type, contract, funding source |
 | **Attribution** | institution, funder |
@@ -66,7 +66,7 @@ The table adds the comparison as signed percentages under each value ("new" wher
 - A request with several institutions, contracts or funding sources appears **once per value, with its full amount**. That is why the values in those sections don't add up to the headline, see the [comparison](#comparison) note.
 - **Funding source** shows how much was *funded by* each source. Amounts on invoice positions without a funding assignment appear as *Unassigned* (only when non-zero), and the funded-by values plus that remainder always sum to the spend.
 - The **funder** section counts requests per external funder and carries no money figures.
-- Whatever a facet cannot attribute (a request with no corresponding author, no subject area) lands under an explicit *Unknown* row instead of being dropped.
+- Whatever a facet cannot attribute (a request with no corresponding author, no journal) lands under an explicit *Unknown* row instead of being dropped.
 
 ## Currency
 

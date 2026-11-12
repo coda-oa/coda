@@ -79,7 +79,7 @@ def test__group_by_single_dimension__groups_a_missing_value_as_unknown() -> None
     ]
 
 
-@pytest.mark.parametrize("dimension_id", ["subject_area", "publication_type"])
+@pytest.mark.parametrize("dimension_id", ["publication_type"])
 def test__group_by_concept_dimension__groups_a_blank_concept_name_as_unknown(
     dimension_id: str,
 ) -> None:
@@ -274,7 +274,6 @@ def test__group_by_non_additive__other_row_counts_each_request_once() -> None:
 @pytest.mark.parametrize(
     ("dimension_id", "field", "value", "expected"),
     [
-        ("subject_area", "subject_area", "Computer science", ["Computer science"]),
         ("publication_type", "publication_type", "book chapter", ["book chapter"]),
         ("publication_form", "publication_form", "monograph", ["monograph"]),
         ("license", "license", "cc-zero", ["cc-zero"]),
@@ -285,7 +284,7 @@ def test__group_by_non_additive__other_row_counts_each_request_once() -> None:
 def test__single_valued_dimensions__group_by_their_own_attribute(
     dimension_id: str, field: str, value: str, expected: list[str]
 ) -> None:
-    fact = make_fact(**{"publisher": "not-this", "subject_area": "not-that", field: value})
+    fact = make_fact(**{"publisher": "not-this", field: value})
 
     grouping = group_by((fact,), dimensions.by_id(dimension_id))
 
@@ -308,10 +307,9 @@ def test__group_by_contract__counts_the_request_and_its_money_under_each_contrac
     assert grouping.non_additive == frozenset({Measure.PUBLICATIONS, Measure.PAID_OUT})
 
 
-def test__registry__covers_the_thirteen_dimensions_of_the_spec_table() -> None:
+def test__registry__covers_the_twelve_dimensions_of_the_spec_table() -> None:
     assert {d.id for d in dimensions.DIMENSIONS} == {
         "institution",
-        "subject_area",
         "publication_type",
         "publication_form",
         "license",
@@ -389,7 +387,7 @@ def test__has_rows__stops_at_the_first_contribution() -> None:
         additive_publications=True,
         money=None,
         additive_spend=False,
-        contributions=counting,  # type: ignore[arg-type]
+        contributions=counting,
     )
 
     assert has_rows((make_fact(),), (probe,)) is True

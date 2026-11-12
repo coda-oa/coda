@@ -64,13 +64,7 @@ def corresponding_author(fr: FundingRequest, institution_id: int) -> None:
 
 def with_concepts(fr: FundingRequest) -> None:
     vocabulary = modelfactory.vocabulary()
-    subject_area = modelfactory.concept(vocabulary=vocabulary)
     publication_type = modelfactory.concept(vocabulary=vocabulary)
-    fr.publication.subject_area = PublicationAttachedConcept.objects.create(
-        name=subject_area.name,
-        vocabulary=vocabulary,
-        entity_id=subject_area.entity_id,
-    )
     fr.publication.publication_type = PublicationAttachedConcept.objects.create(
         name=publication_type.name,
         vocabulary=vocabulary,
