@@ -434,7 +434,7 @@ def test__statistics_table__export_csv__downloads_the_section_csv(
     real browser (plan §6, §8): suggested filename names the dimension and a
     timestamp, the bytes carry the BOM, the header is exact, the row count
     matches the section's value count, the currency column holds the home
-    currency's code, and amount cells are bare decimals."""
+    currency's code, and amount cells use the German decimal comma."""
     seed()
 
     _goto_statistics(
@@ -469,10 +469,10 @@ def test__statistics_table__export_csv__downloads_the_section_csv(
 
     code = GlobalPreferences.get_home_currency().code
     cells = lines[1].split(";")
-    # The currency column carries the home currency's code; the amount is a
-    # bare decimal.
+    # The currency column carries the home currency's code; the amount uses
+    # the German decimal comma.
     assert cells[1] == code
-    assert re.fullmatch(r"\d+(\.\d+)?", cells[3])
+    assert re.fullmatch(r"\d+(,\d+)?", cells[3])
 
 
 @pytest.mark.ui_test
