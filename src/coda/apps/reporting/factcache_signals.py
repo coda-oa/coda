@@ -7,7 +7,7 @@ list here must cover the whole graph: the request itself (and its review —
 a review status is a filter criterion), its publication and every entity
 the prefetches walk (positions, invoices, conversions, funding assignments
 and sources plus their institutions, corresponding authors and their
-affiliations, attached contracts, subject areas and publication types,
+affiliations, attached contracts, publication types,
 external funding and its organization, journals and publishers, contracts,
 creditors, labels, links, vocabularies and concepts). The export fetch
 (``apps/exports/services/fundingrequest_csv/queries.py``) reads a

@@ -708,7 +708,6 @@ DIMENSION_GROUPS: tuple[DimensionGroup, ...] = (
             "open_access_type",
             "license",
             "cost_type",
-            "subject_area",
         ),
     ),
     DimensionGroup(id="venues", label="Venues", section_ids=("publisher", "journal")),

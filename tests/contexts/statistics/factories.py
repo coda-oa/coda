@@ -21,7 +21,6 @@ def make_fact(**overrides: object) -> RequestFact:
         "publication_id": next(_publication_ids),
         "request_date": date(2026, 5, 1),
         "title": "A funded publication",
-        "subject_area": None,
         "publication_type": None,
         "publication_form": "article",
         "license": "cc-by",

@@ -101,7 +101,7 @@ def _known(value: str | None) -> str:
 
 def _named(value: str | None) -> str:
     """A concept whose name is blank — the default row of the non-nullable
-    ``subject_area``/``publication_type`` concepts — groups like a missing
+    ``publication_type`` concept — groups like a missing
     concept: as "Unknown", never as a blank chart row (plan §5)."""
     return value if value else UNKNOWN
 
@@ -131,12 +131,6 @@ def _single_value_paid_out(
     )
 
 
-SUBJECT_AREA = _single_value_paid_out(
-    "subject_area",
-    "Subject area",
-    lambda fact: _named(fact.subject_area),
-    facet=PageFacet(param="subject_area", lookup="subject_area"),
-)
 PUBLICATION_TYPE = _single_value_paid_out(
     "publication_type",
     "Publication type",
@@ -276,7 +270,6 @@ FUNDING_SOURCE_INSTITUTION = _funding_source_dimension(
 
 DIMENSIONS: tuple[Dimension, ...] = (
     INSTITUTION,
-    SUBJECT_AREA,
     PUBLICATION_TYPE,
     PUBLICATION_FORM,
     LICENSE,

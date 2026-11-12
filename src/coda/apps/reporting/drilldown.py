@@ -194,10 +194,6 @@ _TABLE_BUILDERS: Mapping[str, Callable[[PreloadedVocabularyProvider], dict[str, 
     "funding_source_institution": lambda v: _group_pks(
         FundingSource.by_type_labelled(FundingSource.TypeChoices.institution)
     ),
-    "subject_area": lambda v: {
-        concept.name: [str(concept.id)]
-        for concept in v.get_subject_classification_vocabulary().concepts
-    },
     "publication_type": _publication_type_table,
     "license": lambda v: {license.name: [license.value] for license in License},
     "open_access_type": lambda v: {access.name: [access.value] for access in OpenAccessType},

@@ -71,7 +71,6 @@ def _build_fact(request: FundingRequest, report_currency: Currency) -> RequestFa
         publication_id=publication.pk,
         request_date=request.request_date,
         title=publication.title,
-        subject_area=(publication.subject_area.name if publication.subject_area_id else None),
         publication_type=(
             publication.publication_type.name if publication.publication_type_id else None
         ),

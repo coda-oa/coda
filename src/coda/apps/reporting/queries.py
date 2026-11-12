@@ -3,7 +3,7 @@
 The statistics page and the CSV export use the same filtered rows. Both call
 :func:`fundingrequest_query.filtered`. This module adds its own prefetch
 graph: the fact builder reads only corresponding authors, the publication's
-journal, publisher, subject area, publication type and attached contracts,
+journal, publisher, publication type and attached contracts,
 its positions with invoices and funding assignments, and external funding.
 A test asserts that both fetch shapes produce equal facts.
 """
@@ -36,7 +36,6 @@ def fetch_requests(
             "publication",
             "publication__article_journal__publisher",
             "publication__monograph_publisher",
-            "publication__subject_area",
             "publication__publication_type",
         )
         .prefetch_related(
