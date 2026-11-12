@@ -24,6 +24,12 @@ from coda.apps.htmx_components.request import HtmxHttpRequest
 from coda.apps.widgets import DateRangeWidget
 from coda.domain.date import DateRange, InvalidDateError, InvalidDateRangeError
 
+_DEFAULT_PUBLICATION_TYPE = "all"
+
+
+_DATE_START_KEY = "start_date"
+_DATE_END_KEY = "end_date"
+
 
 class ListSortOrder(StrEnum):
     date_desc = "date_desc"
@@ -81,10 +87,22 @@ def named_model_choices(items: Iterable[Any]) -> list[tuple[Any, str]]:
 class DateRangeField(forms.MultiValueField):
     """One date-range value backed by the sidebar's two existing GET params."""
 
-    def __init__(self, *, input_names: tuple[str, str], input_ids: tuple[str, str]) -> None:
+    def __init__(
+        self,
+        *,
+        input_names: tuple[str, str],
+        input_ids: tuple[str, str],
+        error_id: str = "date-range-error",
+        input_attrs: tuple[Mapping[str, str], Mapping[str, str]] = ({}, {}),
+    ) -> None:
         super().__init__(
             (forms.CharField(required=False), forms.CharField(required=False)),
-            widget=DateRangeWidget(input_names=input_names, input_ids=input_ids),
+            widget=DateRangeWidget(
+                input_names=input_names,
+                input_ids=input_ids,
+                error_id=error_id,
+                input_attrs=input_attrs,
+            ),
             required=False,
             require_all_fields=False,
         )
@@ -105,7 +123,7 @@ class ActiveFilter:
     text: str
     remove_url: str
     remove_fragment_url: str
-    kind: Literal["neutral", "label"]
+    kind: Literal["neutral", "label", "date"]
     label_color: str | None
 
 
@@ -156,7 +174,7 @@ class ChipBuilder:
         value: str | None,
         text: str,
         *,
-        kind: Literal["neutral", "label"] = "neutral",
+        kind: Literal["neutral", "label", "date"] = "neutral",
         label_color: str | None = None,
     ) -> None:
         """Append one chip. ``value=None`` drops the whole key (checkbox filters)."""
@@ -227,7 +245,7 @@ class ChipBuilder:
         for key, prefix in ((start_key, "From "), (end_key, "To ")):
             value = self._request.GET.get(key)
             if value:
-                self.add(key, value, f"{prefix}{value}")
+                self.add(key, value, f"{prefix}{value}", kind="date")
 
     def summary(self) -> FilterSummary:
         return FilterSummary(chips=self._chips, count=len(self._chips), errors=self._errors)
@@ -237,6 +255,16 @@ def build_url(url_name: str, params: QueryDict) -> str:
     return reverse(url_name, query=params or None)
 
 
+def params_without(params: QueryDict, *keys: str) -> QueryDict:
+    """A copy of ``params`` without the given keys. The pagination ``page``
+    param is never a filter — every filter URL derived from the request
+    starts here."""
+    copy = params.copy()
+    for key in keys:
+        copy.pop(key, None)
+    return copy
+
+
 def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: str | None) -> str:
     """List URL without one value of ``key``; other params preserved, ``page`` dropped.
 
@@ -244,8 +272,7 @@ def remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: st
     keys one occurrence is dropped and the remaining order preserved; an emptied
     key is omitted entirely.
     """
-    params = request.GET.copy()
-    params.pop("page", None)
+    params = params_without(request.GET, "page")
     if value is None:
         params.pop(key, None)
         return build_url(url_name, params)

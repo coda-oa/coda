@@ -2,6 +2,19 @@
 {% block page_title %}
     Funding Requests
 {% endblock page_title %}
+{% comment %}
+    The statistics link mirrors the reporting page's list_link: page_actions
+    sits outside the swapped region, so the region response re-renders the
+    anchor out of band (fundingrequest_filtered_list.html) to keep its href
+    tracking the filters.
+{% endcomment %}
+{% partialdef statistics_link %}
+    <a href="{{ statistics_url }}"
+       id="statistics-link"
+       class="button secondary"
+       title="View statistics for the active filters"
+       {% if statistics_link_oob %}hx-swap-oob="true"{% endif %}>Statistics</a>
+{% endpartialdef %}
 {% block page_actions %}
     <a href="{% url "fundingrequests:create_wizard" %}"
        class="button secondary">New Article</a>
@@ -21,8 +34,8 @@
             </li>
         </ul>
     </details>
+    {% partial statistics_link %}
 {% endblock page_actions %}
 {% block content %}
-    {% url 'fundingrequests:list_region' as region_url %}
-    {% include "partials/filter_layout.html" with filter_toolbar_search_placeholder="Search requests by title, author, journal, publisher or ID" filter_toolbar_search_aria_label="Search requests by title, author, journal, publisher or ID" filter_toolbar_extra_template="fundingrequests/forms/label_pills.html" filter_sidebar_template="fundingrequests/fundingrequest_filter_sidebar.html" filter_list_region_template="fundingrequests/partials/fundingrequest_list_region.html" filter_region_url=region_url filter_list_id="fundingrequest-list" %}
+    {% include "partials/filter_layout.html" with filter_toolbar_search_placeholder="Search requests by title, author, journal, publisher or ID" filter_toolbar_search_aria_label="Search requests by title, author, journal, publisher or ID" filter_toolbar_extra_template="fundingrequests/forms/label_pills.html" filter_sidebar_template="fundingrequests/fundingrequest_filter_sidebar.html" filter_list_region_template="fundingrequests/partials/fundingrequest_list_region.html" filter_region_url_name="fundingrequests:list_region" filter_list_id="fundingrequest-list" %}
 {% endblock content %}

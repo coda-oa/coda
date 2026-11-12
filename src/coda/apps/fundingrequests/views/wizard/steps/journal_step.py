@@ -8,8 +8,8 @@ from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.fundingrequests.views.wizard.steps._search_views import make_search_view
 from coda.apps.fundingrequests.views.wizard.steps.composed_step import ComposedStep
 from coda.apps.fundingrequests.views.wizard.steps.contract_step import ContractStep
-from coda.apps.journals.models import Journal
 from coda.apps.journals import services as journal_services
+from coda.apps.journals.models import Journal
 from coda.apps.wizard import Store, TemplateStep
 
 

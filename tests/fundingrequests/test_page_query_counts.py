@@ -20,7 +20,10 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.domain.color import Color
 from tests import modelfactory
 
-LIST_BUDGET = 16  # measured 14 (+2 slack) with labels + contract years on every row
+LIST_BUDGET = 25  # measured 23 (+2 slack): the pre-rail 14-query floor plus
+# the shared rail's vocabulary-backed facet options (1 preferences + 3
+# concept batches from the preloaded provider, the rest rail choice lists)
+# — flat in row count.
 DETAIL_BUDGET = 25  # measured 22 (+3 slack) with contracts, authors and labels
 
 

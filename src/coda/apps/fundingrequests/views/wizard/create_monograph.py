@@ -1,3 +1,4 @@
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.fundingrequests.views.creationwizard import FundingRequestCreationWizard
 from coda.apps.fundingrequests.views.wizard.parse_store import monograph_dto_from
 from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
@@ -6,7 +7,6 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStep
 from coda.apps.publications.dto import MonographDto
 from coda.apps.wizard import SessionStore, Store
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @breadcrumb("New Funding Request for a Monograph", parent_url_name="fundingrequests:list")

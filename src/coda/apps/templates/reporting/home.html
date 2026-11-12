@@ -17,5 +17,12 @@
             </div>
             <a href="{% url "opencost:list" %}" class="button outline contrast">View</a>
         </article>
+        <article class="flex justify-between align-center">
+            <div>
+                <h2 class="my-1">Funding Request Statistics</h2>
+                <p>Publications funded and spend per dimension, for a filterable period.</p>
+            </div>
+            <a href="{% url "reporting:stats_fundingrequests" %}" class="button outline contrast">View</a>
+        </article>
     </div>
 {% endblock content %}

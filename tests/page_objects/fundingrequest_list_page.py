@@ -17,7 +17,6 @@ class FundingRequestListPage:
     # Navigation
 
     def navigate(self, query: str = "") -> None:
-        # Sidebar filter UI is only rendered at desktop width.
         self._page.set_viewport_size({"width": 1440, "height": 900})
         url = self._base_url + reverse("fundingrequests:list")
         self._page.goto(f"{url}?{query}" if query else url)
@@ -26,6 +25,28 @@ class FundingRequestListPage:
         # chrome never renders, instead of inside the first test assertion.
         self._list_region.wait_for()
 
+    def open_filter_drawer(self) -> None:
+        """Bring the filter rail into an interactive state. The statistics
+        page renders it as a modal drawer on every viewport; list pages keep
+        the inline non-modal rail at desktop width — there the dialog is
+        already open and visible, so only the drawer case needs showModal."""
+        self._page.evaluate(
+            "() => { const d = document.getElementById('filter-sidebar');"
+            " if (!d.open) { d.showModal(); } }"
+        )
+        # A facet list taller than the viewport scrolls the drawer; start at
+        # the top so the header widgets are in view.
+        self._page.evaluate(
+            "document.getElementById('filter-sidebar').scrollTo({top: 0})"
+        )
+
+    def close_filter_drawer(self) -> None:
+        # Modal-drawer pages only: the inline rail (list pages, desktop) is
+        # closed by collapsing its controls, not by closing the dialog.
+        self._page.evaluate(
+            "() => { const d = document.getElementById('filter-sidebar');"
+            " if (d.matches(':modal')) { d.close(); } }"
+        )
     # Actions
 
     def select_publication_type(self, value: str) -> None:
