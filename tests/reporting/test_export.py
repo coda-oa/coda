@@ -348,10 +348,10 @@ def test__export__compare_on__raw_prior_values_joined_by_label(client: Client) -
     rows = {row[0]: row for row in csv_rows(response)[1:]}
     code = GlobalPreferences.get_home_currency().code
     # The currency column holds the home currency's code, main and
-    # comparison cells alike; amounts are bare decimals.
-    assert rows["Shared Journal"][1:] == [code, "1", "0.00", "1", "0.00"]
+    # comparison cells alike; amounts use the German decimal comma.
+    assert rows["Shared Journal"][1:] == [code, "1", "0,00", "1", "0,00"]
     # Absent from the prior period: blank cells, distinguishable from zero.
-    assert rows["Current Only Journal"][1:] == [code, "1", "0.00", "", ""]
+    assert rows["Current Only Journal"][1:] == [code, "1", "0,00", "", ""]
 
 
 @pytest.mark.django_db
@@ -535,7 +535,7 @@ def test__export__currency_column__carries_the_home_currency_code(client: Client
 
     rows = {row[0]: row for row in csv_rows(goto_export(client, "journal"))[1:]}
     # The currency cell follows the preference, not a constant.
-    assert rows[journal.title][1:] == ["USD", "1", "100.00"]
+    assert rows[journal.title][1:] == ["USD", "1", "100,00"]
 
 
 @pytest.mark.django_db
@@ -549,8 +549,8 @@ def test__export__csv_bytes__semicolon_bom_and_attachment_disposition(client: Cl
     header, first_data = text.splitlines()[:2]
     assert header == "label;currency;publications;amount"
     code = GlobalPreferences.get_home_currency().code
-    # The currency column carries the code; amounts are bare decimals.
-    assert re.match(rf"^[^;]+;{code};\d+;[\d.]+$", first_data)
+    # The currency column carries the code; amounts use the decimal comma.
+    assert re.match(rf"^[^;]+;{code};\d+;[\d,]+$", first_data)
     assert response["Content-Type"] == "text/csv; charset=utf-8"
     assert re.match(
         r'attachment; filename="journal_export_\d{8}_\d{6}\.csv"',

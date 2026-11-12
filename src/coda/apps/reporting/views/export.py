@@ -25,7 +25,7 @@ from coda.apps.reporting.views.page import facts_builder, resolve_comparison_per
 from coda.contexts.statistics import aggregation
 from coda.contexts.statistics.dimensions import Dimension, by_id
 from coda.contexts.statistics.dto import Grouping, GroupRow, Measure, RequestFact
-from coda.domain.money import Currency
+from coda.domain.money import Currency, DecimalSeparator
 
 CSV_ENCODING = "utf-8-sig"
 CSV_CONTENT_TYPE = "text/csv; charset=utf-8"
@@ -124,7 +124,9 @@ def dimension_csv(
     currency's code on every row, comparison cells included: one page-wide
     currency per ADR-0003, so the code is file-level, not per period. A row
     absent from the prior period leaves the comparison cells blank, which is
-    distinguishable from a zero, a real prior-period value. Label cells are
+    distinguishable from a zero, a real prior-period value. Money cells use
+    the German decimal separator (decimal commas for spreadsheet locales
+    that expect them). Label cells are
     written verbatim, like every other export in this project; a label
     starting with ``=``, ``+``, ``-`` or ``@`` can read as a formula when
     the file opens in a spreadsheet."""
@@ -143,13 +145,15 @@ def dimension_csv(
         if "publications" in columns:
             values["publications"] = str(row.publications)
         if has_money:
-            values["amount"] = str(row.amount)
+            values["amount"] = DecimalSeparator.German.render(row.amount)
         if comparison is not None:
             prior = prior_by_label.get(row.label)
             if "publications" in columns:
                 values["comparison_publications"] = str(prior.publications) if prior else None
             if has_money:
-                values["comparison_amount"] = str(prior.amount) if prior else None
+                values["comparison_amount"] = (
+                    DecimalSeparator.German.render(prior.amount) if prior else None
+                )
         return values
 
     frame = pl.DataFrame(
