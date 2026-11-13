@@ -13,7 +13,7 @@ export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES
 
 cd /app
 
-pdm run python << END
+python << END
 import sys
 import time
 

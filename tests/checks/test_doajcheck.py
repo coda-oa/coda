@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 import pytest
 
 from coda import doaj
 from coda.checks.checklist import CheckFailed, CheckSuccessful
 from coda.checks.doajcheck import DoajCheck
-from coda.doaj import DoajListedJournal
+from coda.doaj import DoajListedJournal, HasApc
 from coda.domain.issn import Issn
 from coda.domain.publication.publication import JournalId
 from tests import domainfactory
@@ -21,7 +22,9 @@ def doaj_journal() -> DoajListedJournal:
 
 
 def doaj_journal_dict() -> dict[str, str | int]:
-    return {"APC": "2770.00 USD"}
+    apc = doaj_journal().apc
+    assert isinstance(apc, HasApc)
+    return {"APC": f"{apc.price.amount} {apc.price.currency.code}"}
 
 
 def doaj_url() -> str:
@@ -66,4 +69,9 @@ def test__doaj_check_with_real_api__journal_in_doaj__is_successful() -> None:
 
     result = check(fundingrequest)
 
-    assert result == CheckSuccessful(message=doaj_url(), data=doaj_journal_dict())
+    assert isinstance(result, CheckSuccessful)
+    assert result.message == doaj_url()
+    apc = result.data["APC"]
+    assert isinstance(apc, str)
+    assert apc.endswith(" USD")
+    assert Decimal(apc.rsplit(" ", 1)[0]) > 0

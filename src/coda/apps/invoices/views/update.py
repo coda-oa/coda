@@ -99,7 +99,7 @@ def update_conversions(
                 else:
                     continue
 
-            except (ValueError, ArithmeticError):
+            except ValueError, ArithmeticError:
                 continue
 
     existing_currencies = set(invoice.conversions().keys())

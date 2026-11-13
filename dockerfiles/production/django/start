@@ -4,14 +4,12 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-eval $(pdm venv activate prod)
-
-pdm run /app/manage.py migrate
-pdm run /app/manage.py loaddata config/fixtures/*
+python /app/manage.py migrate
+python /app/manage.py loaddata config/fixtures/*
 
 # NOTE: adding journals also adds contracts, which should be reworked
-pdm run manage.py add_test_journals
+python manage.py add_test_journals
 
-pdm run /app/manage.py collectstatic --noinput
+python /app/manage.py collectstatic --noinput
 
-exec pdm run gunicorn config.wsgi --bind 0.0.0.0:8000 --chdir=/app
+exec gunicorn config.wsgi --bind 0.0.0.0:8000 --chdir=/app

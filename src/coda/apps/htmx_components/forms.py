@@ -98,7 +98,7 @@ class HxVals(pydantic.BaseModel):
         if extras_json := mapping.get("extras", ""):
             try:
                 extras = json.loads(extras_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 extras = {}
 
         return HxVals(

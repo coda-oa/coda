@@ -122,7 +122,7 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
         position_dto = formdata.map_to_model(
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
-    except (IndexError, KeyError, ValueError):
+    except IndexError, KeyError, ValueError:
         return render_positions(request, PositionList())
 
     display_mode = CostBasis(position_dto.cost_basis_mode)
@@ -179,7 +179,7 @@ def switch_cost_basis_mode(request: HttpRequest) -> HttpResponse:
 
         return render_single_position(request, position_dto, position_index)
 
-    except (IndexError, KeyError, ValueError):
+    except IndexError, KeyError, ValueError:
         return render_positions(request, PositionList())
 
 

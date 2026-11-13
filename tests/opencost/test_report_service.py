@@ -994,7 +994,7 @@ def test__two_publications__generate_report__query_count_stays_bounded(
 ) -> None:
     """Guard the end-to-end query count without the performance marker.
 
-    Deliberately unmarked so it also runs under ``pdm run unittests``, which filters
+    Deliberately unmarked so it also runs under ``uv run poe unittests``, which filters
     performance-marked tests out. Two publications with invoices exercise the full path: the
     item selection, the one invoice fetch, the seed rows and the pass that writes the stored
     document from them. Measured 28 queries for this fixture (2 publications with invoices,

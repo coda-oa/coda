@@ -2,7 +2,7 @@ exclude: '^docs/|/migrations/|devcontainer.json|^tests/database/opencost/backfil
 default_stages: [pre-commit]
 
 default_language_version:
-  python: python3.13
+  python: python3.15
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -27,13 +27,17 @@ repos:
         args: ['--target-version', '6.0']
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
-        args: [--py313-plus]
+        # --py315-plus (pyupgrade v3.22.0) rewrites chain.from_iterable(genexp) into a
+        # starred genexp with scrambled clause order -> NameError at runtime
+        # (e.g. src/coda/apps/opencost/report_service.py). Re-enable only after
+        # upstream fixes the rewrite.
+        args: [--py314-plus]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.19.1'
+    rev: 'v2.4.1'
     hooks:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
@@ -43,6 +47,7 @@ repos:
             'django-test-migrations',
             'django-stubs[compatible-mypy]',
             'django-environ',
+            'django-htmx',
             'django-silk',
             'faker',
             'httpx',
@@ -56,15 +61,11 @@ repos:
             'pytest-playwright',
           ]
 
-  - repo: https://github.com/psf/black
-    rev: 26.3.1
-    hooks:
-      - id: black
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.7
+    rev: v0.17.4
     hooks:
       - id: ruff
+      - id: ruff-format
 
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.4

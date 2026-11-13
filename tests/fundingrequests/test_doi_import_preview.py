@@ -228,14 +228,14 @@ def test__htmx_request__missing_session__redirects_to_doi_import(
 
     htmx 2 does not swap 4xx responses, so a 404 would leave the action dead.
     """
-    htmx_headers = {"HTTP_HX_REQUEST": "true"}
+    htmx_headers = {"HX-Request": "true"}
 
     get_response = client.get(
         reverse(
             "fundingrequests:doi_preview_load_type_form",
             kwargs={"session_key": "missing"},
         ),
-        **htmx_headers,
+        headers=htmx_headers,
     )
     assert get_response.status_code == 200
     assert get_response.headers["HX-Redirect"] == reverse("fundingrequests:doi_import_input")
@@ -245,7 +245,7 @@ def test__htmx_request__missing_session__redirects_to_doi_import(
             "fundingrequests:doi_preview_add_funding",
             kwargs={"session_key": "missing"},
         ),
-        **htmx_headers,
+        headers=htmx_headers,
     )
     assert post_response.status_code == 200
     assert post_response.headers["HX-Redirect"] == reverse("fundingrequests:doi_import_input")
@@ -281,7 +281,7 @@ def test_doi_input_stores_original_metadata_and_publication_type(
 
 
 def load_type_form(
-    client: Client, session_key: str, pub_type: "Literal['article', 'monograph']"
+    client: Client, session_key: str, pub_type: Literal["article", "monograph"]
 ) -> HttpResponse:
     """Helper to load HTMX type change form."""
     return cast(
@@ -299,7 +299,7 @@ def load_type_form(
 def submit_type_change(
     client: Client,
     session_key: str,
-    pub_type: "Literal['article', 'monograph']",
+    pub_type: Literal["article", "monograph"],
     **kwargs: Any,
 ) -> HttpResponse:
     """Helper to submit type change form."""

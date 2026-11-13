@@ -1,5 +1,6 @@
 import uuid
-from .base import *  # noqa
+
+from .base import *
 from .base import env
 
 # GENERAL
@@ -14,14 +15,14 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 USE_X_FORWARDED_HOST = env.bool("DJANGO_USE_X_FORWARDED_HOST", default=False)
 FORCE_SCRIPT_NAME = env.str("DJANGO_FORCE_SCRIPT_NAME", default=None)
 if FORCE_SCRIPT_NAME:
-    STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL  # noqa: F405
+    STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL
 
 SESSION_COOKIE_NAME = "coda_sessionid"
 
 
 # DATABASES
 # ------------------------------------------------------------------------------
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)  # noqa: F405
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
 # CACHES
 # ------------------------------------------------------------------------------

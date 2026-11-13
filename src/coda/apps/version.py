@@ -135,7 +135,7 @@ def _git(args: tuple[str, ...]) -> str | None:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except (FileNotFoundError, subprocess.SubprocessError):
+    except FileNotFoundError, subprocess.SubprocessError:
         pass
     return None
 

@@ -27,12 +27,12 @@ jobs:
         - name: Install dependencies
           run: |
             python -m pip install --upgrade pip
-            pip install pdm
-            python -m pdm install -G docs
+            pip install uv
+            uv sync --frozen --extra docs
 
         - name: Build documentation
           run: |
-            python -m pdm run sphinx-build -b html docs/ build/
+            uv run sphinx-build -b html docs/ build/
 
         - name: Upload GitHub Pages artifact
           uses: actions/upload-pages-artifact@v3.0.1

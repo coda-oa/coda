@@ -20,7 +20,7 @@ def fallback(v: Any) -> WrapValidator:
     def _handler(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
         try:
             return handler(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return v
 
     return WrapValidator(_handler)

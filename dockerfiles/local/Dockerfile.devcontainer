@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm
+FROM ghcr.io/astral-sh/uv:0.13-python3.15-trixie-slim
 
 # Install required system dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -16,7 +16,8 @@ RUN groupadd --gid 1000 dev-user \
   && useradd --uid 1000 --gid dev-user --shell /bin/bash --create-home dev-user \
   && echo dev-user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/dev-user \
   && chmod 0440 /etc/sudoers.d/dev-user \
-  && mkdir -p /app && chown dev-user:dev-user /app
+  && mkdir -p /app /opt/venv /home/dev-user/.cache/uv \
+  && chown dev-user:dev-user /app /opt/venv /home/dev-user/.cache/uv
 
 COPY dockerfiles/local/entrypoint dockerfiles/local/start /
 RUN chmod +x /entrypoint /start && sed -i 's/\r$//g' /entrypoint /start
@@ -24,20 +25,20 @@ RUN chmod +x /entrypoint /start && sed -i 's/\r$//g' /entrypoint /start
 WORKDIR /app
 USER dev-user
 
-ENV PATH="/home/dev-user/.local/bin:${PATH}"
+# The venv lives outside /app so the source bind mount never shadows it.
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=0 \
+    PATH="/opt/venv/bin:${PATH}"
 
 # Dependency layers: keyed on the dependency manifests only, so code changes
 # don't rebuild the venv or re-download playwright's chromium.
-# --no-self skips installing the project itself (needs src/, done after full COPY).
-COPY pyproject.toml pdm.lock ./
-RUN pip install --upgrade pip && \
-  pip install -U pdm && \
-  pdm venv create -n dev && \
-  pdm use --venv dev && \
-  pdm install --dev --frozen-lockfile --no-self && \
-  pdm run playwright install --with-deps chromium
+# --no-install-project skips installing the project itself (needs src/, done
+# after full COPY).
+COPY --chown=1000:1000 pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project && \
+  playwright install --with-deps chromium
 
 # Source layers: change constantly, cheap to rebuild. The editable self-install
 # re-runs here; dependencies are already satisfied and stay cached.
 COPY --chown=1000:1000 . /app/
-RUN pdm install --dev --frozen-lockfile
+RUN uv sync --frozen

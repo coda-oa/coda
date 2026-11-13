@@ -1,6 +1,9 @@
+from collections.abc import Iterable
+from typing import cast
+
 import pytest
-from django.forms import ModelChoiceField
 from django import forms
+from django.forms import ModelChoiceField
 from django.utils import timezone
 
 from coda.apps.institutions.models import Institution
@@ -30,7 +33,9 @@ def test__home_currency_field__offers_named_currency_choices() -> None:
     home_currency_field = form.fields["home_currency"]
     assert isinstance(home_currency_field, forms.ChoiceField)
     assert isinstance(home_currency_field.widget, SearchSelectWidget)
-    assert ("EUR", "EUR - Euro") in list(home_currency_field.choices)
+    assert ("EUR", "EUR - Euro") in list(
+        cast("Iterable[tuple[str, str]]", home_currency_field.choices)
+    )
 
 
 @pytest.mark.django_db

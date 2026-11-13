@@ -23,13 +23,9 @@
                     <td>{{ f.project_id }}</td>
                     <td>
                         {% if f.is_new %}
-                            <span class="label pill"
-                                  style="--label-bg-color: var(--coda-primary-background);
-                                         --label-border-color: var(--coda-primary-background)">New</span>
+                            <span class="label pill new">New</span>
                         {% else %}
-                            <span class="label pill"
-                                  style="--label-bg-color: var(--coda-validation-valid-color);
-                                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
+                            <span class="label pill exists">Exists</span>
                         {% endif %}
                     </td>
                     <td class="text-end px-0">
@@ -52,15 +48,11 @@
     </table>
     <div class="my-2">
         <small class="mr-2 text-muted">
-            <span class="label pill"
-                  style="--label-bg-color: var(--coda-validation-valid-color);
-                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
+            <span class="label pill exists">Exists</span>
             — already in database
         </small>
         <small>
-            <span class="label pill"
-                  style="--label-bg-color: var(--coda-primary-background);
-                         --label-border-color: var(--coda-primary-background)">New</span>
+            <span class="label pill new">New</span>
             — will be created
         </small>
     </div>

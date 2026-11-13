@@ -6,8 +6,6 @@
 # Python
 **/__pycache__/
 *.py[cod]
-.pdm-python
-.pdm-build
 .venv
 .mypy_cache
 .pytest_cache

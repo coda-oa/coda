@@ -52,7 +52,7 @@ def require_session(
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # args[0] is self (method) or request (function)
             if args and isinstance(args[0], HttpRequest):
-                request = cast(HttpRequest, args[0])
+                request = args[0]
             else:
                 request = cast(HttpRequest, args[1])
 

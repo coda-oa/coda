@@ -13,7 +13,7 @@ from tests.fundingorganizations.conftest import BMFTR_NAME, update_from_ror
 
 def _has_message_tag(response: object, tag: str) -> bool:
     """Match a message by its ``extra_tags`` marker, not its user-facing copy."""
-    return any(tag in msg.extra_tags for msg in get_messages(response.wsgi_request))  # type: ignore[attr-defined]
+    return any(tag in msg.extra_tags for msg in get_messages(response.wsgi_request))
 
 
 @pytest.mark.django_db

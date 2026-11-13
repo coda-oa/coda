@@ -1,4 +1,4 @@
-from .base import *  # noqa
+from .base import *
 from .base import env
 
 # GENERAL
@@ -25,8 +25,8 @@ MAILERS["default"]["BACKEND"] = env(
 
 # Silk
 # ------------------------------------------------------------------------------
-INSTALLED_APPS += ["silk"]  # noqa: F405
-MIDDLEWARE += ["silk.middleware.SilkyMiddleware"]  # noqa: F405
+INSTALLED_APPS += ["silk"]
+MIDDLEWARE += ["silk.middleware.SilkyMiddleware"]
 
 # Django Debug Toolbar
 # ------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ INSTALLED_APPS += ["debug_toolbar"]
 MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
 # fix for docker internal IPs.
 # https://github.com/cookiecutter/cookiecutter-django/blob/main/%7B%7Bcookiecutter.project_slug%7D%7D/config/settings/local.py
-import socket  # noqa: E402
+import socket
 
 hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
 INTERNAL_IPS += [".".join([*ip.split(".")[:-1], "1"]) for ip in ips]
