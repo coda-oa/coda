@@ -81,6 +81,7 @@ def as_django_model(fundingrequest: AnyFundingRequest) -> fundingrequest_models.
         for field, value in fields.items():
             setattr(model, field, value)
 
+    assert fundingrequest.publication.id is not None  # publication is persisted before the request
     model.publication_id = fundingrequest.publication.id
     return model
 

@@ -11,7 +11,6 @@ from the same builder.
 import uuid
 from collections.abc import Sequence
 
-from django.db.models import Model
 from django.http import HttpRequest
 
 from coda.apps.contracts.models import Contract
@@ -35,7 +34,10 @@ _DATE_END_KEY = "end_date"
 _DEFAULT_PUBLICATION_TYPE = "all"
 
 
-def _names_by_pk(model: type[Model], values: Sequence[str]) -> dict[str, str]:
+def _names_by_pk(
+    model: type[Institution | Journal | Publisher | FundingOrganization | FundingSource],
+    values: Sequence[str],
+) -> dict[str, str]:
     """pk -> display name for the selected values; unparseable ones (stale
     URLs) stay unresolved and the chip falls back to the raw value. The
     label field is the model's own facet_label_field."""

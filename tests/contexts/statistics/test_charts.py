@@ -10,7 +10,7 @@ from coda.contexts.statistics.charts import (
     build_figure,
     report,
 )
-from coda.contexts.statistics.dto import Measure, StatisticsReport
+from coda.contexts.statistics.dto import ChartSpec, Measure, StatisticsReport
 
 PUBLISHER_FACTS = (
     make_fact(publisher="Elsevier", paid_out_total=Decimal("100.00")),
@@ -19,7 +19,7 @@ PUBLISHER_FACTS = (
 )
 
 
-def _charts_by_id(the_report: StatisticsReport) -> dict[str, object]:
+def _charts_by_id(the_report: StatisticsReport) -> dict[str, ChartSpec]:
     return {c.dimension_id: c for c in the_report.charts}
 
 
@@ -48,7 +48,7 @@ def test__report__titles_name_the_dimension_and_its_measures() -> None:
 
     chart = _charts_by_id(the_report)["publisher"]
 
-    assert chart.title == "Publisher — publications & spend incl. tax"  # type: ignore[attr-defined]
+    assert chart.title == "Publisher — publications & spend incl. tax"
 
 
 def test__report__single_measure_dimensions_get_a_single_full_width_panel() -> None:
@@ -63,14 +63,14 @@ def test__report__single_measure_dimensions_get_a_single_full_width_panel() -> N
 
     by_id = _charts_by_id(report(facts, dimensions.DIMENSIONS))
 
-    assert [c.measure for c in by_id["cost_type"].columns] == [Measure.PAID_OUT]  # type: ignore[attr-defined]
-    assert len(by_id["cost_type"].figure["data"]) == 1  # type: ignore[attr-defined]
-    assert "yaxis2" not in by_id["cost_type"].figure["layout"]  # type: ignore[attr-defined]
-    assert [c.measure for c in by_id["funder"].columns] == [Measure.PUBLICATIONS]  # type: ignore[attr-defined]
+    assert [c.measure for c in by_id["cost_type"].columns] == [Measure.PAID_OUT]
+    assert len(by_id["cost_type"].figure["data"]) == 1
+    assert "yaxis2" not in by_id["cost_type"].figure["layout"]
+    assert [c.measure for c in by_id["funder"].columns] == [Measure.PUBLICATIONS]
     assert all(
         trace["type"] == "bar"
         for chart in by_id.values()
-        for trace in chart.figure["data"]  # type: ignore[attr-defined]
+        for trace in chart.figure["data"]
     )
 
 
@@ -84,13 +84,13 @@ def test__report__marks_non_additive_columns_and_hides_their_totals() -> None:
 
     columns = _charts_by_id(report(facts, (dimensions.by_id("institution"),)))[
         "institution"
-    ].columns  # type: ignore[attr-defined]
+    ].columns
     assert columns
     assert all(c.note == NON_ADDITIVE_NOTE and c.total is None for c in columns)
 
     publisher_columns = _charts_by_id(report(PUBLISHER_FACTS, (dimensions.by_id("publisher"),)))[
         "publisher"
-    ].columns  # type: ignore[attr-defined]
+    ].columns
     assert publisher_columns
     assert all(c.note is None and c.total is not None for c in publisher_columns)
 

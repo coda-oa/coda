@@ -28,11 +28,13 @@ from coda.apps.contracts.models import Contract
 from coda.apps.listfilters import ActiveFilter
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import PublicationAttachedConcept, Vocabulary
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.publication.publication import License
+from coda.domain.vocabulary import VocabularyId
 from tests import modelfactory
 from tests.filterdom import date_error_text, selected_values, swap_targets, walk
 
@@ -292,12 +294,16 @@ def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> 
     publisher = modelfactory.publisher(name="Order Press")
     funder = modelfactory.funding_organization(name="Order Funder")
     source = modelfactory.budget(name="Order Fund")
-    subject_vocabulary = modelfactory.vocabulary()
-    subject = _concept_choice(subject_vocabulary)
-    GlobalPreferences.set_subject_classification_vocabulary(subject_vocabulary)
-    type_vocabulary = modelfactory.vocabulary()
-    publication_type = _concept_choice(type_vocabulary)
-    GlobalPreferences.set_article_publication_type_vocabulary(type_vocabulary)
+    subject_vocabulary_model = modelfactory.vocabulary()
+    subject = _concept_choice(subject_vocabulary_model)
+    GlobalPreferences.set_subject_classification_vocabulary(
+        vocabulary_repository.get_by_id(VocabularyId(subject_vocabulary_model.id))
+    )
+    type_vocabulary_model = modelfactory.vocabulary()
+    publication_type = _concept_choice(type_vocabulary_model)
+    GlobalPreferences.set_article_publication_type_vocabulary(
+        vocabulary_repository.get_by_id(VocabularyId(type_vocabulary_model.id))
+    )
 
     response = get_list_region(
         client,
@@ -379,12 +385,16 @@ def test__summary__reports_the_statistics_facets_by_name(client: Client) -> None
     journal = modelfactory.journal(title="KEK Journal")
     funder = modelfactory.funding_organization(name="DFG")
     source = modelfactory.budget(name="Central Fund")
-    subject_vocabulary = modelfactory.vocabulary()
-    subject = _concept_choice(subject_vocabulary)
-    GlobalPreferences.set_subject_classification_vocabulary(subject_vocabulary)
-    type_vocabulary = modelfactory.vocabulary()
-    publication_type = _concept_choice(type_vocabulary)
-    GlobalPreferences.set_article_publication_type_vocabulary(type_vocabulary)
+    subject_vocabulary_model = modelfactory.vocabulary()
+    subject = _concept_choice(subject_vocabulary_model)
+    GlobalPreferences.set_subject_classification_vocabulary(
+        vocabulary_repository.get_by_id(VocabularyId(subject_vocabulary_model.id))
+    )
+    type_vocabulary_model = modelfactory.vocabulary()
+    publication_type = _concept_choice(type_vocabulary_model)
+    GlobalPreferences.set_article_publication_type_vocabulary(
+        vocabulary_repository.get_by_id(VocabularyId(type_vocabulary_model.id))
+    )
 
     response = get_list_region(
         client,

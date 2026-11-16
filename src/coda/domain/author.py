@@ -1,7 +1,7 @@
 import enum
 import re
 from collections.abc import Iterable, Iterator
-from typing import NewType
+from typing import NewType, cast
 
 from coda.domain import errors
 from coda.domain.orcid import Orcid
@@ -253,4 +253,7 @@ class AuthorNames(Iterable[str]):
         return "AuthorList([{}])".format(", ".join(repr(x) for x in self._authors))
 
     def __eq__(self, other: object) -> bool:
-        return all(my_author == other_author for my_author, other_author in zip(self, other))
+        return all(
+            my_author == other_author
+            for my_author, other_author in zip(self, cast("Iterable[str]", other))
+        )

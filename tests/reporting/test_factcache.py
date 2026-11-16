@@ -7,14 +7,19 @@ invalidates, so the next request runs the pipeline again. Display state
 (tab, compare, resolution) must not widen the key — switching tabs reuses
 the same fact set."""
 
+import datetime
+
 import pytest
+from django.http import QueryDict
 from django.test import Client
 from django.urls import reverse
 
 from coda.apps.invoices import repository as invoice_repository
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.repositories import payment_repository
 from coda.apps.reporting import factcache
 from coda.domain.finance.invoice import CreditorId, InvoiceId
+from coda.domain.money import Currency
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import PublicationPaid
 from tests import domainfactory, modelfactory
@@ -142,22 +147,16 @@ def test__bulk_payment_update__bumps_generation() -> None:
     assert factcache.generation() > before
 
 
-def _d(year: int, month: int, day: int) -> object:
-    import datetime
-
+def _d(year: int, month: int, day: int) -> datetime.date:
     return datetime.date(year, month, day)
 
 
-def _querydict(data: dict[str, str]) -> object:
-    from django.http import QueryDict
-
+def _querydict(data: dict[str, str]) -> QueryDict:
     q = QueryDict(mutable=True)
     for k, v in data.items():
         q[k] = v
     return q
 
 
-def _currency() -> object:
-    from coda.apps.preferences.models import GlobalPreferences
-
+def _currency() -> Currency:
     return GlobalPreferences.get_home_currency()

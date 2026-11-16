@@ -11,6 +11,7 @@ import datetime
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 from coda.contexts.statistics.dto import RequestFact
 
@@ -119,7 +120,7 @@ def timeline_figure(
     *,
     resolution: TemporalResolution = TemporalResolution.WEEKLY,
     comparison_label: str = "comparison period",
-) -> dict[str, object]:
+) -> dict[str, Any]:
     """The plotly figure JSON for the timeline: one bar per bucket.
 
     Follows the charts module's contract — {data, layout, config} exactly as
