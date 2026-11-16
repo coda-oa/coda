@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.urls import reverse
@@ -66,10 +67,13 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         # pages bind FundingRequestListFilterForm to GET, so the querystring
         # transfers verbatim. The statistics page re-derives a default period
         # when the list had no dates (reporting.views.page._default_period_url).
-        ctx["statistics_url"] = build_url(
-            "reporting:stats_fundingrequests",
-            params_without(self.request.GET, "page", "sort_by"),
-        )
+        # Gated: absent unless CODA_STATISTICS_ENABLED, and the list template
+        # renders the statistics button only when the URL is set.
+        if settings.CODA_STATISTICS_ENABLED:
+            ctx["statistics_url"] = build_url(
+                "reporting:stats_fundingrequests",
+                params_without(self.request.GET, "page", "sort_by"),
+            )
         if self.request.GET:
             ctx["no_results_message"] = "No funding requests match the selected filters."
             ctx["no_results_clear_url"] = reverse("fundingrequests:list")

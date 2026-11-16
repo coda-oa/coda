@@ -11,6 +11,9 @@ from .base import env
 # ------------------------------------------------------------------------------
 CODA_CHECKLIST_FACTORY = "tests.checks.checkfactory"
 
+# The statistics tests exercise the gated page, nav entry and list button.
+CODA_STATISTICS_ENABLED = True
+
 
 # GENERAL
 # ------------------------------------------------------------------------------

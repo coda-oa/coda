@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django import template
+from django.conf import settings
 from django.urls import reverse
 
 register = template.Library()
@@ -22,6 +23,9 @@ class NavItem:
     # If True, also active for group paths no other item matches, so the section
     # always shows one active sub-item (detail pages, wizards, ...).
     default: bool = False
+    # Name of the settings flag that must be truthy for the item to render
+    # (feature gates, e.g. CODA_STATISTICS_ENABLED); empty means always shown.
+    requires: str = ""
 
 
 @dataclass(frozen=True)
@@ -71,7 +75,9 @@ NAV_GROUPS: dict[str, NavGroup] = {
             NavItem(link="exports:fundingrequests_csv_list", text="Funding Requests CSV"),
             NavItem(link="opencost:list", text="openCost Reports"),
             NavItem(
-                link="reporting:stats_fundingrequests", text="Funding Request Statistics"
+                link="reporting:stats_fundingrequests",
+                text="Funding Request Statistics",
+                requires="CODA_STATISTICS_ENABLED",
             ),
         ),
     ),
@@ -87,8 +93,11 @@ def _group_state(path: str, group: NavGroup) -> dict[str, Any]:
     non-default item already matched. ``group_active`` covers the group's mount and
     every item prefix. Returns the context consumed by ``nav_group.html``.
     """
+    items = [
+        item for item in group.items if not item.requires or getattr(settings, item.requires, False)
+    ]
     group_url = reverse(group.link)
-    prefix_matches = {item: path.startswith(reverse(item.link)) for item in group.items}
+    prefix_matches = {item: path.startswith(reverse(item.link)) for item in items}
     group_active = path.startswith(group_url) or any(prefix_matches.values())
     caught_by_other = any(matched and not item.default for item, matched in prefix_matches.items())
     return {
@@ -104,7 +113,7 @@ def _group_state(path: str, group: NavGroup) -> dict[str, Any]:
                 "active": prefix_matches[item]
                 or (item.default and group_active and path != group_url and not caught_by_other),
             }
-            for item in group.items
+            for item in items
         ],
     }
 

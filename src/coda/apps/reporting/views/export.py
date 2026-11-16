@@ -21,7 +21,11 @@ from coda.apps.fundingrequests.forms import FundingRequestListFilterForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.reporting import factcache
-from coda.apps.reporting.views.page import facts_builder, resolve_comparison_period
+from coda.apps.reporting.views.page import (
+    facts_builder,
+    resolve_comparison_period,
+    statistics_enabled,
+)
 from coda.contexts.statistics import aggregation
 from coda.contexts.statistics.dimensions import Dimension, by_id
 from coda.contexts.statistics.dto import Grouping, GroupRow, Measure, RequestFact
@@ -34,6 +38,7 @@ MISSING_DATES_MESSAGE = "Both dates are required."
 
 @login_required
 @require_GET
+@statistics_enabled
 def csv_export(request: HttpRequest, dimension_id: str) -> HttpResponse:
     """The section's complete value set as a CSV download (plan §7).
 

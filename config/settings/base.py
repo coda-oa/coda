@@ -28,6 +28,9 @@ CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
 # The update check performs an outbound GitHub request. Turning it off keeps
 # coda.apps.version from touching the cache or the network at all.
 CODA_UPDATE_CHECK = env.bool("CODA_UPDATE_CHECK", True)
+# Feature gate for the funding-request statistics page: hides the page, its
+# nav entry and the list's statistics button until enabled.
+CODA_STATISTICS_ENABLED = env.bool("CODA_STATISTICS_ENABLED", False)
 
 # GENERAL
 # ------------------------------------------------------------------------------

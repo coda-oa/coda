@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -10,4 +11,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 @require_GET
 @breadcrumb("Reporting")
 def reporting_home(request: HttpRequest) -> HttpResponse:
-    return render(request, "reporting/home.html")
+    return render(
+        request, "reporting/home.html", {"statistics_enabled": settings.CODA_STATISTICS_ENABLED}
+    )

@@ -11,10 +11,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
+from functools import wraps
 from typing import Any, cast
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse, QueryDict
+from django.http import Http404, HttpRequest, HttpResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -57,6 +59,19 @@ from coda.domain.money import Currency
 _PAGE_URL = "reporting:stats_fundingrequests"
 _REGION_URL = "reporting:stats_fundingrequests_region"
 _REGION_ELEMENT_ID = "reporting-region"
+
+
+def statistics_enabled[_ViewT: Callable[..., HttpResponse]](view: _ViewT) -> _ViewT:
+    """Feature gate: statistics URLs answer 404 unless the
+    ``CODA_STATISTICS_ENABLED`` setting is on (config/settings/base.py)."""
+
+    @wraps(view)
+    def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not settings.CODA_STATISTICS_ENABLED:
+            raise Http404("Statistics are disabled.")
+        return view(request, *args, **kwargs)
+
+    return cast(_ViewT, wrapper)
 
 
 @dataclass(frozen=True)
@@ -142,6 +157,7 @@ class DimensionSection:
     export_url: str = ""
 
 
+@statistics_enabled
 @breadcrumb("Funding Request Statistics", parent_url_name="reporting:home")
 @login_required
 @require_GET
@@ -178,7 +194,7 @@ class ReportingRegionView(ListRegionMixin, TemplateView):
         return reverse(self.list_url_name, query=self._push_params)
 
 
-reporting_region = login_required(ReportingRegionView.as_view())
+reporting_region = statistics_enabled(login_required(ReportingRegionView.as_view()))
 
 
 def reporting_context(request: HttpRequest) -> dict[str, Any]:

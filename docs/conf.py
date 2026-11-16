@@ -20,7 +20,15 @@ author = "Sven Marcus & Linda Achilles"
 extensions = ["myst_parser", "sphinx_copybutton"]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Feature-gated: the funding-request statistics page is disabled by
+    # default (CODA_STATISTICS_ENABLED); its documentation ships hidden until
+    # the feature is enabled.
+    "users/features/statistics.md",
+]
 
 
 # -- Options for HTML output -------------------------------------------------
