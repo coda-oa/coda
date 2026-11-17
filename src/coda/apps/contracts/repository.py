@@ -6,6 +6,7 @@ from coda.apps.contracts import django_mapper
 from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.reporting import factcache
 from coda.coda_itertools import LazyCachedIterable
 from coda.domain.contract import Contract, ContractId
 
@@ -87,6 +88,10 @@ def create_many(contracts: Iterable[Contract]) -> list[Contract]:
     models = [django_mapper.as_django_model(contract) for contract in contracts]
     models = ContractModel.objects.bulk_create(models)
     django_mapper.synchronize_relationships_bulk(contracts, models)
+
+    # bulk_create bypasses post_save; the statistics fact cache needs the
+    # explicit bump (see factcache_signals).
+    factcache.bump_generation()
 
     return [ContractDomainMapper.map(model) for model in models]
 

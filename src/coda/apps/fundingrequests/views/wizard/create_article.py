@@ -1,3 +1,4 @@
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.fundingrequests.views.creationwizard import FundingRequestCreationWizard
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
 from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
@@ -6,7 +7,6 @@ from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalCon
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.wizard import SessionStore, Store
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @breadcrumb("New Funding Request for an Article", parent_url_name="fundingrequests:list")

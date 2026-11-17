@@ -1,0 +1,94 @@
+{% load mathfilters %}{% comment %}
+    One row of a dimension's exact-value table (plan §9). Shared by the
+    visible rows and the rows folded under the "Other" row's disclosure, so
+    both carry the same cells: drilldown link, comparison deltas or "new"
+    badges, share spans. Expects ``row``, ``section.columns`` and ``compare``
+    in context.
+{% endcomment %}
+<tr {% if row.kind == "other" %}class="statistics-aggregate"{% endif %}>
+    <th scope="row">
+        {% if row.link %}
+            <a href="{{ row.link }}"
+               hx-get="{{ row.link }}"
+               hx-include="none"
+               hx-target="#reporting-region"
+               hx-push-url="true"
+               title="Filter these statistics to {{ row.label }}">{{ row.label }}</a>
+        {% else %}
+            {{ row.label }}
+        {% endif %}
+        {% if row.kind == "other" and section.folded %}
+            {% comment %}
+                The Other row's disclosure control (plan §9). A plain text
+                link with Pico's base ``a`` look, the same as the
+                neighbouring export link. No ``role="button"``: that
+                attribute triggers Pico's filled form-button styling. No
+                ``undecorated`` class. ``tabindex`` keeps the control
+                reachable. There is no href, so it cannot navigate.
+                reporting.js activates Enter/Space with the same delegated
+                pattern as the sortable headers. Expanding replaces this row
+                with the folded values: reporting.js moves them into the
+                main tbody. The control disappears with the row, and the
+                collapse control in the tfoot takes over.
+            {% endcomment %}
+            <a class="statistics-fold-toggle"
+               tabindex="0"
+               aria-expanded="false"
+               title="Show the {{ section.folded|length }} value{{ section.folded|length|pluralize }} folded into this row">
+                [Show {{ section.folded|length }} more]
+            </a>
+        {% endif %}
+    </th>
+    {% for column in section.columns %}
+        <td class="statistics-num" data-sort="{% if column.measure == 'publications' %}{{ row.publications }}{% else %}{{ row.amount }}{% endif %}">
+            {% if column.measure == "publications" %}
+                {{ row.publications }}
+                {% if compare and row.delta_publications_percent is not None %}
+                    <span class="headline-delta {% if row.delta_publications_percent >= 0 %}delta-up{% else %}delta-down{% endif %}">{% if row.delta_publications_percent >= 0 %}+{% else %}−{% endif %}{{ row.delta_publications_percent|abs|floatformat:0 }}%</span>
+                {% elif compare and row.comparison_publications == 0 and row.publications %}
+                    <span class="headline-delta">new</span>
+                {% endif %}
+                {% if column.total %}
+                    <span class="statistics-share" data-share="{% widthratio row.publications column.total 1000 %}"></span>
+                {% endif %}
+            {% elif row.amount %}
+                <span title="{{ row.amount|floatformat:2 }} €">{{ row.amount|floatformat:"0g" }} €</span>
+                {% if compare and row.delta_amount_percent is not None %}
+                    <span class="headline-delta {% if row.delta_amount_percent >= 0 %}delta-up{% else %}delta-down{% endif %}">{% if row.delta_amount_percent >= 0 %}+{% else %}−{% endif %}{{ row.delta_amount_percent|abs|floatformat:0 }}%</span>
+                {% elif compare and not row.comparison_amount and row.amount %}
+                    <span class="headline-delta">new</span>
+                {% endif %}
+                {% if column.total %}
+                    <span class="statistics-share" data-share="{% widthratio row.amount column.total 1000 %}"></span>
+                {% endif %}
+            {% else %}
+                —
+            {% endif %}
+        </td>
+        {% if section.comparison_label %}
+            {% comment %}
+                The comparison period's own value for this measure — the
+                absolute counterpart the current cell's percent delta is
+                relative to. Same cell kind as the current value's. data-sort
+                stays empty when there is no counterpart; the sort's text
+                fallback maps "—" to 0, so absent and a real zero sort alike
+                — the current-value cells' existing idiom, not a new quirk.
+            {% endcomment %}
+            <td class="statistics-num" data-sort="{% if column.measure == 'publications' %}{{ row.comparison_publications }}{% else %}{{ row.comparison_amount }}{% endif %}">
+                {% if column.measure == "publications" %}
+                    {{ row.comparison_publications }}
+                    {% if column.comparison_total %}
+                        <span class="statistics-share" data-share="{% widthratio row.comparison_publications column.comparison_total 1000 %}"></span>
+                    {% endif %}
+                {% elif row.comparison_amount %}
+                    <span title="{{ row.comparison_amount|floatformat:2 }} €">{{ row.comparison_amount|floatformat:"0g" }} €</span>
+                    {% if column.comparison_total %}
+                        <span class="statistics-share" data-share="{% widthratio row.comparison_amount column.comparison_total 1000 %}"></span>
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        {% endif %}
+    {% endfor %}
+</tr>

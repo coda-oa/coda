@@ -1,14 +1,46 @@
 <div class="filter-layout">
     <div class="filter-main">
-        <form method="get" id="filter-toolbar-form">
-            {% include "partials/filter_toolbar.html" %}
-        </form>
-        <div id="{{ filter_list_id }}"
-             class="filter-list"
-             hx-get="{{ filter_region_url }}"
-             hx-include="#filter-sidebar-form, #filter-toolbar-form"
-             hx-trigger="change from:#filter-sidebar-form, change[!event.target.matches('.filter-search') || event.target.dataset.lastInputValue !== event.target.value] from:#filter-toolbar-form, input delay:300ms from:.filter-search, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
-            {% include filter_list_region_template %}
+        {% if filter_toolbar is not False %}
+            {% comment %}
+                The region request lives on the TOOLBAR FORM (hx-get +
+                hx-trigger submit), not on the region div: pressing Enter in
+                the search input triggers the browser's implicit form
+                submission, and a div-hosted request would race it — the
+                native GET serializes only the toolbar form and drops every
+                sidebar filter. With the request on the form, htmx
+                intercepts the submit (preventDefault) and hx-include
+                carries the sidebar fields. The region div itself stays the
+                swap target. The bare region URL avoids duplicated params
+                from the page URL (hx-include serializes the two forms).
+            {% endcomment %}
+            {% url filter_region_url_name as filter_region_url %}
+        <form id="filter-toolbar-form"
+                  method="get"
+                  action="{{ filter_region_url }}"
+                  hx-get="{{ filter_region_url }}"
+                  hx-target="#{{ filter_list_id }}"
+                  hx-swap="innerHTML"
+                  hx-include="#filter-sidebar-form, #filter-toolbar-form"
+                  hx-indicator="#{{ filter_list_id }}-loading"
+                  hx-trigger="submit, change from:#filter-sidebar-form, input delay:300ms from:.filter-search, change[!event.target.matches('.filter-search') || event.target.dataset.lastInputValue !== event.target.value] from:#filter-toolbar-form">
+                {% include "partials/filter_toolbar.html" %}
+            </form>
+        {% endif %}
+        {% comment %}
+            The loading overlay lives OUTSIDE the region div: the region swaps
+            its innerHTML on every request, which would delete an overlay
+            placed inside. hx-indicator targets it by id, so the position is
+            free; it still visually covers the region via position absolute
+            over the .filter-list wrapper.
+        {% endcomment %}
+        <div class="filter-region-wrapper position-relative">
+            <div id="{{ filter_list_id }}" class="filter-list">
+                {% include filter_list_region_template %}
+            </div>
+            <div id="{{ filter_list_id }}-loading" class="filter-loading" aria-hidden="true">
+                {# Visual-only overlay: it is aria-hidden, so no live-region role here — a suppressed announcement helps nobody. #}
+                <span class="filter-loading-spinner" aria-hidden="true"></span>
+            </div>
         </div>
     </div>
     {% include "partials/filter_drawer.html" %}

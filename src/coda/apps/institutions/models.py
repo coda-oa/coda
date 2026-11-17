@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Collection, Generator, Iterable
-from typing import TYPE_CHECKING, Final, TypeIs, cast
+from typing import TYPE_CHECKING, ClassVar, Final, TypeIs, cast
 
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.base import ModelBase
 from django.utils import timezone
+
+from coda.apps.reporting import factcache
 
 INSTITUTION_HIERARCHY_LIMIT: Final[int] = 100
 
@@ -128,7 +130,7 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
     ) -> list[Institution]:
         instances = list(objs)
         _check_batch_cycles(instances)
-        return super().bulk_create(
+        created = super().bulk_create(
             instances,
             batch_size=batch_size,
             ignore_conflicts=ignore_conflicts,
@@ -136,6 +138,10 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
             update_fields=update_fields,
             unique_fields=unique_fields,
         )
+        # bulk_create bypasses post_save; the statistics fact cache needs the
+        # explicit bump (see factcache_signals).
+        factcache.bump_generation()
+        return created
 
     def bulk_update(
         self,
@@ -145,7 +151,10 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
     ) -> int:
         instances = list(objs)
         _check_batch_cycles(instances)
-        return super().bulk_update(instances, fields, batch_size=batch_size)
+        updated = super().bulk_update(instances, fields, batch_size=batch_size)
+        # bulk_update bypasses post_save; see factcache_signals.
+        factcache.bump_generation()
+        return updated
 
 
 class InstitutionManager(models.Manager["Institution"]):
@@ -162,6 +171,8 @@ AllInstitutionManager: type[models.Manager[Institution]] = models.Manager.from_q
 
 
 class Institution(models.Model):
+    facet_label_field: ClassVar[str] = "name"
+
     objects = InstitutionManager()
     all_objects = AllInstitutionManager()
 
@@ -253,8 +264,7 @@ class Institution(models.Model):
                 raise HierarchyContainsCycle.corrupted_hierarchy()
             visited.add(current.pk)
             yield current
-            for child in Institution.all_objects.filter(parent=current):
-                stack.append(child)
+            stack.extend(Institution.all_objects.filter(parent=current))
 
     def is_archived(self) -> bool:
         return self.archived_at is not None
@@ -309,7 +319,7 @@ class InstitutionLinkType(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering: ClassVar[list[str]] = ["name"]
 
     def __str__(self) -> str:
         return self.name

@@ -50,7 +50,7 @@ def as_domain_object(model: fundingrequest_models.FundingRequest) -> AnyFundingR
                 project_id=NonEmptyStr(ef.project_id),
                 project_name=ef.project_name,
             )
-            for ef in getattr(model, "external_funding").all()
+            for ef in model.external_funding.all()
         ],
         request_remarks=model.request_remarks,
         review=review,
@@ -81,7 +81,8 @@ def as_django_model(fundingrequest: AnyFundingRequest) -> fundingrequest_models.
         for field, value in fields.items():
             setattr(model, field, value)
 
-    setattr(model, "publication_id", fundingrequest.publication.id)
+    assert fundingrequest.publication.id is not None  # publication is persisted before the request
+    model.publication_id = fundingrequest.publication.id
     return model
 
 
