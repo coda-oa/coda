@@ -1,0 +1,15 @@
+{% partialdef authors-preview %}
+    <p role="status">Detected {{ authors|length }} author{{ authors|pluralize }}:</p>
+    <ul>
+        {{ authors|unordered_list }}
+    </ul>
+{% endpartialdef %}
+<label for="id_authors">Other Authors</label>
+<textarea id="id_authors" name="authors" rows="5" hx-post="{% url 'fundingrequests:parse_authors' %}" hx-trigger="input changed delay:500ms" hx-target="#authors-preview" hx-swap="innerHTML">
+{{ authors|join:", " }}
+    </textarea>
+<div id="authors-preview">
+    {% if authors %}
+        {% partial authors-preview %}
+    {% endif %}
+</div>

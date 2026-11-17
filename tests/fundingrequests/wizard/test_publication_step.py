@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable
 from itertools import zip_longest
 from typing import Any, cast
@@ -5,7 +6,9 @@ from typing import Any, cast
 import pytest
 from django import forms
 from django.http import HttpRequest
-from django.test import RequestFactory
+from django.template.loader import get_template
+from django.test import Client, RequestFactory
+from django.urls import reverse
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
@@ -15,6 +18,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
+from coda.apps.users.models import User
 from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.author import Author, AuthorNames, InstitutionId, Role
 from coda.domain.publication import Authors
@@ -35,6 +39,57 @@ author_str = """John Doe, Jane Doe, John Smith,
 
 def assert_expected_authors(ctx: dict[str, list[str]]) -> None:
     assert list(ctx["authors"]) == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+
+
+@pytest.mark.django_db
+def test__parse_authors__renders_parsed_author_list_with_count(client: Client) -> None:
+    client.force_login(User.objects.create_user(username="parse-authors-user"))
+
+    response = client.post(reverse("fundingrequests:parse_authors"), {"authors": author_str})
+
+    content = response.content.decode()
+    assert "Detected 4 authors" in content
+    for name in expected_authors:
+        assert f"<li>{name}</li>" in content
+
+
+@pytest.mark.django_db
+def test__parse_authors__empty_input__renders_empty_response(client: Client) -> None:
+    client.force_login(User.objects.create_user(username="parse-authors-empty-user"))
+
+    response = client.post(reverse("fundingrequests:parse_authors"), {"authors": ""})
+
+    assert response.content == b""
+
+
+def test__other_authors_partial__prefilled_authors__renders_input_and_initial_preview() -> None:
+    html = get_template("fundingrequests/partials/other_authors.html").render(
+        {"authors": ["Jane Doe", "John Smith"]}
+    )
+
+    assert 'name="authors"' in html
+    assert 'id="authors-preview"' in html
+    assert "Detected 2 authors" in html
+    assert "<li>Jane Doe</li>" in html
+    assert "<li>John Smith</li>" in html
+
+
+def test__other_authors_partial__renders_standalone_preview_fragment() -> None:
+    html = get_template(
+        "fundingrequests/partials/other_authors.html#authors-preview"
+    ).render({"authors": ["Jane Doe", "John Smith"]})
+
+    assert "Detected 2 authors" in html
+    assert "<li>Jane Doe</li>" in html
+    assert "<li>John Smith</li>" in html
+    assert 'name="authors"' not in html
+
+
+def test__other_authors_partial__no_authors__renders_empty_preview_target() -> None:
+    html = get_template("fundingrequests/partials/other_authors.html").render({"authors": []})
+
+    assert 'name="authors"' in html
+    assert re.search(r'<div id="authors-preview">\s*</div>', html)
 
 
 @pytest.mark.django_db
