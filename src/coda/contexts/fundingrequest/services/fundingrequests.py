@@ -6,10 +6,17 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Protocol, cast, overload
 
+from django.db import transaction
+from django.urls import reverse
+
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
+from coda.apps.invoices.models import Invoice, Position
+from coda.apps.opencost.models import OpenCostReportPublication
 from coda.apps.publications.dto import ContractYearDto, parse_publication_state
+from coda.apps.publications.models import Publication as PublicationModel
 from coda.checks.checkfactory import CheckFactory
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
@@ -41,6 +48,14 @@ class RequestIdGenerator(Protocol):
     def __call__(
         self, date: datetime.date | None = None, rng: random.Random | None = None
     ) -> PublicFundingRequestId: ...
+
+
+@dataclass(frozen=True)
+class BlockingReference:
+    """Something outside the funding request that prevents its deletion."""
+
+    description: str
+    url: str = ""
 
 
 def create_fundingrequest(
@@ -396,3 +411,66 @@ def get_institutions_allowed_as_affiliation(
     }
     author_institutions = list(institution_repository.get_many_by_id(author_affiliations))
     return itertools.chain(author_institutions, allowed_institutions)
+
+
+def can_delete_fundingrequest(
+    fundingrequest_id: FundingRequestId,
+) -> tuple[bool, list[BlockingReference]]:
+    """Deletion is for accidental creations only.
+
+    Delete the request if nothing outside its own data references it.
+    Invoice positions and OpenCost report entries reference the request's
+    publication. They block deletion.
+    """
+    fundingrequest = FundingRequestModel.objects.get(pk=fundingrequest_id)
+    blocking: list[BlockingReference] = []
+
+    invoice_ids = (
+        Position.objects.filter(publication=fundingrequest.publication)
+        .values_list("invoice", flat=True)
+        .distinct()
+    )
+    for invoice in Invoice.objects.filter(pk__in=invoice_ids).order_by("number", "pk"):
+        blocking.append(
+            BlockingReference(
+                description=f"Invoice {invoice.number or f'#{invoice.pk}'}",
+                url=reverse("invoices:detail", kwargs={"pk": invoice.pk}),
+            )
+        )
+
+    report_entries = (
+        OpenCostReportPublication.objects.filter(publication=fundingrequest.publication)
+        .select_related("report")
+        .order_by("report__title", "report__pk")
+    )
+    for entry in report_entries:
+        blocking.append(
+            BlockingReference(
+                description=f"OpenCost report '{entry.report.title}'",
+                url=reverse("opencost:detail", kwargs={"report_id": entry.report.pk}),
+            )
+        )
+
+    return not blocking, blocking
+
+
+def delete_fundingrequest(fundingrequest_id: FundingRequestId) -> None:
+    with transaction.atomic():
+        fundingrequest = FundingRequestModel.objects.get(pk=fundingrequest_id)
+        # Lock the publication row. A concurrent invoice position or OpenCost
+        # report insert takes FOR KEY SHARE on this row. It blocks until this
+        # transaction commits, so the guard below sees the insert.
+        PublicationModel.objects.select_for_update().get(pk=fundingrequest.publication_id)
+        can_delete, blocking = can_delete_fundingrequest(fundingrequest_id)
+        if not can_delete:
+            reasons = ", ".join(ref.description for ref in blocking)
+            raise ValueError(f"Cannot delete funding request, it is referenced by: {reasons}")
+
+        if fundingrequest.extra_contact:
+            # Delete the contact explicitly. SET_NULL would orphan the row.
+            fundingrequest.extra_contact.delete()
+        if fundingrequest.review:
+            # The FK column is on FundingRequest. CASCADE therefore never
+            # fires for the review. Delete it explicitly.
+            fundingrequest.review.delete()
+        fundingrequest.delete()

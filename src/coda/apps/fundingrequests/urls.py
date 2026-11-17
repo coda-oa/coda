@@ -6,7 +6,11 @@ from coda.apps.fundingrequests.forms import (
     include_inactive_contracts,
 )
 from coda.apps.fundingrequests.views import review
-from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
+from coda.apps.fundingrequests.views.detailview import (
+    delete_fundingrequest,
+    fundingrequest_detail,
+    request_delete_fundingrequest,
+)
 from coda.apps.fundingrequests.views.doi_preview import (
     DOIImportInputView,
     DOIPreviewDetailView,
@@ -17,12 +21,6 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_load_type_form,
     doi_preview_reset_funding,
     doi_preview_reset_type,
-)
-from coda.apps.fundingrequests.views.mass_doi_import import (
-    MassDOIImportInputView,
-    MassDOIImportResultView,
-    MassDOIPreviewSaveView,
-    MassDOIPreviewView,
 )
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
@@ -56,6 +54,12 @@ from coda.apps.fundingrequests.views.labels import (
 from coda.apps.fundingrequests.views.listview import (
     fundingrequest_list,
     fundingrequest_list_region,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
 )
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
@@ -135,6 +139,12 @@ urlpatterns = [
         name="doi_preview_reset_type",
     ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
+    path(
+        "<int:pk>/request-delete/",
+        request_delete_fundingrequest,
+        name="fundingrequest_request_delete",
+    ),
+    path("<int:pk>/delete/", delete_fundingrequest, name="fundingrequest_delete"),
     path("review/<int:pk>/", review.review_view, name="review"),
     path("create/wizard/", ArticleRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),
