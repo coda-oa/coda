@@ -100,6 +100,12 @@
         padding-inline-end: 0;
     }
 
+    /* Pico's `nav li::before` zero-width float would become an anonymous grid item
+       and add an empty row below the group header. */
+    & .nav__group::before {
+        content: none;
+    }
+
     & .nav__group > a {
         grid-area: 1 / 1 / 2 / -1;
 
