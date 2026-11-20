@@ -17,7 +17,7 @@ RUN groupadd --gid 1000 dev-user \
   && echo dev-user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/dev-user \
   && chmod 0440 /etc/sudoers.d/dev-user \
   && mkdir -p /app /opt/venv /home/dev-user/.cache/uv \
-  && chown dev-user:dev-user /app /opt/venv /home/dev-user/.cache/uv
+  && chown dev-user:dev-user /app /opt/venv /home/dev-user/.cache /home/dev-user/.cache/uv
 
 COPY dockerfiles/local/entrypoint dockerfiles/local/start /
 RUN chmod +x /entrypoint /start && sed -i 's/\r$//g' /entrypoint /start
