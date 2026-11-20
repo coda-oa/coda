@@ -291,6 +291,29 @@ def test__given_position_with_invalid_contract_year__update__returns_error(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__contract_position__goto_update_view__links_contract_detail(client: Client) -> None:
+    contract = domainfactory.contract()
+    contract.id = contract_services.create(contract)
+    position = domainfactory.contract_position(domainfactory.contract_year(contract))
+    creditor = modelfactory.creditor()
+
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(creditor.pk),
+        date=datetime.date.today(),
+        positions=[position],
+    )
+    invoice.id = repository.create(invoice)
+
+    response = goto_update_view(client, invoice.id)
+
+    assert response.context["position_list"].positions[0].type == "contract"
+    contract_url = reverse("contracts:detail", kwargs={"pk": contract.id})
+    assert f'href="{contract_url}"' in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_is_zero(
     client: Client,
 ) -> None:

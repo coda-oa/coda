@@ -6,7 +6,7 @@
 {% block position_type_specifics %}
     <h4>
         Contract Name:
-        <a href="{{ position.item.contract_url }}"
+        <a href="{% url "contracts:detail" pk=position.item.id %}"
            target="_blank"
            class="outline secondary">{{ position.item.name }} ↗</a>
     </h4>
