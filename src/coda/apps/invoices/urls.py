@@ -18,11 +18,22 @@ from coda.apps.invoices.views.creditor import (
     restore_creditor,
 )
 from coda.apps.invoices.views.finances_home import finances_home
+from coda.apps.invoices.views.funding_assignment_views import (
+    add_funding_assignment,
+    refresh_unassigned_costs,
+    remove_funding_assignment,
+    switch_cost_basis_mode,
+    switch_funding_source_type,
+)
 from coda.apps.invoices.views.fundingsources import (
     fundingsource_createview,
     fundingsource_detailview,
     fundingsource_listview,
     fundingsource_updateview,
+)
+from coda.apps.invoices.views.importschema import (
+    import_schema_download,
+    import_schema_fragment,
 )
 from coda.apps.invoices.views.importview import import_invoices_view
 from coda.apps.invoices.views.inspect import (
@@ -38,13 +49,6 @@ from coda.apps.invoices.views.position_views import (
     invoice_total,
     remove_position,
     switch_position_tab,
-)
-from coda.apps.invoices.views.funding_assignment_views import (
-    add_funding_assignment,
-    refresh_unassigned_costs,
-    remove_funding_assignment,
-    switch_cost_basis_mode,
-    switch_funding_source_type,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
 from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
@@ -118,6 +122,8 @@ urlpatterns = [
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
     path("import/", import_invoices_view, name="import"),
+    path("import/schema/", import_schema_fragment, name="import_schema"),
+    path("import/schema/download/", import_schema_download, name="import_schema_download"),
     path(
         "position-cost-type-options/", position_cost_type_options, name="position_cost_type_options"
     ),

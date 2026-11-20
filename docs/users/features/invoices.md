@@ -280,7 +280,7 @@ Invoices are imported using JSON files that follow a specific schema. The import
           "tax_rate": 19.00,
           "cost_type": "gold-oa",
           "external_id": "POS-001",
-          "request_id": "20241215-ABCD1234",
+          "request_id": "coda-20241215-284_GWAxYGU9",
           "funding_assignments": [
             {
               "type": "budget",
@@ -324,7 +324,7 @@ Invoices are imported using JSON files that follow a specific schema. The import
 
 ### Import Schema Reference
 
-The complete JSON schema is available for download [here](/_static/downloads/invoice_import_schema.json). Key fields include:
+The complete JSON schema is generated from the current data model and shown on the **Import** page (Finances → Invoices → Import), where it can also be downloaded as a JSON file. Key fields include:
 
 **Invoice Level:**
 - `number` (required): Invoice number as string
@@ -348,14 +348,14 @@ All positions share these common fields:
 - `external_id`: External system position reference
 
 **Publication Position:**
-- `request_id`: CODA funding request ID (e.g., "20241215-ABCD1234")
+- `request_id`: CODA public funding request ID (format "coda-YYYYMMDD-XXXXXXXXXXXX")
 - `legacy_request_id`: Legacy system request ID
-- `cost_type`: "gold-oa", "hybrid-oa", "publication charge", "colour charge", "page charge", "permission", "reprint", "submission fee", "payment fee", "vat", or "other" (default: "publication charge")
+- `cost_type`: "gold-oa", "hybrid-oa", "vat", "cover charge", "colour charge", "page charge", "permission", "publication charge", "reprint", "submission fee", "payment fee", or "other" (default: "publication charge")
 
 **Contract Position:**
 - `contract_name` (required): Name of the contract
 - `contract_year` (required): Year as integer
-- `cost_type`: "publish", "read", or "vat"
+- `cost_type`: "publish", "read", "publish and read", "service fee", or "vat"
 
 **Free Position:**
 - `description`: Descriptive text for the line item
