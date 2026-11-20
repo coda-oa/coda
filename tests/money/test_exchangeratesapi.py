@@ -11,7 +11,6 @@ EXCHANGE_DATA_PATH = Path(__file__).parent / "exchangeapi_result.json"
 EXCHANGE_DATA: ExchangeRateApiJsonSchema = json.loads(EXCHANGE_DATA_PATH.read_text())
 
 
-@pytest.mark.integration
 @pytest.mark.external
 def test__can_request_rates_from_exchange_api() -> None:
     """

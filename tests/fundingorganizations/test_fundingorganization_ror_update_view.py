@@ -24,7 +24,7 @@ ALL_LINKS = [Ror("https://ror.org/04pz7b180"), CrossrefId("501100002347")]
     "http_client",
     [
         FakeHttpGet(json_data=json.loads(BMFTR_RESPONSE_FULL)),
-        pytest.param(httpx, marks=[pytest.mark.integration, pytest.mark.external]),
+        pytest.param(httpx, marks=pytest.mark.external),
     ],
 )
 def test__given_outdated_funding_organization_with_link__request_ror_update__updates_organization_information_via_ror_api(

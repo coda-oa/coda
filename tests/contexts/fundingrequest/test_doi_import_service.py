@@ -78,7 +78,7 @@ def get_publication_from_funding_request(
 @pytest.fixture(
     params=[
         "fake",
-        pytest.param("real", marks=[pytest.mark.integration, pytest.mark.external]),
+        pytest.param("real", marks=pytest.mark.external),
     ]
 )
 def nature_scenario(request: pytest.FixtureRequest) -> NatureArticleScenario:
@@ -90,7 +90,7 @@ def nature_scenario(request: pytest.FixtureRequest) -> NatureArticleScenario:
 @pytest.fixture(
     params=[
         "fake",
-        pytest.param("real", marks=[pytest.mark.integration, pytest.mark.external]),
+        pytest.param("real", marks=pytest.mark.external),
     ]
 )
 def springer_scenario(request: pytest.FixtureRequest) -> SpringerBookScenario:

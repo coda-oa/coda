@@ -88,7 +88,6 @@ def overlapping_org_fixture(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "inject_ror_client")
-@pytest.mark.integration
 class TestAutomaticOverlapDetection:
     """Tests for automatic overlap detection after ROR update."""
 

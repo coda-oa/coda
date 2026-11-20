@@ -39,9 +39,9 @@ build-backend = "uv_build"
 
 [tool.poe.tasks]
 coverage = "pytest --cov"
-unittests = "pytest -m 'not integration and not django_db and not migration_test and not performance and not ui_test and not external' --ff -n auto"
+unittests = "pytest -m 'not django_db and not migration_test and not performance and not ui_test and not external' --ff -n auto"
 defaulttests = "pytest -m 'not migration_test and not performance and not ui_test and not external' --ff -n auto"
-integrationtests = "pytest -m '(integration or django_db) and not external and not migration_test and not performance and not ui_test' --ff -n auto"
+integrationtests = "pytest -m 'django_db and not external and not migration_test and not performance and not ui_test' --ff -n auto"
 migrationtests = "pytest -m 'migration_test' --ff -n auto"
 uitests = "pytest -m 'ui_test'"
 externaltests = "pytest -m 'external'"
@@ -82,7 +82,6 @@ django_settings_module = "config.settings.production"
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 addopts = "--reuse-db --maxprocesses=8 --strict-markers"
 markers = [
-  "integration: mark test as exercising a real boundary such as the database",
   "performance: mark test as performance test (may be slow)",
   "external: mark test as requiring internet access",
 ]

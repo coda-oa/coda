@@ -62,7 +62,6 @@ def test__doaj_check__listing_required__journal_not_in_doaj__fails() -> None:
     assert result == CheckFailed("Journal not listed in DOAJ")
 
 
-@pytest.mark.integration
 @pytest.mark.external
 def test__doaj_check_with_real_api__journal_in_doaj__is_successful() -> None:
     fundingrequest = domainfactory.fundingrequest()
