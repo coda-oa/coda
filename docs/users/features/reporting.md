@@ -68,17 +68,49 @@ After generating a report, CODA will validate the data against the openCost sche
 - **Warning message**: The report was created but contains some validation warnings (e.g., missing optional fields that would improve the data quality)
 - **Error message**: The report is missing information that is needed to generate a valid openCost report
 
+The following conditions are reported:
+
+| Condition | Level | Effect on the XML |
+|---|---|---|
+| Contract has no ESAC ID | Warning | Contract is exported with ESAC `UNKNOWN` |
+| Publication has no DOI | Warning | Exported with title and journal instead |
+| DOI-less publication has no publisher | Warning | Exported with `Unknown Publisher` |
+| Contract has no participation start or end date | Error | Contract is excluded |
+| No institution name or identifier | Error | Publication or contract is excluded |
+| Publication has no exportable invoice and no linked contract | Error | Publication is excluded |
+| Contract has no exportable invoice | Error | Contract is excluded |
+| Invoice has no invoice date | Error | Invoice is excluded |
+| Invoice has no positions with a cost type or currency openCost accepts | Error | Invoice is excluded |
+| Some positions have an unsupported cost type or currency | Error | Invoice is kept; those positions are excluded |
+
 Validation errors and warnings don't prevent you from downloading and using the report, but they indicate fields that could be completed to provide more comprehensive data. You can view detailed validation information on the report detail page, where links are provided to fix the issues.
 
 ![](/_static/img/export_messages.png)
 
 ```{admonition} Note
-After fixing any issue with the data in the report, use the **Regenerate** button on the report's detail page to have the changes included.
+After fixing an issue on a publication, contract, or invoice that is already in the report, use the **Regenerate** button on the report's detail page to have the changes included. Regeneration does not add new report items; see [Regenerating a Report](#regenerating-a-report).
 ```
 
 ### Regenerating a Report
 
-The **Regenerate** button on a report's detail page rebuilds that report from your current CODA data: it re-reads the publications, contracts and invoices that match the report, recomputes its XML file and its validation issues, and then takes you back to the detail page with an up-to-date count of errors and warnings.
+The **Regenerate** button on a report's detail page refreshes that report from your current CODA data. It re-reads the publications, contracts, and invoices that already belong to the report, recomputes its XML file and validation issues, and then takes you back to the detail page with an up-to-date count of errors and warnings.
+
+Regeneration does **not** re-run the original filters. The report's membership is fixed when it is generated:
+
+- A publication, contract, or invoice added to CODA afterwards does not join the report, even if it matches the original filters.
+- Adding a contract to an invoice or publication that is already in the report does not add that contract to the report.
+- A new invoice for a publication that is already in the report does not join.
+- New positions on an invoice that is already in the report **do** flow through, provided the publication or contract they belong to is already in the report.
+
+Regeneration also re-reads values that have no validation rule of their own. Correcting these values takes effect without a warning naming the change, though the change can still fix or trigger one of the rules above:
+
+- invoice numbers, creditors, amounts, and positions
+- publication titles, link and identifier values, publication type, and cost sharing
+- institution hierarchy and the home institution configured in preferences
+
+Warnings and errors are recomputed on every regeneration, so fixing a missing DOI, publisher, ESAC ID, participation period, or institution removes the corresponding issue, and removing required data adds one.
+
+To include new publications, contracts, or invoices, use **Reuse Filters For New Report** on the detail page to create a new report with the same filters. A report item leaves the report only if its CODA record is deleted.
 
 This keeps the report's identity — its title, ID and reporting period stay the same — so fixing incomplete data and regenerating is preferable to creating a duplicate report. The download filename reflects the new generation date.
 
@@ -96,7 +128,7 @@ This detail view allows you to review the data before downloading the XML file a
 ![](/_static/img/export_detail_view.png)
 
 ```{admonition} Note
-Each openCost report holds the XML document as it was at its last generation. If you update a publication or invoice afterwards, the stored report does not change by itself — use the **Regenerate** button above to refresh it, or keep the old report as a historical record.
+Each openCost report holds the XML document as it was at its last generation. If you update a publication, contract, or invoice that is already in the report, the stored report does not change by itself — use the **Regenerate** button above to refresh it, or keep the old report as a historical record. Adding new publications, contracts, or invoices does not change the report; create a new report with **Reuse Filters For New Report** instead.
 ```
 
 ### Downloading the XML File
