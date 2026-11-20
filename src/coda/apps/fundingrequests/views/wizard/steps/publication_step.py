@@ -164,10 +164,14 @@ class PublicationStep(TemplateStep):
 
 @login_required
 def parse_authors(request: HttpRequest) -> HttpResponse:
+    authors = list(AuthorNames.from_str(request.POST.get("authors", "")))
+    if not authors:
+        return HttpResponse()
+
     return render(
         request,
-        "fundingrequests/partials/author_textarea.html",
-        {"authors": AuthorNames.from_str(request.POST.get("authors", ""))},
+        "fundingrequests/partials/other_authors.html#authors-preview",
+        {"authors": authors},
     )
 
 
