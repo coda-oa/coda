@@ -110,4 +110,4 @@ def _group_state(path: str, group: NavGroup) -> dict[str, Any]:
 def nav_group(context: dict[str, Any], key: str) -> dict[str, Any]:
     """Render a section group with its submenu; ``key`` selects the group in ``NAV_GROUPS``."""
     request = context["request"]
-    return _group_state(request.path, NAV_GROUPS[key])
+    return {**_group_state(request.path, NAV_GROUPS[key]), "key": key}
