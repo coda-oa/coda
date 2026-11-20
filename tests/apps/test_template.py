@@ -9,6 +9,7 @@ from django.urls import reverse
 from tests import modelfactory
 
 from coda.apps import version as version_module
+from coda.apps import views as views_module
 
 
 @pytest.mark.django_db
@@ -35,7 +36,7 @@ def test__check_update_view__returns_empty_when_no_update(
     """The check-update endpoint renders nothing when no update is available."""
     monkeypatch.setattr(version_module, "_git", lambda args: None)
     monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
-    monkeypatch.setattr(version_module, "check_update", lambda branch, sha: False)
+    monkeypatch.setattr(views_module, "check_version_update", lambda branch, sha: False)
 
     response = client.get(reverse("check_update"))
 
@@ -55,7 +56,7 @@ def test__check_update_view__returns_banner_when_update_available(
         lambda args: "develop" if args == ("rev-parse", "--abbrev-ref", "HEAD") else None,
     )
     monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
-    monkeypatch.setattr(version_module, "check_update", lambda branch, sha: True)
+    monkeypatch.setattr(views_module, "check_version_update", lambda branch, sha: True)
 
     response = client.get(reverse("check_update"))
 
