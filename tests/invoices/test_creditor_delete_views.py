@@ -125,7 +125,7 @@ def _create_domain_invoice(creditor: Creditor) -> None:
     invoice = Invoice.new(
         number="123",
         creditor=CreditorId(creditor.pk),
-        date=datetime.date.today(),
+        date=datetime.datetime.now(timezone.get_default_timezone()).date(),
         positions=[],
     )
     repository.create(invoice)
@@ -258,3 +258,18 @@ def test__list_view__multi_word_search__each_word_matches_independently(
 
     assert response.status_code == 200
     assert "Alpha Beta Gamma" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__request_delete_creditor__without_reason_intro__keeps_default_wording(
+    client: Client, creditor: Creditor
+) -> None:
+    """The shared modal grew an optional reason_intro. Consumers that do not
+    pass it must keep the original lead-in line."""
+    _create_domain_invoice(creditor)
+
+    response = client.get(reverse("invoices:creditor_request_delete", kwargs={"pk": creditor.pk}))
+
+    content = response.content.decode()
+    assert "Cannot delete this creditor:" in content
