@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% block page_supertitle %}Publisher{% endblock page_supertitle %}
-{% block page_title %}{{ publisher.name }}{% endblock page_title %}
+{% block page_supertitle %}
+    Publisher
+{% endblock page_supertitle %}
+{% block page_title %}
+    {{ publisher.name }}
+{% endblock page_title %}
 {% block page_actions %}
     {% if is_blocked %}
         <button class="outline success"
-                hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}">
-            Unblock
-        </button>
+                hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}">Unblock</button>
     {% else %}
         <button class="outline danger"
                 hx-get="{% url "blocklist:request_block_publisher" pk=publisher.pk %}"
@@ -20,7 +22,7 @@
 {% block content %}
     <article>
         <header>
-            <h2 class="mb-0">Corresponding journals</h2>
+            <h2 class="mb-0">Corresponding journals ({{ journals|length }})</h2>
         </header>
         <ul class="undecorated scroll-container max-h-30">
             {% for journal in journals %}

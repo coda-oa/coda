@@ -126,6 +126,16 @@ def test__nav__funding_request_list__highlights_funding_requests(client: Client)
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__nav__active_group__expanded_with_active_sub_item(client: Client) -> None:
+    """Within a group the toggle is checked and the matching sub-item is active."""
+    nav = _nav_html(client.get(reverse("fundingrequests:list")))
+
+    assert re.search(r'id="nav-group-toggle-request_center"[^>]*\bchecked\b', nav)
+    assert _active_nav_items(nav) == {"Funding Requests"}
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__nav__funding_request_detail__highlights_funding_requests(client: Client) -> None:
     """Pages in the group mount outside every sub-item URL fall back to the default item."""
     funding_request = modelfactory.fundingrequest(title="Nav highlight test request")
