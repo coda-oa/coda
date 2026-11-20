@@ -135,8 +135,9 @@
         align-items: center;
         justify-content: center;
 
-        width: 1.75rem;
-        margin-inline: 0.25rem;
+        /* Fill the toggle column and the header's full hover box: Pico's nav anchors
+           carry a -0.5rem margin, so the anchor's border box is 1rem taller. */
+        margin-block: -0.5rem;
 
         cursor: pointer;
         user-select: none;
