@@ -2,39 +2,38 @@ import uuid
 from collections.abc import Mapping
 
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
-
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.mappers import FundingSourceDomainMapper
-from coda.apps.invoices.models import Invoice, Position, FundingAssignment
+from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.contexts.finance.dto.import_dtos import (
+    ContractPositionImportDto,
+    ConversionImportDto,
+    FreePositionImportDto,
+    FundingAssignmentImportDto,
+    InvoiceImportDto,
+    PublicationPositionImportDto,
+)
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
-    ContractImportDto,
     ConceptImportDto,
+    ContractImportDto,
     CostEstimateImportDto,
+    DecidedFundingImportDto,
     FundingRequestImportDto,
     LinkImportDto,
     PublicationImportDto,
     PublishingStateImportDto,
     ResearchFundingImportDto,
     ReviewImportDto,
-    DecidedFundingImportDto,
-    SeperateContactImportDto,
-)
-from coda.contexts.finance.dto.import_dtos import (
-    InvoiceImportDto,
-    PublicationPositionImportDto,
-    ContractPositionImportDto,
-    FreePositionImportDto,
-    FundingAssignmentImportDto,
-    ConversionImportDto,
+    SeparateContactImportDto,
 )
 from coda.domain.author import Role
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
+from coda.domain.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.orcid import Orcid
 from coda.domain.publication import License, OpenAccessType
-from coda.domain.finance.costtypes import PublicationCostType, ContractCostType
-from coda.domain.finance.invoice import PaymentStatus, FundingSourceId
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.fundingrequest import PaymentMethod
 
 
 def map_funding_request_to_dto(
@@ -45,7 +44,7 @@ def map_funding_request_to_dto(
     research_funding = _map_external_funding_to_dto(funding_request)
     review = _map_review_to_dto(funding_request)
     estimated_cost = _map_estimated_cost_to_dto(funding_request)
-    seperate_contact = _map_seperate_contact_to_dto(funding_request)
+    separate_contact = _map_separate_contact_to_dto(funding_request)
     labels = _map_labels_to_dto(funding_request)
     request_id = str(funding_request.request_id) if funding_request.request_id else None
 
@@ -57,7 +56,7 @@ def map_funding_request_to_dto(
         review=review,
         estimated_cost=estimated_cost,
         request_remarks=funding_request.request_remarks or "",
-        seperate_contact=seperate_contact,
+        separate_contact=separate_contact,
         labels=labels,
         request_id=request_id,
     )
@@ -209,12 +208,12 @@ def _map_estimated_cost_to_dto(funding_request: FundingRequest) -> CostEstimateI
     )
 
 
-def _map_seperate_contact_to_dto(funding_request: FundingRequest) -> SeperateContactImportDto:
+def _map_separate_contact_to_dto(funding_request: FundingRequest) -> SeparateContactImportDto:
     if funding_request.extra_contact:
-        return SeperateContactImportDto(
+        return SeparateContactImportDto(
             name=funding_request.extra_contact.name, email=funding_request.extra_contact.email
         )
-    return SeperateContactImportDto.default()
+    return SeparateContactImportDto.default()
 
 
 def _map_labels_to_dto(funding_request: FundingRequest) -> list[str]:

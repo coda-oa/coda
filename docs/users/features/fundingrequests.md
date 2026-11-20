@@ -288,7 +288,7 @@ Funding requests are imported using JSON files that follow a specific schema. Th
         "title": "My Article Title",
         "kind": "article",
         "license": "CC-BY",
-        "eissn": "1234-5678",
+        "eissn": "2434-561X",
         "journal_name": "Journal of Examples",
         "publisher_name": "Example Publisher",
         "open_access_type": "Gold"
@@ -311,7 +311,7 @@ Funding requests are imported using JSON files that follow a specific schema. Th
         "title": "My Comprehensive Article",
         "kind": "article",
         "license": "CC-BY",
-        "eissn": "1234-5678",
+        "eissn": "2434-561X",
         "journal_name": "Journal of Examples",
         "publisher_name": "Example Publisher",
         "open_access_type": "Gold",
@@ -326,8 +326,8 @@ Funding requests are imported using JSON files that follow a specific schema. Th
         ],
         "publishing_state": {
           "state": "published",
-          "online_publication_date": "2025-03-15",
-          "print_publication_date": "2025-04-01"
+          "online_date": "2025-03-15",
+          "print_date": "2025-04-01"
         },
         "links": [
           {
@@ -357,21 +357,21 @@ Funding requests are imported using JSON files that follow a specific schema. Th
       },
       "research_funding": [
         {
-          "organization_name": "Deutsche Forschungsgemeinschaft",
+          "funder": "Deutsche Forschungsgemeinschaft",
           "project_id": "DFG-12345",
           "project_name": "My Research Project"
         }
       ],
       "review": {
         "result": "approved",
-        "decided_funding": {
+        "funding": {
           "amount": 1800.0,
           "currency": "EUR"
         },
         "remarks": "Approved with negotiated discount"
       },
       "labels": ["Priority", "DFG Funded"],
-      "seperate_contact": {
+      "separate_contact": {
         "name": "John Smith",
         "email": "john.smith@example.com"
       }
@@ -382,12 +382,13 @@ Funding requests are imported using JSON files that follow a specific schema. Th
 
 ### Import Schema Reference
 
-The complete JSON schema is available for download [here](/_static/downloads/fundingrequest_import_schema.json). Key fields include:
+The complete JSON schema is generated from the current data model and shown on the **Import** page (Request Center → Import), where it can also be downloaded as a JSON file. Key fields include:
 
 **Request Level:**
 
 - `request_date` (required): Date in YYYY-MM-DD format
 - `legacy_request_id`: Identifier from your old system
+- `request_id`: CODA public request ID (format "coda-YYYYMMDD-XXXXXXXXXXXX"); optional, currently not used by the import service
 - `request_remarks`: Notes or comments about the request
 - `labels`: Array of label names (labels are auto-created if they don't exist)
 
@@ -396,13 +397,18 @@ The complete JSON schema is available for download [here](/_static/downloads/fun
 - `title` (required): Publication title
 - `kind` (required): Either "article" or "monograph"
 - `license`: CC-BY, CC-BY-SA, CC-BY-NC, CC-BY-NC-SA, CC-BY-NC-ND, CC-BY-ND, CC0, Unknown, Proprietary, None
-- `eissn`: Electronic ISSN for journal articles
-- `journal_name`: Journal name (auto-creates if doesn't exist)
-- `publisher_name`: Publisher name (auto-creates if doesn't exist)
+- `eissn`: Electronic ISSN of the journal; required for `kind: "article"`, ignored for monographs. Validated with checksum.
+- `journal_name`: Journal name (auto-creates if doesn't exist; defaults to "Imported nameless journal" when omitted)
+- `publisher_name`: Publisher name (auto-creates if doesn't exist; defaults to "Imported nameless publisher" when omitted)
 - `open_access_type`: Gold, Diamond, Hybrid, Opt-in, Opt-out, Unknown, Closed
 - `authors`: Array of author objects
+  - `role`: "Submitter", "Co-author" (default), "Corresponding author", or "Submitting corresponding author"
+  - `affiliation`: Institution name; creates an institution entry if it doesn't exist
+  - `affiliation_internal_id`: Internal ID of an existing institution, as used by the institution structure export
 - `publishing_state`: Publication status and dates
-- `links`: DOIs, PMC IDs, ISBNs, Handles, and other identifiers
+- `links`: Identifiers and links related to the publication
+  - `type`: one of "arxiv", "crossref", "doi", "handle", "isbn", "oai", "pmc", "pmid", "url", "urn" (case-insensitive)
+  - `value`: the identifier itself, e.g. "10.1234/example.2025.123"
 - `contracts`: Contract associations by name and year
 - `publication_type`: COAR vocabulary concept
 - `subject_area`: DFG classification or custom vocabulary
@@ -422,7 +428,7 @@ The complete JSON schema is available for download [here](/_static/downloads/fun
 **Review:**
 
 - `result`: "open", "approved", "rejected", "waived", or "closed"
-- `decided_funding`: Amount and currency
+- `funding`: Amount and currency
 - `remarks`: Reviewer notes
 
 ### Using the Import Interface

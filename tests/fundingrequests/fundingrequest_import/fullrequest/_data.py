@@ -14,7 +14,7 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
     PublishingStateImportDto,
     ResearchFundingImportDto,
     ReviewImportDto,
-    SeperateContactImportDto,
+    SeparateContactImportDto,
 )
 from coda.domain.author import Role
 from coda.domain.fundingrequest import PaymentMethod, ReviewResult
@@ -55,7 +55,7 @@ FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
                 )
             ],
             request_remarks="Request remarks from the author",
-            seperate_contact=SeperateContactImportDto(
+            separate_contact=SeparateContactImportDto(
                 name="Mr. Secretary", email="secretary@example.com"
             ),
             labels=["important", "external"],
