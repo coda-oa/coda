@@ -107,7 +107,13 @@ def logged_in(client: Client) -> None:
     client.force_login(User.objects.create_user("testuser"))
 
 
-@pytest.fixture(autouse=True, scope="session")
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        if item.get_closest_marker("django_db") is not None:
+            item.add_marker(pytest.mark.usefixtures("populate_database"))
+
+
+@pytest.fixture(scope="session")
 def populate_database(django_db_setup: Any, django_db_blocker: DjangoDbBlocker) -> None:
     with django_db_blocker.unblock():
         fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))
