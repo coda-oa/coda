@@ -11,7 +11,7 @@ from django.urls import reverse
 from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices.forms import InvoiceListFilterForm
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.date import DateRange
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
@@ -57,7 +57,7 @@ def create_invoice(
         positions=(),
         status=PaymentStatus(status) if status else PaymentStatus.Unpaid,
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return invoice
 
 
@@ -261,7 +261,7 @@ def test__funding_source__narrows_to_invoices_with_matching_position(client: Cli
         creditor=creditor_id,
         positions=[matching_position],
     )
-    matching.id = invoice_service.save(matching)
+    matching.id = save(matching)
 
     other_position = domainfactory.free_position()
     other_position.assign_funding(Budget(other_budget, "other"), other_position.cost.amount)
@@ -271,7 +271,7 @@ def test__funding_source__narrows_to_invoices_with_matching_position(client: Cli
         creditor=creditor_id,
         positions=[other_position],
     )
-    other.id = invoice_service.save(other)
+    other.id = save(other)
 
     html = get_list_region(client, {"funding_source": str(matching_budget)}).content.decode()
 

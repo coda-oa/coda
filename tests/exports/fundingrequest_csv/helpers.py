@@ -13,7 +13,7 @@ from coda.apps.publications.models import (
     PublicationAttachedConcept,
     Vocabulary,
 )
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
@@ -97,7 +97,7 @@ def create_invoice_with_publication_position(
     if conversion is not None:
         exchange_rate, target_currency = conversion
         invoice.add_conversion(exchange_rate, target_currency)
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     return invoice
 
@@ -108,7 +108,7 @@ def create_invoice_with_contract_position(contract_year: "ContractYear") -> Invo
 
     position = domainfactory.contract_position(contract_year)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     return invoice
 
@@ -119,7 +119,7 @@ def create_invoice_with_free_position() -> Invoice:
 
     position = domainfactory.free_position()
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     return invoice
 
@@ -158,7 +158,7 @@ def create_invoice_with_funding_assignments(
     position.assign_funding(funding_source_1, budget_amount)
     position.assign_funding(funding_source_2, institution_amount)
 
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     return invoice
 
@@ -177,7 +177,7 @@ def create_invoice_with_currency_conversion(
 
     invoice.add_conversion(exchange_rate, target_currency)
 
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return invoice
 
 
@@ -198,6 +198,6 @@ def create_invoice_with_mixed_positions(funding_request: FundingRequest) -> "Inv
         creditor=creditor_id,
         positions=[publication_position, contract_position, free_position],
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     return invoice

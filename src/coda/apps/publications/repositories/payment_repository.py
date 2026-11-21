@@ -116,55 +116,54 @@ def bulk_save_payments(payment_updates: list[tuple[PublicationId, PaymentEvent]]
     """
     Bulk update publication payment statuses for better performance during imports.
 
+    Upserts one row per (publication_id, invoice_id) pair, like save_payment.
+    Repeated pairs in one batch merge with last write winning.
+
     Args:
         payment_updates: List of (publication_id, payment_status) tuples
     """
     if not payment_updates:
         return
 
+    updates_by_status: dict[str, list[tuple[PublicationId, PaymentEvent]]] = {}
+    for publication_id, payment in payment_updates:
+        updates_by_status.setdefault(STATUS_MAPPING[type(payment)], []).append(
+            (publication_id, payment)
+        )
+
     with transaction.atomic():
-        paid_updates: list[tuple[PublicationId, PaymentEvent]] = []
-        received_updates: list[tuple[PublicationId, PaymentEvent]] = []
-
-        for publication_id, payment in payment_updates:
-            if isinstance(payment, PublicationPaid):
-                paid_updates.append((publication_id, payment))
-            elif isinstance(payment, InvoiceReceived):
-                received_updates.append((publication_id, payment))
-
-        if paid_updates:
-            _bulk_update_payment_status(paid_updates, "paid")
-
-        if received_updates:
-            _bulk_update_payment_status(received_updates, "invoice_received")
+        for status, updates in updates_by_status.items():
+            _bulk_update_payment_status(updates, status)
 
 
 def _bulk_update_payment_status(
     updates: list[tuple[PublicationId, PaymentEvent]], status: str
 ) -> None:
-    """Helper function to bulk update payments with the same status."""
-    publication_ids = [pub_id for pub_id, _ in updates]
+    """Create or update one payment row per (publication, invoice) pair."""
+    merged: dict[tuple[PublicationId, InvoiceId], tuple[PublicationId, PaymentEvent]] = {}
+    for publication_id, payment in updates:
+        merged[(publication_id, payment.invoice_id)] = (publication_id, payment)
 
+    publication_ids = [publication_id for publication_id, _ in merged.values()]
     existing_payments = {
-        p.publication_id: p
-        for p in PublicationPaymentModel.objects.filter(publication_id__in=publication_ids)
+        (model.publication_id, model.invoice_id): model
+        for model in PublicationPaymentModel.objects.filter(
+            publication_id__in=publication_ids
+        )
     }
 
     payments_to_create = []
     payments_to_update = []
 
-    for publication_id, payment in updates:
-        invoice_id = payment.invoice_id
-
-        if publication_id in existing_payments:
-            model = existing_payments[publication_id]
+    for key, (publication_id, payment) in merged.items():
+        model = existing_payments.get(key)
+        if model:
             model.status = status
-            model.invoice_id = invoice_id
             payments_to_update.append(model)
         else:
             payments_to_create.append(
                 PublicationPaymentModel(
-                    publication_id=publication_id, status=status, invoice_id=invoice_id
+                    publication_id=publication_id, status=status, invoice_id=payment.invoice_id
                 )
             )
 
@@ -172,6 +171,4 @@ def _bulk_update_payment_status(
         PublicationPaymentModel.objects.bulk_create(payments_to_create)
 
     if payments_to_update:
-        PublicationPaymentModel.objects.bulk_update(
-            payments_to_update, fields=["status", "invoice_id"]
-        )
+        PublicationPaymentModel.objects.bulk_update(payments_to_update, fields=["status"])

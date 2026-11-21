@@ -1,12 +1,13 @@
 from collections.abc import Iterable, Sequence
 
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication import PublicationId
 
@@ -17,6 +18,23 @@ def first() -> Invoice | None:
         return None
 
     return InvoiceDomainMapper.map(model)
+
+
+def publication_position_ids(invoice_id: InvoiceId) -> list[PublicationId]:
+    """Publication ids of the invoice's positions that map to PublicationItem.
+
+    Mirrors the item precedence in the position mapper: a position with both
+    contract and contract_year maps to ContractItem, and its publication does
+    not count.
+    """
+    return [
+        PublicationId(pk)
+        for pk in PositionModel.objects.filter(
+            Q(contract__isnull=True) | Q(contract_year__isnull=True),
+            invoice_id=invoice_id,
+            publication__isnull=False,
+        ).values_list("publication_id", flat=True)
+    ]
 
 
 def get_by_id(invoice_id: InvoiceId) -> Invoice:

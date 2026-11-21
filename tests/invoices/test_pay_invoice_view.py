@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.test import Client
 from django.urls import reverse
 
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.finance.invoice import CreditorId
 from coda.domain.money._currency import Currency
 from tests import domainfactory, modelfactory
@@ -19,7 +19,7 @@ def test__invoice_with_unassigned_costs__cannot_be_paid(client: Client) -> None:
     position.assign_funding(None, position.cost.amount / 2)
     invoice.positions = [position]
 
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     response = client.post(
         reverse("invoices:pay_invoice", kwargs={"pk": invoice.id}),

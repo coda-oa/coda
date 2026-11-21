@@ -4,9 +4,7 @@ from collections.abc import Iterable
 from typing import Any, cast
 
 import pydantic
-from django.db.models import Q
 
-from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.contexts.finance.dto.import_dtos import (
     InvoiceImportDto,
@@ -135,9 +133,15 @@ def find_invoices_with_missing_institutions(
 
 def find_invoices_with_missing_publications(
     invoice_dtos: Iterable[InvoiceImportDto],
+    request_publications: dict[str, int],
 ) -> set[str]:
     """
     Find invoices that reference non-existing publications.
+
+    Args:
+        invoice_dtos: Invoice DTOs to validate.
+        request_publications: Mapping from request id (current and legacy) to
+            publication row id, as returned by request_publication_ids().
 
     Returns:
         Set of invoice numbers that reference missing publications
@@ -154,20 +158,12 @@ def find_invoices_with_missing_publications(
     if not publication_ids:
         return set()
 
-    requests = FundingRequest.objects.filter(
-        Q(request_id__in=publication_ids) | Q(legacy_request_id__in=publication_ids)
-    ).prefetch_related("publication")
-
-    found_publication_ids = set()
-    for req in requests:
-        found_publication_ids.add(req.request_id)
-        if req.legacy_request_id:
-            found_publication_ids.add(req.legacy_request_id)
+    missing_publication_ids = publication_ids - request_publications.keys()
 
     invoices_with_missing_publications = {
         invoice_number
         for invoice_number, publication in invoices_with_publications
-        if publication not in found_publication_ids
+        if publication in missing_publication_ids
     }
 
     return invoices_with_missing_publications

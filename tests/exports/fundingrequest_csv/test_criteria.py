@@ -1,7 +1,7 @@
 import pytest
 
 from tests import domainfactory, modelfactory
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.publication.publication import PublicationId
 
@@ -21,7 +21,7 @@ def _create_invoice(funding_request: FundingRequest, budget_model: FundingSource
 
     creditor = modelfactory.creditor()
     invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
-    invoice_service.save(invoice)
+    save(invoice)
 
 
 @pytest.mark.django_db

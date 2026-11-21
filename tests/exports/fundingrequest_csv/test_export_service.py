@@ -11,7 +11,7 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
 from coda.apps.fundingrequests.repository import save_review
 from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import AttachedContract
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.author import InstitutionId, Role
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
@@ -112,7 +112,7 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
     invoice = domainfactory.invoice(
         creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -348,7 +348,7 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
     invoice = domainfactory.invoice(
         creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -393,7 +393,7 @@ def test__funding_request_with_institution_funding_source__export_to_csv__instit
     invoice = domainfactory.invoice(
         creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
     )
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -450,7 +450,7 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
         tax_rate=TaxRate.from_percentage(19),
     )
     invoice1 = domainfactory.invoice(creditor=creditor_id, positions=[position1])
-    invoice1.id = invoice_service.save(invoice1)
+    invoice1.id = save(invoice1)
 
     position2 = invoice_positions.create(
         item=PublicationItem(publication_id, cost_type=PublicationCostType("gold-oa")),
@@ -458,7 +458,7 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
         tax_rate=TaxRate.from_percentage(19),
     )
     invoice2 = domainfactory.invoice(creditor=creditor_id, positions=[position2])
-    invoice2.id = invoice_service.save(invoice2)
+    invoice2.id = save(invoice2)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -527,7 +527,7 @@ def test__funding_request_with_invoice_filters_funding_source__export_to_csv__re
         positions=[position],
     )
     invoice.status = PaymentStatus.Paid
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -574,7 +574,7 @@ def test__shared_invoice_filtering_by_funding_source__export_to_csv__only_consid
         creditor=creditor_id,
         positions=[position_a, position_c],
     )
-    shared_invoice.id = invoice_service.save(shared_invoice)
+    shared_invoice.id = save(shared_invoice)
 
     position_b = domainfactory.publication_position(
         PublicationId(funding_request_b.publication.id), currency=Currency.EUR
@@ -584,7 +584,7 @@ def test__shared_invoice_filtering_by_funding_source__export_to_csv__only_consid
         creditor=creditor_id,
         positions=[position_b],
     )
-    private_invoice.id = invoice_service.save(private_invoice)
+    private_invoice.id = save(private_invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -638,7 +638,7 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     position.assign_funding(budget_1, position.cost.amount)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
     invoice.status = PaymentStatus.Paid
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     funding_request_rejected = modelfactory.fundingrequest(title="Filtered Publication")
     funding_request_rejected.request_date = date(2026, 5, 1)
@@ -661,7 +661,7 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     position2.assign_funding(budget_2, position2.cost.amount)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position2])
     invoice.status = PaymentStatus.Paid
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -776,7 +776,7 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
         positions.append(position)
 
     shared_invoice = domainfactory.invoice(creditor=creditor_id, positions=positions)
-    shared_invoice.id = invoice_service.save(shared_invoice)
+    shared_invoice.id = save(shared_invoice)
 
     requests_exports = export_fundingrequests_to_csv(
         _make_params(

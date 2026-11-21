@@ -10,7 +10,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PositionDto,
     PublicationItemDto,
 )
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice_positions import ContractItem, Position
 
@@ -18,7 +18,6 @@ from coda.domain.finance.invoice_positions import ContractItem, Position
 class UnsupportedPositionTypeError(Exception):
     """Raised when an unsupported position DTO type is encountered."""
 
-    pass
 
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
@@ -73,7 +72,7 @@ def _build_funding_assignments(position: Position) -> list[FundingAssignmentDeta
 
 
 def build_position_detail_dto(position: Position) -> PositionDetailDto:
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     match dto.item:
         case PublicationItemDto():
