@@ -359,6 +359,26 @@ def map_funding_request_to_export_dto(
 
 
 def _has_funding_source(positions: list[Position], funding_source: FundingSourceId | None) -> bool:
+    """Invoice-level half of the two-stage funding-source filter.
+
+    The query-level criterion (``InvoiceFundingSourceCriteria`` in
+    ``apps/fundingrequests/fundingrequest_query.py``) is the request-level
+    half: it cheaply excludes funding requests whose own publication
+    positions never carry the filtered source — publication-scoped, with
+    no notion of which invoice a position sits on. This check is the
+    invoice-level half: a shared invoice must only appear under requests
+    whose own positions on *that invoice* carry the source — a constraint
+    the Q object cannot express, since it matches on any position row.
+    Both halves are load-bearing; removing either changes results.
+
+    Behavior is pinned by the shared-invoice filtering test in
+    tests/exports/fundingrequest_csv/test_export_service.py (asserts the
+    shared invoice appears under C but not under B, and not at all for A)
+    and by the publication-scope test in
+    tests/exports/fundingrequest_csv/test_queries.py (asserts the query
+    layer admits B even though its position on the shared invoice is
+    unfunded).
+    """
     if funding_source is None:
         return True
     return any(

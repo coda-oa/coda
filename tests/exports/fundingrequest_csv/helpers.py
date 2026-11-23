@@ -13,6 +13,7 @@ from coda.apps.publications.models import (
     PublicationAttachedConcept,
     Vocabulary,
 )
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.contexts.finance.services import invoice_service
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
@@ -22,7 +23,7 @@ from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency, DecimalSeparator, Money
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
 
@@ -34,6 +35,20 @@ def _make_params(
 ) -> FundingRequestSearchParams:
     return FundingRequestSearchParams(
         date_range=DateRange(period_start, period_end),
+        **kwargs,
+    )
+
+
+def _make_filters(
+    period_start: date,
+    period_end: date,
+    decimal_separator: DecimalSeparator | None = None,
+    **kwargs: Any,
+) -> ExportFiltersDto:
+    return ExportFiltersDto(
+        period_start=period_start,
+        period_end=period_end,
+        decimal_separator=decimal_separator,
         **kwargs,
     )
 

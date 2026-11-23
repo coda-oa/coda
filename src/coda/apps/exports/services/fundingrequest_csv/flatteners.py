@@ -47,7 +47,7 @@ def flatten_detailed(dto: FundingRequestExportDto) -> list[dict[str, str]]:
                         invoice=invoice,
                         position=position,
                         assignment=assignment,
-                        funded_amount=assignment.amount or Decimal("0"),
+                        funded_amount=assignment.amount or Decimal(0),
                     )
                 )
 
