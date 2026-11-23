@@ -100,9 +100,7 @@ def _single_line(value: str) -> str:
     )
 
 
-def export_fundingrequests_to_csv(
-    filters: ExportFiltersDto,
-) -> CsvExportResult:
+def export_fundingrequests_to_csv(filters: ExportFiltersDto) -> CsvExportResult:
     # 1. Get funding requests using the shared params
     params = filters.to_params()
     funding_requests = list(queries.get_funding_requests_for_export(params))
@@ -123,20 +121,18 @@ def export_fundingrequests_to_csv(
     ]
 
     # 4. Flatten to CSV rows
-    all_rows = []
-    for dto in export_dtos:
-        rows = flatten_detailed(dto)
-        for row in rows:
-            all_rows.append(
-                {
-                    key: _format_money_value(
-                        _single_line(value),
-                        key,
-                        filters.decimal_separator or DecimalSeparator.English,
-                    )
-                    for key, value in row.items()
-                }
+    all_rows = [
+        {
+            key: _format_money_value(
+                _single_line(value),
+                key,
+                filters.decimal_separator or DecimalSeparator.English,
             )
+            for key, value in row.items()
+        }
+        for dto in export_dtos
+        for row in flatten_detailed(dto)
+    ]
 
     # 5. Build the Polars DataFrame pinned to CSV_COLUMNS: every row is
     #    projected onto the declared columns and the schema is explicit,
