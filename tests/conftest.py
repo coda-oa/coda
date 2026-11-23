@@ -29,6 +29,13 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     ):
         pytest.fail("coda_page fixture requires the @pytest.mark.ui_test marker")
 
+    if (
+        isinstance(item, pytest.Function)
+        and "db" in item.fixturenames
+        and item.get_closest_marker("django_db") is None
+    ):
+        pytest.fail("db fixture requires the @pytest.mark.django_db marker")
+
 
 @pytest.fixture(scope="session")
 def _browser_context(live_server: LiveServer) -> Generator[tuple[Page, LiveServer]]:
@@ -100,7 +107,13 @@ def logged_in(client: Client) -> None:
     client.force_login(User.objects.create_user("testuser"))
 
 
-@pytest.fixture(autouse=True, scope="session")
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    for item in items:
+        if item.get_closest_marker("django_db") is not None:
+            item.add_marker(pytest.mark.usefixtures("populate_database"))
+
+
+@pytest.fixture(scope="session")
 def populate_database(django_db_setup: Any, django_db_blocker: DjangoDbBlocker) -> None:
     with django_db_blocker.unblock():
         fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))

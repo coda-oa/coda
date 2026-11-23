@@ -8,7 +8,6 @@ from tests import modelfactory
 
 
 @pytest.mark.django_db
-@pytest.mark.integration
 class TestLazyBulkQuerySet:
     """Test suite for LazyBulkQuerySet lazy evaluation and bulk conversion."""
 

@@ -6,7 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}{% if title %}{{ title }}{% endif %}{% if page_supertitle %} - {{ page_supertitle }}{% endif %}{% if title or page_supertitle %} - CODA{% endif %}{% endblock title %}</title>
         <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+              href="{% static 'css/pico.min.css' %}"
               crossorigin="anonymous" />
         {% load static django_htmx %}
         {% htmx_script %}
@@ -19,31 +19,24 @@
                 type="module"
                 crossorigin="anonymous"></script>
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/vars.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/text.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/flex.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/components.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/article.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/button.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/forms.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -53,11 +46,9 @@
               href="{% static 'css/status.css' %}"
               crossorigin="anonymous">
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/layout.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/spacing.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -67,11 +58,9 @@
               href="{% static 'css/nav.css' %}"
               crossorigin="anonymous">
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/filter-sidebar.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/fundingrequests.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -122,7 +111,8 @@
                         <p class="subtitle">{% block page_subtitle %}{% if page_subtitle %}{{ page_subtitle }}{% endif %}{% endblock page_subtitle %}</p>
                     </hgroup>
                     <div class="flex align-center">
-                        {% block page_actions %}{% endblock page_actions %}
+                        {% block page_actions %}
+                        {% endblock page_actions %}
                     </div>
                 </div>
             {% endblock page_header %}
