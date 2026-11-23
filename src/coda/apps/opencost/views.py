@@ -19,18 +19,17 @@ from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefre
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
-    build_applied_filters,
-    build_filter_form_context,
-    create_redo_url,
-    parse_current_filters_to_context,
+    build_filter_summary_context,
+    filters_from_querydict,
 )
 from coda.apps.exports.services.filter_form import (
+    ExportFormConfig,
     FilterCleanedData,
-    FormFieldErrors,
     FundingRequestFilterForm,
-    current_filters_from_post,
+    build_export_form_context,
     form_error_lines,
 )
+from coda.apps.exports.views.responses import stored_artifact_response
 from coda.apps.opencost.detail_rows import build_detail_rows
 from coda.apps.opencost.models import (
     OpenCostReport,
@@ -49,6 +48,18 @@ from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 logger = logging.getLogger(__name__)
 
+OPENCOST_FORM_CONFIG = ExportFormConfig(
+    page_title="Generate New openCost Report",
+    form_action_url_name="opencost:generate_submit",
+    parameters_title="Report Parameters",
+    title_label="Report Title",
+    title_placeholder="Enter a title for the report",
+    cancel_url_name="opencost:list",
+    submit_button_text="Generate Report",
+    include_payment_status=False,
+    include_decimal_separator=False,
+)
+
 
 @breadcrumb("openCost Reports", parent_url_name="exports:export_home")
 class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
@@ -57,10 +68,10 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
     entity_name = "openCost Reports"
     entity_list_item_template = "opencost/report_list_item.html"
     use_generic_entity_filter = True
-    search_fields = ["title"]
+    search_fields = ["title"]  # noqa: RUF012
     search_placeholder = "Search by report title"
     entity_create_url = "opencost:generate"
-    ordering = ["-generated_at"]
+    ordering = ["-generated_at"]  # noqa: RUF012
 
     def get_entities(self, request: HttpRequest) -> Sequence[OpenCostReport]:
         search_term = request.GET.get("query", "").strip()
@@ -118,8 +129,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "report": report,
         "publications": rows.publications,
         "contracts": rows.contracts,
-        "applied_filters": build_applied_filters(report.filters),
-        "redo_url": create_redo_url(report.filters, "opencost:generate"),
+        **build_filter_summary_context(report.filters, "opencost:generate"),
     }
 
     return render(request, "opencost/report_detail.html", context)
@@ -151,7 +161,11 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "exports/generate_export_form.html",
-        _report_form_context(request, FundingRequestFilterForm()),
+        build_export_form_context(
+            request,
+            FundingRequestFilterForm(),
+            config=OPENCOST_FORM_CONFIG,
+        ),
     )
 
 
@@ -197,11 +211,12 @@ def generate_report(request: HttpRequest) -> HttpResponse:
         return render(
             request,
             "exports/generate_export_form.html",
-            _report_form_context(
+            build_export_form_context(
                 request,
                 form,
+                config=OPENCOST_FORM_CONFIG,
                 form_errors=form_error_lines(form),
-                current_filters=current_filters_from_post(request.POST),
+                current_filters=filters_from_querydict(request.POST),
             ),
         )
 
@@ -224,34 +239,6 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     return redirect("opencost:list")
 
 
-def _report_form_context(
-    request: HttpRequest,
-    form: FundingRequestFilterForm,
-    form_errors: list[FormFieldErrors] | None = None,
-    current_filters: dict[str, str | list[str]] | None = None,
-) -> dict[str, object]:
-    context = build_filter_form_context()
-    context["form"] = form
-    context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
-    context["current_filters"] = current_filters or parse_current_filters_to_context(request)
-    context.update(
-        {
-            "page_title": "Generate New openCost Report",
-            "form_action_url": reverse("opencost:generate_submit"),
-            "parameters_title": "Report Parameters",
-            "title_label": "Report Title",
-            "title_placeholder": "Enter a title for the report",
-            "cancel_url": reverse("opencost:list"),
-            "submit_button_text": "Generate Report",
-            "include_payment_status": False,
-            "include_decimal_separator": False,
-        }
-    )
-    if form_errors is not None:
-        context["form_errors"] = form_errors
-    return context
-
-
 @login_required
 @require_GET
 @non_atomic_requests  # read-only, no txn held
@@ -268,14 +255,14 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
         )
         return redirect("opencost:list")
 
-    response = HttpResponse(report.xml_content, content_type="application/xml")
-
     stem = slugify(report.title) or "report"
     filename = f"{stem}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
 
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    return response
+    return stored_artifact_response(
+        report.xml_content,
+        content_type="application/xml",
+        filename=filename,
+    )
 
 
 @login_required
