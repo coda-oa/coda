@@ -1,8 +1,6 @@
-import os
 from datetime import date, timedelta
 
 import pytest
-from django.core.files.base import ContentFile
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -30,7 +28,6 @@ def test__fundingrequest_csv_empty_export_detail_page__is_opened__context_contai
     client: Client,
 ) -> None:
     csv_content = "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-    csv_file = ContentFile(csv_content, name="empty.csv")
 
     export = FundingRequestCSVExport.objects.create(
         name="Test Export",
@@ -39,7 +36,7 @@ def test__fundingrequest_csv_empty_export_detail_page__is_opened__context_contai
             "period_end": "2024-12-31",
         },
         record_count=0,
-        csv_file=csv_file,
+        csv_content=csv_content,
     )
 
     response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
@@ -65,13 +62,10 @@ def test__fundingrequest_csv_export_detail_page_with_data__is_opened__context_co
             "period_end": "2024-12-31",
         },
         record_count=100,
-        csv_file=ContentFile(
-            (
-                b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-                b"REQ-1;Test Publication;;;INV-1;100.00\n"
-                b"REQ-2;Another Publication;;;INV-2;200.00\n"
-            ),
-            name="test_export_with_data.csv",
+        csv_content=(
+            "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            "REQ-1;Test Publication;;;INV-1;100.00\n"
+            "REQ-2;Another Publication;;;INV-2;200.00\n"
         ),
     )
 
@@ -146,8 +140,7 @@ def test_fundingrequest_csv_export_create_view__split_funding_assignments__recor
     assert response.status_code == 302
     export = FundingRequestCSVExport.objects.get(name="Split Funding Export")
     export.refresh_from_db()
-    with export.csv_file.open("rb") as f:
-        data_rows = sum(1 for _ in f) - 1  # minus header
+    data_rows = len(export.csv_content.splitlines()) - 1  # minus header
     assert export.record_count == data_rows == 2
 
 
@@ -187,7 +180,7 @@ def test_fundingrequest_csv_export_create_view__decimal_separator_comma__is_stor
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test_fundingrequest_csv_export_create_view__saved_file__starts_with_utf8_bom(
+def test_fundingrequest_csv_export_download__is_called__starts_with_utf8_bom(
     client: Client,
 ) -> None:
     response = client.post(
@@ -201,11 +194,15 @@ def test_fundingrequest_csv_export_create_view__saved_file__starts_with_utf8_bom
 
     assert response.status_code == 302
     export = FundingRequestCSVExport.objects.get(name="Encoding Test Export")
-    with export.csv_file.open("rb") as f:
-        # b"\xef\xbb\xbf" is the UTF-8 byte order mark (BOM). Excel needs it to
-        # detect the file as UTF-8; without it Excel assumes Windows-1252 and
-        # garbles umlauts (ä -> Ã¤).
-        assert f.read(3) == b"\xef\xbb\xbf"
+    assert not export.csv_content.startswith("\ufeff")
+
+    response = client.get(reverse("exports:fundingrequests_csv_download", args=[export.id]))
+
+    # b"\xef\xbb\xbf" is the UTF-8 byte order mark (BOM). Excel needs it to
+    # detect the file as UTF-8; without it Excel assumes Windows-1252 and
+    # garbles umlauts (ä -> Ã¤).
+    assert response.status_code == 200
+    assert response.content[:3] == b"\xef\xbb\xbf"
 
 
 @pytest.mark.django_db
@@ -220,10 +217,7 @@ def test_fundingrequest_csv_export_delete_view__is_called__deletes_export_and_re
             "period_end": "2024-12-31",
         },
         record_count=0,
-        csv_file=ContentFile(
-            "request_id;publication_title;doi;contract_name;invoice_number;position_amount",
-            name="empty.csv",
-        ),
+        csv_content="request_id;publication_title;doi;contract_name;invoice_number;position_amount\n",
     )
 
     response = client.post(reverse("exports:fundingrequests_csv_delete", args=[export.id]))
@@ -245,17 +239,10 @@ def test__fundingrequest_csv_detail_page__renders_preview_from_stored_csv_snapsh
             "period_end": "2024-12-31",
         },
         record_count=1,
-    )
-    export.csv_file.save(
-        "stored.csv",
-        ContentFile(
-            (
-                b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-                b"REQ-1;Stored Publication;;;INV-1;100.00\n"
-            ),
-            name="stored.csv",
+        csv_content=(
+            "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            "REQ-1;Stored Publication;;;INV-1;100.00\n"
         ),
-        save=True,
     )
 
     response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
@@ -321,56 +308,38 @@ def test_fundingrequest_csv_export_create_view__contract_filter__is_stored(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__fundingrequest_csv_detail_page__csv_file_missing__shows_metadata_and_file_missing_flag(
+def test__fundingrequest_csv_detail_page__content_missing__shows_metadata_and_content_missing_flag(
     client: Client,
 ) -> None:
     export = FundingRequestCSVExport.objects.create(
-        name="Missing File Export",
+        name="Missing Content Export",
         filters={
             "period_start": "2024-01-01",
             "period_end": "2024-12-31",
         },
         record_count=42,
     )
-    export.csv_file.save(
-        "missing.csv",
-        ContentFile(
-            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-            b"REQ-1;Test;;;INV-1;100.00\n"
-        ),
-        save=True,
-    )
-    os.remove(export.csv_file.path)
 
     response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
 
     assert response.status_code == 200
-    assert response.context["file_missing"] is True
+    assert response.context["content_missing"] is True
     assert response.context["export"] == export
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__fundingrequest_csv_detail_page__csv_file_missing__provides_regen_url(
+def test__fundingrequest_csv_detail_page__content_missing__provides_regen_url(
     client: Client,
 ) -> None:
     export = FundingRequestCSVExport.objects.create(
-        name="Missing File Export",
+        name="Missing Content Export",
         filters={
             "period_start": "2024-01-01",
             "period_end": "2024-12-31",
         },
         record_count=42,
     )
-    export.csv_file.save(
-        "missing.csv",
-        ContentFile(
-            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-            b"REQ-1;Test;;;INV-1;100.00\n"
-        ),
-        save=True,
-    )
-    os.remove(export.csv_file.path)
 
     response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
 
@@ -383,7 +352,7 @@ def test__fundingrequest_csv_detail_page__csv_file_missing__provides_regen_url(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__fundingrequest_csv_download__csv_file_missing__returns_correct_404_error(
+def test__fundingrequest_csv_download__content_missing__returns_correct_404_error(
     client: Client,
 ) -> None:
     export = FundingRequestCSVExport.objects.create(
@@ -394,19 +363,38 @@ def test__fundingrequest_csv_download__csv_file_missing__returns_correct_404_err
         },
         record_count=0,
     )
-    export.csv_file.save(
-        "download_missing.csv",
-        ContentFile(
-            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-            b"REQ-1;Test;;;INV-1;100.00\n"
-        ),
-        save=True,
-    )
-    os.remove(export.csv_file.path)
 
     response = client.get(reverse("exports:fundingrequests_csv_download", args=[export.id]))
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_csv_download__content_present__returns_csv_with_filename(
+    client: Client,
+) -> None:
+    export = FundingRequestCSVExport.objects.create(
+        name="Download Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=1,
+        csv_content=(
+            "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            "REQ-1;Downloaded Publication;;;INV-1;100.00\n"
+        ),
+    )
+
+    response = client.get(reverse("exports:fundingrequests_csv_download", args=[export.id]))
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv; charset=utf-8"
+    assert f'filename="download-export-{export.id}.csv"' in response["Content-Disposition"]
+    content = response.content.decode("utf-8-sig")
+    assert content.splitlines()[0].startswith("request_id;publication_title")
+    assert "Downloaded Publication" in content
 
 
 @pytest.mark.django_db
@@ -430,23 +418,17 @@ def test__fundingrequest_csv_regen__called_with_existing_export__regenerates_csv
             "period_end": "2024-12-31",
         },
         record_count=0,
-    )
-    export.csv_file.save(
-        "regen.csv",
-        ContentFile(
-            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
-            b"REQ-1;Old;;;INV-1;100.00\n"
+        csv_content=(
+            "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            "REQ-1;Old;;;INV-1;100.00\n"
         ),
-        save=True,
     )
-    os.remove(export.csv_file.path)
 
     response = client.post(reverse("exports:fundingrequests_csv_regen", args=[export.id]))
 
     assert response.status_code == 302
     export.refresh_from_db()
-    assert export.csv_file
-    assert os.path.exists(export.csv_file.path)
+    assert "Regen Test Publication" in export.csv_content
     assert export.record_count == 1
 
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, get_args, get_origin
 
-from django.http import HttpRequest
+from django.http import QueryDict
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
@@ -48,14 +48,15 @@ def filter_field_label(field_name: str) -> str:
     return field_name
 
 
-def parse_current_filters_to_context(request: HttpRequest) -> dict[str, str | list[str]]:
+def filters_from_querydict(source: QueryDict) -> dict[str, str | list[str]]:
+    """Project filter fields out of a request's GET or POST data."""
     filters: dict[str, str | list[str]] = {}
     for key in MULTI_VALUE_FILTER_FIELDS:
-        values = request.GET.getlist(key)
+        values = source.getlist(key)
         if values:
             filters[key] = values
     for key in SINGLE_VALUE_FILTER_FIELDS:
-        values = request.GET.getlist(key)
+        values = source.getlist(key)
         if values:
             filters[key] = values[0]
     return filters
@@ -180,3 +181,13 @@ def _period_row(values: dict[str, Any]) -> AppliedFilter | None:
         label=_PERIOD_LABEL,
         value=f"{start.strftime(_PERIOD_DATE_FORMAT)} to {end.strftime(_PERIOD_DATE_FORMAT)}",
     )
+
+
+def build_filter_summary_context(
+    filters: dict[str, Any], create_url_name: str
+) -> dict[str, object]:
+    """The applied-filter rows and reuse URL shared by every export detail page."""
+    return {
+        "applied_filters": build_applied_filters(filters),
+        "redo_url": create_redo_url(filters, create_url_name),
+    }
