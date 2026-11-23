@@ -1,4 +1,4 @@
-import os
+from collections.abc import Sequence
 from io import StringIO
 from typing import Any, cast
 
@@ -6,15 +6,16 @@ import polars as pl
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.files.base import ContentFile
-from django.http import FileResponse, HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import content_disposition_header
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
@@ -33,6 +34,7 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
     CsvExportResult,
     export_fundingrequests_to_csv,
 )
+from coda.apps.search import words_icontains
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
@@ -47,13 +49,23 @@ class FundingRequestCSVExportListView(
     model = FundingRequestCSVExport
     context_object_name = "exports"
     paginate_by = 10
-    ordering = ["-created_at"]
+    ordering = ["-created_at"]  # noqa: RUF012
     entity_name = "Funding Request CSV Export"
-    search_fields = ["name"]
+    search_fields = ["name"]  # noqa: RUF012
     entity_list_item_template = "export/fundingrequest_csv_list_item.html"
     search_placeholder = "Search exports..."
     entity_create_url = FUNDINGREQUESTS_CSV_CREATE_URL
     use_generic_entity_filter = True
+
+    def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestCSVExport]:
+        search_term = request.GET.get("query", "").strip()
+        queryset = FundingRequestCSVExport.objects.defer("csv_content")
+
+        if search_term:
+            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+
+        order_by = self.ordering or self.search_fields
+        return DomainQuerySet(queryset.order_by(*order_by), lambda x: x)
 
 
 fundingrequest_csv_export_list_view = FundingRequestCSVExportListView.as_view()
@@ -77,28 +89,28 @@ def fundingrequest_csv_detail_page(
     applied_filters = build_applied_filters(export.filters)
     redo_url = create_redo_url(export.filters, "exports:fundingrequests_csv_create")
 
-    file_missing = not export.csv_file or not os.path.exists(export.csv_file.path)
-    if file_missing:
+    content_missing = not export.csv_content
+    if content_missing:
         return render(
             request,
             "export/fundingrequest_csv_detail.html",
             {
                 "export": export,
-                "file_missing": True,
+                "content_missing": True,
                 "regen_url": reverse("exports:fundingrequests_csv_regen", args=[export.pk]),
                 "applied_filters": applied_filters,
                 "redo_url": redo_url,
             },
         )
 
-    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode(CSV_ENCODING))
+    preview_df = _create_preview_dataframe(export.csv_content)
 
     return render(
         request,
         "export/fundingrequest_csv_detail.html",
         {
             "export": export,
-            "file_missing": False,
+            "content_missing": False,
             "preview_columns": preview_df.columns,
             "preview_rows": preview_df.rows(),
             "applied_filters": applied_filters,
@@ -139,8 +151,8 @@ def fundingrequest_csv_export_create_view(
             name=title,
             filters=dto.to_storage(),
             record_count=result.row_count,
+            csv_content=result.content,
         )
-        _save_csv_file(export, result.content, result.row_count)
 
         return redirect(
             "exports:fundingrequests_csv_detail",
@@ -185,7 +197,7 @@ def _export_form_context(
 @login_required
 @require_POST
 def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    export = get_object_or_404(FundingRequestCSVExport, pk=pk)
+    export = get_object_or_404(FundingRequestCSVExport.objects.defer("csv_content"), pk=pk)
     export_title = export.name
     export.delete()
     messages.success(request, f"CSV export '{export_title}' deleted successfully.")
@@ -198,16 +210,23 @@ def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
 def fundingrequest_download_csv(
     request: HttpRequest,
     pk: int,
-) -> FileResponse | HttpResponse:
+) -> HttpResponse:
     export = get_object_or_404(
         FundingRequestCSVExport,
         pk=pk,
     )
 
-    if not export.csv_file or not os.path.exists(export.csv_file.path):
+    if not export.csv_content:
         return HttpResponse(status=404)
 
-    return FileResponse(export.csv_file.open("rb"))
+    response = HttpResponse(
+        export.csv_content.encode(CSV_ENCODING),
+        content_type="text/csv; charset=utf-8",
+    )
+    response["Content-Disposition"] = content_disposition_header(
+        True, _csv_download_filename(export)
+    )
+    return response
 
 
 @login_required
@@ -222,7 +241,9 @@ def fundingrequest_csv_regen_view(
     )
 
     result = _generate_csv_from_filters(export.filters)
-    _save_csv_file(export, result.content, result.row_count)
+    export.csv_content = result.content
+    export.record_count = result.row_count
+    export.save(update_fields=["csv_content", "record_count"])
 
     return redirect(
         "exports:fundingrequests_csv_detail",
@@ -230,11 +251,8 @@ def fundingrequest_csv_regen_view(
     )
 
 
-def _save_csv_file(export: FundingRequestCSVExport, csv_content: str, row_count: int) -> None:
-    filename = f"{slugify(export.name) or 'export'}-{export.id}.csv"
-    export.csv_file.save(filename, ContentFile(csv_content.encode(CSV_ENCODING)), save=False)
-    export.record_count = row_count
-    export.save(update_fields=["csv_file", "record_count"])
+def _csv_download_filename(export: FundingRequestCSVExport) -> str:
+    return f"{slugify(export.name) or 'export'}-{export.id}.csv"
 
 
 def _create_preview_dataframe(
