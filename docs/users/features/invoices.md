@@ -470,7 +470,7 @@ For system administrators, CODA provides a command-line import tool:
 
 ```bash
 # Using the shell script
-./commands/import.sh --production import_invoices /path/to/invoices.json
+./commands/import.sh import_invoices /path/to/invoices.json
 
 # Or for local environment
 ./commands/import.sh --local import_invoices /path/to/invoices.json

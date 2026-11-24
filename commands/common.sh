@@ -1,17 +1,22 @@
 #!/bin/bash
 
-# Function to show usage information
-show_usage() {
-    local script_name="$0"
-    echo "Usage: $script_name [OPTIONS] [COMMAND_ARGS...]"
-    echo ""
+# Function to show the environment options shared by every command script
+show_environment_options() {
     echo "Environment Options:"
+    echo "  --production, -p     Use production environment (compose.production.yml) [default]"
     echo "  --local, -l          Use local environment (compose.local.yml)"
-    echo "  --production, -p     Use production environment (compose.production.yml)"
     echo "  --env ENV            Specify environment explicitly (local|production)"
     echo "  --help, -h           Show this help message"
+    return 0
+}
+
+# Function to show usage information
+show_usage() {
+    echo "Usage: $0 [OPTIONS] [COMMAND_ARGS...]"
     echo ""
-    echo "If no environment is specified, auto-detection will be used based on available .envs directories."
+    show_environment_options
+    echo ""
+    echo "Default environment: production (compose.production.yml). Use --local for the local dev stack."
     return 0
 }
 
@@ -45,6 +50,14 @@ parse_environment_args() {
                 show_usage
                 exit 0
                 ;;
+            -*)
+                # A flag no script consumed: typo or a flag this script does
+                # not know. Silently ignoring it would fall through to the
+                # default environment, i.e. run against production.
+                echo "Error: unknown option '$1'." >&2
+                show_usage >&2
+                exit 1
+                ;;
             *)
                 # Non-environment argument, save it
                 remaining_args+=("$1")
@@ -53,28 +66,14 @@ parse_environment_args() {
         esac
     done
 
-    # Set the environment
-    CODA_ENV="$temp_env"
+    # Production is the default; the local dev stack must be requested.
+    CODA_ENV="${temp_env:-production}"
 }
 
 # Function to initialize the environment after parsing
 init_environment() {
     if [[ -n "${COMPOSE_BASE_CMD:-}" ]]; then
         return 0
-    fi
-
-    # Auto-detect environment if not specified
-    if [[ -z "$CODA_ENV" ]]; then
-        if [[ -d "$PWD/.envs/.local" ]]; then
-            CODA_ENV="local"
-        elif [[ -d "$PWD/.envs/.production" ]]; then
-            CODA_ENV="production"
-        else
-            echo "Error: Cannot determine environment. Please specify --local or --production, or ensure environment files exist."
-            echo ""
-            show_usage
-            exit 1
-        fi
     fi
 
     # Validate environment
@@ -89,10 +88,19 @@ init_environment() {
     if [[ "$CODA_ENV" == "local" ]]; then
         export COMPOSE_FILE="compose.local.yml"
         export ENV_DIR="$PWD/.envs/.local"
-        export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/django.env --env-file $ENV_DIR/postgres.env"
     else
         export COMPOSE_FILE="compose.production.yml"
         export ENV_DIR="$PWD/.envs/.production"
+    fi
+
+    if [[ ! -d "$ENV_DIR" ]]; then
+        echo "Error: $ENV_DIR not found. Create it or select another environment with --local / --production." >&2
+        exit 1
+    fi
+
+    if [[ "$CODA_ENV" == "local" ]]; then
+        export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/django.env --env-file $ENV_DIR/postgres.env"
+    else
         export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $ENV_DIR/postgres.env"
     fi
 

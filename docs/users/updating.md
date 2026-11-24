@@ -37,7 +37,7 @@ You can update CODA either using the automated update script or by running each 
 The easiest way to update CODA is using the automated update script:
 
 ```{code-block} bash
-./commands/update-coda.sh --production --backup
+./commands/update-coda.sh --backup
 ```
 
 Or for local environment:
@@ -50,7 +50,7 @@ The script automatically performs all necessary steps: creating a backup (if `--
 
 #### Update Script Options
 
-- `--production` or `--local`: Specify the environment
+- `--production` (default) or `--local`: Specify the environment
 - `--backup`: Create a backup before updating (recommended)
 - `--branch BRANCH`: Pull from a specific branch (default: `stable`)
 
@@ -58,13 +58,13 @@ Examples:
 
 ```{code-block} bash
 # Production update with backup from stable branch
-./commands/update-coda.sh --production --backup
+./commands/update-coda.sh --backup
 
 # Local update from develop branch
 ./commands/update-coda.sh --local --branch develop
 
 # Production update without backup
-./commands/update-coda.sh --production
+./commands/update-coda.sh
 ```
 
 ### Option 2: Manual Update
@@ -76,7 +76,7 @@ If you prefer to run each step manually, follow these steps:
 Before updating, create a backup of your database:
 
 ```{code-block} bash
-./commands/backups.sh --production create
+./commands/backups.sh create
 ```
 
 Or for local environment:
@@ -92,7 +92,7 @@ For more information about backups, see the [Backups section](installation.md#ba
 Stop the running CODA instance:
 
 ```{code-block} bash
-./commands/stop-coda.sh --production
+./commands/stop-coda.sh
 ```
 
 Or for local environment:
@@ -119,7 +119,7 @@ The `stable` branch is the default and recommended option. You can pull it as sh
 Start CODA with the updated code by running the start command:
 
 ```{code-block} bash
-./commands/start-coda.sh --production
+./commands/start-coda.sh
 ```
 
 Or for local environment:
@@ -152,12 +152,12 @@ If the update fails or CODA doesn't start properly:
 
 2. If necessary, restore from your backup:
    ```{code-block} bash
-   ./commands/backups.sh --production restore <backup_name>
+   ./commands/backups.sh restore <backup_name>
    ```
 
 3. Then restart CODA:
    ```{code-block} bash
-   ./commands/start-coda.sh --production
+   ./commands/start-coda.sh
    ```
 
 
@@ -170,7 +170,7 @@ Before you start, it's recommended to verify you have recent backups available.
 To check existing backups:
 
 ```{code-block} bash
-./commands/backups.sh --production list
+./commands/backups.sh list
 ```
 
 Or for local enviroments:
@@ -184,7 +184,7 @@ Or for local enviroments:
 To upgrade PostgreSQL to a new version, use the upgrade:
 
 ```{code-block} bash
-./commands/upgrade-postgres.sh --production
+./commands/upgrade-postgres.sh
 ```
 
 Or for local enviroments:
@@ -219,7 +219,7 @@ DETAIL: The database was created using collation version 2.31, but the operating
 The `upgrade-postgres.sh` script automatically fixes collation mismatches. However, you can also run the fix manually if needed: 
 
 ```{code-block} bash
-./commands/fix-collation.sh --production
+./commands/fix-collation.sh
 ```
 
 Or for local development:
@@ -233,7 +233,7 @@ Or for local development:
 **Start CODA services**. The database update script shuts down CODA. After the update is done you have to manually start CODA again, by using the starting script:
 
 ```{code-block} bash
-./commands/start-coda.sh --production
+./commands/start-coda.sh
 ```
 
 Or for local development:

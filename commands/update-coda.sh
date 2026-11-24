@@ -2,6 +2,9 @@
 set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
+# shellcheck source-path=SCRIPTDIR
+source "${script_dir}/common.sh"
+
 # Shared state between step functions
 STASH_REF=""
 STASH_MSG="update-coda pre-update"
@@ -50,29 +53,32 @@ trap cleanup EXIT
 show_update_usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
-  echo "Environment Options:"
-  echo "  --local, -l          Use local environment (compose.local.yml)"
-  echo "  --production, -p     Use production environment (compose.production.yml)"
-  echo "  --env ENV            Specify environment explicitly (local|production)"
+  show_environment_options
   echo ""
   echo "Update Options:"
   echo "  --branch BRANCH      Git branch to pull from (default: stable)"
   echo "  --backup             Create backup before updating"
   echo "  --no-backup          Skip backup creation (default)"
-  echo "  --help, -h           Show this help message"
   echo ""
   echo "Examples:"
-  echo "  $0 --production --backup"
+  echo "  $0 --backup"
   echo "  $0 --local --branch develop"
-  echo "  $0 --production --backup --branch stable"
+  echo "  $0 --backup --branch stable"
 
   return 0
+}
+
+# Environment errors raised inside common.sh call show_usage; give them this
+# script's options instead of the generic "[COMMAND_ARGS...]" line.
+show_usage() {
+  show_update_usage
 }
 
 # Parse update-specific arguments
 parse_update_args() {
   BRANCH="stable"
   CREATE_BACKUP=false
+  filtered_args=()
 
   while [[ $# -gt 0 ]]; do
     local arg="$1"
@@ -99,7 +105,8 @@ parse_update_args() {
       exit 0
       ;;
     *)
-      # Pass to common.sh for environment parsing
+      # Environment options and anything else are handled by common.sh.
+      filtered_args+=("$arg")
       shift
       ;;
     esac
@@ -108,13 +115,8 @@ parse_update_args() {
   return 0
 }
 
-# Parse arguments before sourcing common.sh
 parse_update_args "$@"
-
-# Source common.sh for environment setup (pure library: define only)
-# shellcheck source-path=SCRIPTDIR
-source "${script_dir}/common.sh"
-parse_environment_args "$@"
+parse_environment_args "${filtered_args[@]}"
 init_environment
 
 has_uncommitted_changes() {
