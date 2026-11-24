@@ -1,6 +1,6 @@
-import pytest
-
 from typing import cast
+
+import pytest
 
 from coda.apps.exports.services.filter_form import (
     FilterCleanedData,
@@ -43,6 +43,16 @@ def test__malformed_period_start_date__validating__is_invalid() -> None:
     form = FundingRequestFilterForm(data)
     assert not form.is_valid()
     assert "period_start" in form.errors
+
+
+def test__period_start_after_period_end__validating__is_invalid() -> None:
+    data = {"period_start": "2026-02-01", "period_end": "2026-01-31"}
+    form = FundingRequestFilterForm(data)
+
+    assert not form.is_valid()
+    assert [str(error) for error in form.errors["period_end"]] == [
+        "Start date 2026-02-01 must be before end date 2026-01-31"
+    ]
 
 
 def test__invalid_decimal_separator__validating__is_invalid() -> None:

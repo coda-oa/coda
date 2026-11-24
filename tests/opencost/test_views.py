@@ -44,6 +44,30 @@ def test__invalid_open_access_type__generating_report__re_renders_without_creati
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__inverted_period_dates__generating_report__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("opencost:generate_submit"),
+        data={
+            "title": "Broken Period Report",
+            "period_start": "2026-11-27",
+            "period_end": "2026-11-24",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [(item.label, item.errors) for item in response.context["form_errors"]] == [
+        (
+            "Period End",
+            ["Start date 2026-11-27 must be before end date 2026-11-24"],
+        )
+    ]
+    assert OpenCostReport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__valid_minimal_generate_post__generating_report__creates_report(client: Client) -> None:
     prefs, _ = GlobalPreferences.objects.get_or_create()
     prefs.home_institution = modelfactory.institution()
