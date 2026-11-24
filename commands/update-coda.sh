@@ -116,7 +116,9 @@ parse_update_args() {
 }
 
 parse_update_args "$@"
-parse_environment_args "${filtered_args[@]}"
+# Bash < 4.4 aborts on "${arr[@]}" for an empty array under `set -u`;
+# the alternate-value form expands to nothing when no env args remain.
+parse_environment_args ${filtered_args[@]+"${filtered_args[@]}"}
 init_environment
 
 has_uncommitted_changes() {
