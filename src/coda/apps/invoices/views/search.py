@@ -15,11 +15,16 @@ from coda.apps.search import (
     SearchFieldAliases,
     build_search_filter,
 )
-from coda.domain.publication.links import normalize_doi
+from coda.domain.publication.links import normalize_doi, parse_doi
 
 PUBLICATION_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
     "title": "title",
-    "doi": ScopedAlias("links__value", Q(links__type__name="DOI"), normalize=normalize_doi),
+    "doi": ScopedAlias(
+        "links__value",
+        Q(links__type__name="DOI"),
+        normalize=normalize_doi,
+        detect=parse_doi,
+    ),
     "request": "fundingrequest__request_id",
 }
 

@@ -394,3 +394,52 @@ def test__searching_with_whitespace_only_doi_value__matches_nothing(client: Clie
 
     assert response.status_code == 200
     assert_contains(response.context, set())
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_doi__matches_doi_links(client: Client) -> None:
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {"search_term": "10.1234/5678"})
+
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_doi_token__is_scoped_to_doi_links(client: Client) -> None:
+    """A DOI-shaped title token stops matching generically once detection is on."""
+    _ = modelfactory.fundingrequest("10.9999/xyz")
+
+    response = search_fundingrequests(client, {"search_term": "10.9999/xyz"})
+
+    assert_contains(response.context, set())
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_eissn__matches_its_journal(client: Client) -> None:
+    matching = modelfactory.fundingrequest()
+    journal = matching.publication.article_journal
+    assert journal is not None
+    # Same E-ISSN text in an unrelated title: only the scoped DOI/EISSN search may
+    # ignore this row, so the test fails if detection is removed.
+    _ = modelfactory.fundingrequest(journal.eissn)
+
+    response = search_fundingrequests(client, {"search_term": journal.eissn})
+
+    assert_contains(response.context, {matching})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_eissn_prefix__matches_its_journal(client: Client) -> None:
+    matching = modelfactory.fundingrequest()
+    _ = modelfactory.fundingrequest()
+    journal = matching.publication.article_journal
+    assert journal is not None
+
+    response = search_fundingrequests(client, {"search_term": f"eissn:{journal.eissn}"})
+
+    assert_contains(response.context, {matching})

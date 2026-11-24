@@ -30,3 +30,13 @@ def checksum(issn: str) -> str:
     remainder = total % 11
     result = 0 if remainder == 0 else 11 - remainder
     return "X" if result == 10 else str(result)
+
+
+def parse_issn(value: str) -> str | None:
+    """Hyphenated ISSN for value, or None when value is not a canonical ISSN."""
+    if len(value) != 9 or value[4] != "-":
+        return None
+    try:
+        return str(Issn(value))
+    except InvalidIssn, ValueError:
+        return None

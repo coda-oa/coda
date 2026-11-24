@@ -18,14 +18,25 @@ class ScopedAlias:
         normalize: Optional callable applied to the user's value before matching, so
                    alternative spellings of an identifier (e.g. resolver URLs) match
                    the form stored in the database.
+        detect:    Optional callable that recognises an unprefixed identifier value
+                   and returns its canonical form (or None). Recognised unquoted
+                   words are scoped to this alias instead of searched generically.
     """
 
     fields: str
     extra: Q
     normalize: Callable[[str], str] | None = None
+    detect: Callable[[str], str | None] | None = None
 
 
 type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
+
+type _AliasSpec = tuple[
+    list[str],
+    Q,
+    Callable[[str], str] | None,
+    Callable[[str], str | None] | None,
+]
 
 # Match a prefixed term: a word-char prefix, a colon, and either a
 # double-quoted value ("...") or a single non-whitespace word
@@ -87,6 +98,10 @@ def build_search_filter(
     scoped to the mapped field(s) instead of being searched across all ``*fields``.
     An alias may also be a ``ScopedAlias``, which ANDs an extra Q condition onto the
     matched row (e.g. only links of a given type).
+    A ``ScopedAlias`` may declare a ``detect`` callable: an unquoted generic word it
+    recognises as that identifier (e.g. a bare DOI or EISSN) is then scoped to the
+    alias as if the prefix had been typed. Detector matches use the alias order, so
+    the first accepting detector claims the word. Quoted phrases are never detected.
     Prefixed terms use the same phrase/word splitting around the colon value:
     the value can be a double-quoted phrase (``author:"john doe"``) or a single word
     (``author:john``). Unprefixed terms remain in the generic multi-field search.
@@ -122,6 +137,9 @@ def build_search_filter(
         phrases, words = _parse_search_terms(result.remaining)
         words = [word for word in words if word.lower() not in _STOP_WORDS]
         phrases = [phrase for phrase in phrases if phrase.strip()]
+        detected, words = _detect_identifiers(words, field_aliases or {})
+        for term in detected:
+            q &= _match_any_field(term.value, term.fields) & term.extra
         for value in [*phrases, *words]:
             q &= _match_any_field(value, generic_fields)
 
@@ -158,10 +176,8 @@ def _parse_prefixed_terms(
     Only prefixes present in ``aliases`` are extracted; unknown prefixes are left
     in the remaining string as-is.
     """
-    # Normalise aliases to (fields, extra, normalize) tuples for uniform handling
-    normalized_aliases: dict[str, tuple[list[str], Q, Callable[[str], str] | None]] = {
-        k: _normalise_alias(v) for k, v in aliases.items()
-    }
+    # Normalise aliases to (fields, extra, normalize, detect) tuples for uniform handling
+    normalized_aliases: dict[str, _AliasSpec] = {k: _normalise_alias(v) for k, v in aliases.items()}
 
     terms: list[_PrefixedTerm] = []
 
@@ -171,7 +187,7 @@ def _parse_prefixed_terms(
         if prefix in normalized_aliases:
             # Strip surrounding quotes if present
             value = raw_value.strip('"')
-            fields, extra, normalize = normalized_aliases[prefix]
+            fields, extra, normalize, _ = normalized_aliases[prefix]
             # Whitespace-only values carry no term; normalizers may reject them
             if normalize is not None and value.strip():
                 value = normalize(value)
@@ -196,20 +212,48 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
     return q
 
 
-def _normalise_alias(
-    alias: str | list[str] | ScopedAlias,
-) -> tuple[list[str], Q, Callable[[str], str] | None]:
-    """Normalise any alias form to a (fields, extra, normalize) tuple.
+def _detect_identifiers(
+    words: Sequence[str], aliases: SearchFieldAliases
+) -> tuple[list[_PrefixedTerm], list[str]]:
+    """Route identifier-shaped words through the aliases' detectors.
+
+    The first alias (in mapping order) whose detector accepts a word claims it.
 
     Returns:
-        A tuple (fields, extra, normalize) where fields is a list of Django lookups,
-        extra is the additional Q condition (an empty Q for plain field aliases) and
-        normalize is the optional value normaliser from a ``ScopedAlias``.
+        A tuple (detected, remaining) where detected holds scoped identifier terms
+        and remaining holds words that no detector recognised.
+    """
+    specs = [_normalise_alias(alias) for alias in aliases.values()]
+    detected: list[_PrefixedTerm] = []
+    remaining: list[str] = []
+
+    for word in words:
+        for fields, extra, _, detect in specs:
+            if detect is None:
+                continue
+            value = detect(word)
+            if value is not None:
+                detected.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
+                break
+        else:
+            remaining.append(word)
+
+    return detected, remaining
+
+
+def _normalise_alias(alias: str | list[str] | ScopedAlias) -> _AliasSpec:
+    """Normalise any alias form to a (fields, extra, normalize, detect) tuple.
+
+    Returns:
+        A tuple (fields, extra, normalize, detect) where fields is a list of Django
+        lookups, extra is the additional Q condition (an empty Q for plain field
+        aliases), normalize is the optional value normaliser and detect the optional
+        unprefixed-identifier recogniser from a ``ScopedAlias``.
     """
     if isinstance(alias, ScopedAlias):
-        return [alias.fields], alias.extra, alias.normalize
+        return [alias.fields], alias.extra, alias.normalize, alias.detect
     fields = [alias] if isinstance(alias, str) else alias
-    return fields, Q(), None
+    return fields, Q(), None, None
 
 
 def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
@@ -220,6 +264,6 @@ def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
     """
     fields: list[str] = []
     for alias in aliases.values():
-        normalised, _, _ = _normalise_alias(alias)
+        normalised, _, _, _ = _normalise_alias(alias)
         fields.extend(normalised)
     return fields

@@ -214,6 +214,14 @@ class Doi:
         return hash((self._doi,))
 
 
+def parse_doi(value: str) -> str | None:
+    """Canonical DOI for value, or None when value is not a valid DOI."""
+    try:
+        return Doi(value).value()
+    except ValueError:
+        return None
+
+
 class InvalidUrl(DomainError):
     def __init__(self, url: str, *args: object) -> None:
         super().__init__(f"{url} is not a valid URL", *args)

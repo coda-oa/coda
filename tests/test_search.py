@@ -5,12 +5,14 @@ from django.db.models import Q
 
 from coda.apps.search import (
     ScopedAlias,
+    SearchFieldAliases,
     _parse_prefixed_terms,
     _parse_search_terms,
     _PrefixedTerm,
     build_search_filter,
 )
-from coda.domain.publication.links import normalize_doi
+from coda.domain.issn import parse_issn
+from coda.domain.publication.links import normalize_doi, parse_doi
 
 
 class TestParseSearchTerms:
@@ -246,6 +248,13 @@ class TestScopedAlias:
         )
         assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
 
+    def test_eissn_prefix_with_empty_extra__matches_journal_eissn(self) -> None:
+        aliases: SearchFieldAliases = {
+            "eissn": ScopedAlias("publication__article_journal__eissn", Q(), detect=parse_issn)
+        }
+        q = build_search_filter("eissn:0028-0836", field_aliases=aliases)
+        assert q == Q(publication__article_journal__eissn__icontains="0028-0836")
+
     @pytest.mark.parametrize(
         "value",
         [
@@ -290,6 +299,89 @@ class TestScopedAlias:
             & (Q(title__icontains="springer") | Q(author__name__icontains="springer"))
         )
         assert q == expected
+
+
+class TestIdentifierDetection:
+    def test_bare_doi_is_scoped_to_doi_alias(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        aliases: SearchFieldAliases = {
+            "doi": ScopedAlias("publication__links__value", extra, detect=parse_doi)
+        }
+        q = build_search_filter("10.1234/abc", "title", field_aliases=aliases)
+        assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
+
+    def test_doi_resolver_url_is_detected_and_canonicalised(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        aliases: SearchFieldAliases = {
+            "doi": ScopedAlias("publication__links__value", extra, detect=parse_doi)
+        }
+        q = build_search_filter("https://doi.org/10.1234/abc", "title", field_aliases=aliases)
+        assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
+
+    def test_bare_eissn_is_scoped_to_eissn_alias(self) -> None:
+        aliases: SearchFieldAliases = {
+            "eissn": ScopedAlias("journal_eissn", Q(), detect=parse_issn)
+        }
+        q = build_search_filter("0028-0836", "title", field_aliases=aliases)
+        assert q == Q(journal_eissn__icontains="0028-0836")
+
+    def test_invalid_issn_checksum_stays_generic(self) -> None:
+        aliases: SearchFieldAliases = {
+            "eissn": ScopedAlias("journal_eissn", Q(), detect=parse_issn)
+        }
+        q = build_search_filter("2024-1234", "title", field_aliases=aliases)
+        assert q == Q(title__icontains="2024-1234")
+
+    def test_unhyphenated_issn_stays_generic(self) -> None:
+        aliases: SearchFieldAliases = {
+            "eissn": ScopedAlias("journal_eissn", Q(), detect=parse_issn)
+        }
+        q = build_search_filter("00280836", "title", field_aliases=aliases)
+        assert q == Q(title__icontains="00280836")
+
+    def test_nine_character_issn_without_hyphen_stays_generic(self) -> None:
+        """A valid checksum is not enough: the ISSN hyphen position is required."""
+        aliases: SearchFieldAliases = {
+            "eissn": ScopedAlias("journal_eissn", Q(), detect=parse_issn)
+        }
+        q = build_search_filter("123456789", "title", field_aliases=aliases)
+        assert q == Q(title__icontains="123456789")
+
+    def test_parse_issn_requires_canonical_hyphenated_shape(self) -> None:
+        assert parse_issn("123456789") is None
+        assert parse_issn("0028-0836") == "0028-0836"
+
+    def test_quoted_identifier_stays_generic(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        aliases: SearchFieldAliases = {
+            "doi": ScopedAlias("publication__links__value", extra, detect=parse_doi)
+        }
+        q = build_search_filter('"10.1234/abc"', "title", field_aliases=aliases)
+        assert q == Q(title__icontains="10.1234/abc")
+
+    def test_detection_requires_a_matching_alias(self) -> None:
+        q = build_search_filter("10.1234/abc", "publication__links__value")
+        assert q == Q(publication__links__value__icontains="10.1234/abc")
+
+    def test_detected_identifier_and_plain_word_combine(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        aliases: SearchFieldAliases = {
+            "doi": ScopedAlias("publication__links__value", extra, detect=parse_doi)
+        }
+        q = build_search_filter("10.1234/abc springer", "title", field_aliases=aliases)
+        assert q == (
+            Q(publication__links__value__icontains="10.1234/abc")
+            & extra
+            & Q(title__icontains="springer")
+        )
+
+    def test_first_matching_detector_claims_word(self) -> None:
+        aliases: SearchFieldAliases = {
+            "first": ScopedAlias("first_field", Q(), detect=lambda value: "canonical"),
+            "second": ScopedAlias("second_field", Q(), detect=lambda value: "canonical"),
+        }
+        q = build_search_filter("identifier", field_aliases=aliases)
+        assert q == Q(first_field__icontains="canonical")
 
 
 class TestStopWords:

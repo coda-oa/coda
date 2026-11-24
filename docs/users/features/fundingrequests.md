@@ -43,6 +43,8 @@ A term can be restricted to a specific field with a prefix:
 
 Prefixes can be combined with plain terms: `author:"john doe" springer` finds requests by John Doe in which *springer* occurs anywhere else.
 
+Valid DOIs and EISSNs in plain search terms are recognised automatically and scoped to `doi:`/`eissn:` respectively; put them in double quotes to search them literally instead.
+
 With the `doi:` prefix, DOIs are matched in their canonical form, so a `https://doi.org/` resolver URL works as well as the bare DOI: `doi:https://doi.org/10.1234/abc` finds the same requests as `doi:10.1234/abc`.
 
 ![](/_static/img/fundingrequests_overview.png)

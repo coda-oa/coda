@@ -507,6 +507,34 @@ def test__search_publications__doi_resolver_url__matches_bare_doi(client: Client
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__search_publications__bare_doi__matches_bare_doi(client: Client) -> None:
+    modelfactory.fundingrequest("Nature Communications")
+
+    response = client.post(
+        reverse("invoices:pub_search"),
+        {"q": "10.1234/5678"},
+    )
+
+    assert response.status_code == 200
+    assert "Nature Communications" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__search_publications__doi_token_in_title__is_scoped_to_doi_links(client: Client) -> None:
+    modelfactory.fundingrequest("10.9999/xyz Decoy")
+
+    response = client.post(
+        reverse("invoices:pub_search"),
+        {"q": "10.9999/xyz"},
+    )
+
+    assert response.status_code == 200
+    assert "Decoy" not in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__search_publications__whitespace_only_doi_value__returns_no_results(
     client: Client,
 ) -> None:
