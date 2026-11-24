@@ -25,3 +25,34 @@
     border-color: var(--_background-color);
     color: var(--_color);
 }
+
+/* A soft status-tinted list. Body text keeps the normal theme color, so
+   it stays readable in light and dark mode. */
+.issue-list {
+    --_background-color: transparent;
+
+    margin-block: var(--coda-spacing);
+    padding: var(--coda-spacing) var(--coda-spacing) var(--coda-spacing) calc(var(--coda-spacing) * 2);
+    border-left: 0.25rem solid var(--_background-color);
+    border-radius: var(--coda-border-radius);
+    background-color: color-mix(
+        in srgb,
+        var(--_background-color) 18%,
+        var(--coda-card-background-color)
+    );
+    color: var(--coda-color);
+    list-style: disc;
+}
+
+.issue-list--error {
+    --_background-color: var(--coda-validation-invalid-color);
+}
+
+.issue-list--warning {
+    --_background-color: rgb(205, 130, 10);
+}
+
+.issue-list a {
+    color: inherit;
+    text-decoration: underline;
+}
