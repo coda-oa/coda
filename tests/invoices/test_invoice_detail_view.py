@@ -7,17 +7,10 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.contexts.fundingrequest.dto.commands import (
-    CreateFundingRequestDto,
-    ExternalFundingDto,
-    ExtraContactDto,
-    ExtraInformationDto,
-    PaymentDto,
-)
-from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.invoices.repository import create
-from coda.apps.publications.dto import PublicationDto
 from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
+from coda.contexts.fundingrequest.dto.commands import CreateFundingRequestDto
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
@@ -45,20 +38,7 @@ def funding_request() -> FundingRequest[Publication]:
     journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     fr = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
-    fr.id = fundingrequests.create_fundingrequest(
-        CreateFundingRequestDto(
-            publication=PublicationDto.from_publication(fr.publication),
-            payment=PaymentDto.from_payment(fr.estimated_cost),
-            extra_information=ExtraInformationDto(
-                extra_contact=ExtraContactDto.from_contact(fr.extra_contact),
-                request_remarks=fr.request_remarks,
-            ),
-            funding=[
-                ExternalFundingDto.from_external_funding(funding) for funding in fr.external_funding
-            ],
-            request_date=fr.request_date,
-        )
-    )
+    fr.id = fundingrequests.create_fundingrequest(CreateFundingRequestDto.from_fundingrequest(fr))
     return fundingrequest_repository.get_article_request(fr.id)
 
 
@@ -67,7 +47,7 @@ def invoice_with_position(position: Position) -> Invoice:
     invoice = Invoice.new(
         number="123",
         creditor=CreditorId(creditor.pk),
-        date=datetime.date.today(),
+        date=datetime.datetime.now(datetime.UTC).date(),
         positions=[position],
         comment="A comment",
     )

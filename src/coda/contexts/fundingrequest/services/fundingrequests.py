@@ -49,26 +49,19 @@ def create_fundingrequest(
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
-    publication = creation_dto.publication.to_publication()
-    AllowedConcepts.for_new_publication(publication.kind).validate(
-        publication.publication_type,
-        publication.subject_area,
-    )
-    # For single creation, fetch existing IDs to ensure uniqueness
     existing_ids = set(repository.get_all_request_ids())
-
-    fr = FundingRequest.new(
-        publication,
-        creation_dto.payment.to_payment(),
-        request_id=_find_unused_request_id(
-            request_id_generator, existing_ids, creation_dto.request_date
-        ),
-        external_funding=[f.to_external_funding() for f in creation_dto.funding],
-        extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
-        request_remarks=creation_dto.extra_information.request_remarks,
+    request_id = _find_unused_request_id(
+        request_id_generator,
+        existing_ids,
+        creation_dto.request_date,
+    )
+    fr = try_into_funding_request(request_id, creation_dto)
+    AllowedConcepts.for_new_publication(fr.publication.kind).validate(
+        fr.publication.publication_type,
+        fr.publication.subject_area,
     )
 
-    fr_id = repository.create(cast(AnyFundingRequest, fr))
+    fr_id = repository.create(fr)
     run_checks(fr_id, checkfactory=checkfactory)
 
     return fr_id

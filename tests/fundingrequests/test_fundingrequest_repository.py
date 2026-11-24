@@ -4,9 +4,12 @@ from typing import Any, cast
 import pytest
 
 from coda.apps.fundingrequests import fundingrequest_query, repository
-from coda.contexts.fundingrequest.services.labels import label_attach, label_create
+from coda.apps.fundingrequests.mappers import FundingRequestDomainMapper
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
+from coda.contexts.fundingrequest.dto.commands import CreateFundingRequestDto
+from coda.contexts.fundingrequest.services import fundingrequests
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
@@ -18,7 +21,7 @@ from coda.domain.fundingrequest import (
 )
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
-from coda.domain.publication import Authors, JournalId
+from coda.domain.publication import Authors, Doi, JournalId
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
@@ -26,7 +29,7 @@ from tests.fundingrequests.services.test_fundingrequest_services import assert_f
 
 @pytest.mark.django_db
 def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     id = repository.create(request)
@@ -38,7 +41,7 @@ def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
 
 @pytest.mark.django_db
 def test__existing_fundingrequest__create_again__raises_error() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     request.id = repository.create(request)
@@ -49,7 +52,7 @@ def test__existing_fundingrequest__create_again__raises_error() -> None:
 
 @pytest.mark.django_db
 def test__existing_fundingrequest__update__updates_fundingrequest() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     id = repository.create(
         domainfactory.fundingrequest(
@@ -182,6 +185,51 @@ def test__searching_for_funding_requests_by_publisher__returns_matching_funding_
     )
 
     assert list(results) == [matching_request]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("doi_string", [Doi("10.0000/1234").value(), Doi("10.0000/1234").url()])
+def test__searching_for_doi__returns_matching_funding_requests(doi_string: str) -> None:
+    journal = JournalId(modelfactory.journal().pk)
+    funder = FundingOrganizationId(modelfactory.funding_organization().pk)
+    matching_request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funder)
+    matching_request.publication.links = {Doi(doi_string)}
+    matching_request.id = fundingrequests.create_fundingrequest(
+        CreateFundingRequestDto.from_fundingrequest(matching_request)
+    )
+
+    results = fundingrequest_query.search(fundingrequest_query.GenericSearchCriteria(doi_string))
+
+    assert_fundingrequest_eq(FundingRequestDomainMapper.map(results.get()), matching_request)
+
+
+@pytest.mark.django_db
+def test__searching_for_eissn__returns_matching_fundingrequest_in_journal() -> None:
+    funder = FundingOrganizationId(modelfactory.funding_organization().pk)
+    matching_journal = modelfactory.journal()
+    match = domainfactory.fundingrequest(
+        journal_id=JournalId(matching_journal.pk),
+        funding_org_id=funder,
+    )
+    match.id = fundingrequests.create_fundingrequest(
+        CreateFundingRequestDto.from_fundingrequest(match)
+    )
+
+    non_matching_journal = modelfactory.journal()
+    no_match = domainfactory.fundingrequest(
+        journal_id=JournalId(non_matching_journal.pk),
+        funding_org_id=funder,
+    )
+    no_match.id = fundingrequests.create_fundingrequest(
+        CreateFundingRequestDto.from_fundingrequest(no_match)
+    )
+
+    results = fundingrequest_query.search(
+        fundingrequest_query.GenericSearchCriteria(matching_journal.eissn)
+    )
+
+    assert len(results) == 1
+    assert_fundingrequest_eq(FundingRequestDomainMapper.map(results.get()), match)
 
 
 @pytest.mark.django_db

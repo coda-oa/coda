@@ -2,12 +2,15 @@ import abc
 import datetime
 import random
 from collections.abc import Iterable
-from typing import Generic, Self, TypeVar
+from typing import Self, cast
 from unittest.mock import create_autospec
 
 from faker import Faker
 
 from coda.apps.contracts.mappers._domain import ContractDomainMapper
+from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.dto import MonographDto, PublicationDto
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
@@ -15,9 +18,6 @@ from coda.contexts.fundingrequest.dto.commands import (
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import MonographDto, PublicationDto
-from coda.apps.publications.repositories import vocabulary_repository
 from coda.domain.contract import ContractYear
 from coda.domain.fundingrequest import (
     ExternalFunding,
@@ -27,27 +27,26 @@ from coda.domain.fundingrequest import (
     FundingRequestContact,
     NoContact,
     Payment,
-    TPublication,
 )
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.publication import PublicationId
+from coda.domain.publication.publication import Monograph, Publication
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
 
-def fixed_request_id_factory(
-    date: datetime.date | None = None, rng: random.Random | None = None
-) -> PublicFundingRequestId:
-    date = datetime.date.today()
+def fixed_request_id_factory(date: datetime.date | None = None) -> PublicFundingRequestId:
+    date = date or datetime.datetime.now(datetime.UTC).date()
     rng_ = create_autospec(random.Random)
     rng_.randint.return_value = 1
     return PublicFundingRequestId.create(date, rng_)
 
 
-TPublicationDto = TypeVar("TPublicationDto", PublicationDto, MonographDto)
-
-
-class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC):
+class FundingRequestDataBuilder[
+    TPublication: (Monograph, Publication),
+    TPublicationDto: (MonographDto, PublicationDto),
+](abc.ABC):
     def __init__(self) -> None:
         self._faker = Faker()
         self.affiliation = modelfactory.institution()
@@ -158,9 +157,5 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         return ExternalFundingDto.from_external_funding(funding)
 
     def creation_dto(self) -> CreateFundingRequestDto:
-        return CreateFundingRequestDto(
-            publication=self.publication_dto(),
-            payment=self.cost_dto(),
-            funding=self.external_funding_dto(),
-            extra_information=self.extra_information_dto(),
-        )
+        request = cast(AnyFundingRequest, self.build())
+        return CreateFundingRequestDto.from_fundingrequest(request)

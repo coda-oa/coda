@@ -13,6 +13,7 @@ from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication.links import Doi, InvalidDoi
 from coda.domain.publication.publication import OpenAccessType
 
 type LabelId = int
@@ -93,7 +94,7 @@ class SortOrder(enum.StrEnum):
     date_desc = "-request_date"
 
     @staticmethod
-    def default() -> "SortOrder":
+    def default() -> SortOrder:
         return SortOrder.date_desc
 
 
@@ -136,19 +137,32 @@ class PublicationStateCriteria:
 class GenericSearchCriteria:
     search_term: str = ""
 
+    @staticmethod
+    def _match_doi(term: str) -> Q:
+        try:
+            doi = Doi(term)
+        except InvalidDoi:
+            return Q()
+        else:
+            match_doi_type = Q(publication__links__type__name=Doi.type())
+            match_doi_value = Q(publication__links__value=doi.value())
+            return match_doi_type & match_doi_value
+
     def _to_query(self) -> Q:
-        if not self.search_term.strip():
+        search_term = self.search_term.strip()
+        if not search_term:
             return Q()
 
         return words_icontains(
-            self.search_term,
+            search_term,
             "publication__title",
             "publication__relevant_authors__name",
             "publication__article_journal__title",
+            "publication__article_journal__eissn",
             "publication__article_journal__publisher__name",
             "publication__monograph_publisher__name",
             "request_id",
-        )
+        ) | self._match_doi(search_term)
 
 
 @dataclass(frozen=True)
@@ -171,7 +185,7 @@ class PublicationEntityType(enum.Enum):
     Monograph = "monograph"
 
     @classmethod
-    def try_parse(cls, value: str | None) -> "PublicationEntityType":
+    def try_parse(cls, value: str | None) -> PublicationEntityType:
         if value is None:
             return PublicationEntityType.All
 
@@ -252,9 +266,9 @@ def _to_query(*criteria: FundingRequestSearchCriteria) -> Q:
 
 
 def search(
-    *criteria: FundingRequestSearchCriteria,
-    sort_order: SortOrder = SortOrder.default(),
+    *criteria: FundingRequestSearchCriteria, sort_order: SortOrder | None = None
 ) -> QuerySet[FundingRequest]:
+    sort_order = sort_order or SortOrder.default()
     qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
     return FundingRequestListMapper.prefetch(qs)
 
@@ -284,7 +298,7 @@ class FundingRequestSearchParams:
     show_invalid_contract_years: bool = False
     funding_source: FundingSourceId | None = None
 
-    def without_date_range(self) -> "FundingRequestSearchParams":
+    def without_date_range(self) -> FundingRequestSearchParams:
         # return a new instance with the date_range set to None, keeping all other attributes the same
         new_instance = copy.copy(
             self

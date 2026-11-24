@@ -8,7 +8,7 @@ test data builders and domain object conversion.
 import datetime
 from collections.abc import Iterable
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -29,7 +29,9 @@ from coda.domain.fundingrequest import (
     Payment,
     PaymentMethod,
 )
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.money import Currency, Money
+from coda.domain.publication.publication import Monograph, Publication
 from coda.domain.string import NonEmptyStr
 
 
@@ -50,15 +52,15 @@ class PaymentDto(CodaBaseDto):
     external_costsplitting: OptionalFromStr[bool] = None
 
     @classmethod
-    def empty(cls) -> "PaymentDto":
+    def empty(cls) -> PaymentDto:
         return PaymentDto(
-            amount=Decimal("0"),
+            amount=Decimal(0),
             currency=Currency.EUR.code,
             method=PaymentMethod.Unknown.value,
         )
 
     @classmethod
-    def from_payment(cls, payment: Payment) -> "PaymentDto":
+    def from_payment(cls, payment: Payment) -> PaymentDto:
         """Creates a CostDto instance from a Payment object."""
         return cls(
             amount=payment.amount.amount,
@@ -91,7 +93,7 @@ class ExternalFundingDto(CodaBaseDto):
     project_name: str
 
     @classmethod
-    def from_external_funding(cls, external_funding: ExternalFunding) -> "ExternalFundingDto":
+    def from_external_funding(cls, external_funding: ExternalFunding) -> ExternalFundingDto:
         """Creates an instance of ExternalFundingDto from an ExternalFunding object."""
         return cls(
             organization=external_funding.organization,
@@ -121,7 +123,7 @@ class ExtraContactDto(CodaBaseDto):
     email: str | None = None
 
     @classmethod
-    def from_contact(cls, contact: FundingRequestContact) -> "ExtraContactDto":
+    def from_contact(cls, contact: FundingRequestContact) -> ExtraContactDto:
         """Creates an instance of ExtraContactDto from a FundingRequestContact object."""
         return cls(name=contact.name, email=contact.email)
 
@@ -159,6 +161,32 @@ class CreateFundingRequestDto(CodaBaseDto):
     request_date: datetime.date = Field(default_factory=datetime.date.today)
     legacy_request_id: str = ""
     review: CreateReviewDto | None = None
+
+    @classmethod
+    def from_fundingrequest(cls, request: AnyFundingRequest) -> Self:
+        publication = request.publication
+        publication_dto: PublicationDto | MonographDto
+        if isinstance(publication, Publication):
+            publication_dto = PublicationDto.from_publication(publication)
+        elif isinstance(publication, Monograph):
+            publication_dto = MonographDto.from_monograph(publication)
+        else:
+            raise TypeError(f"Invalid publication kind {type(publication)}")
+
+        return cls(
+            publication=publication_dto,
+            payment=PaymentDto.from_payment(request.estimated_cost),
+            funding=tuple(
+                ExternalFundingDto.from_external_funding(f) for f in request.external_funding
+            ),
+            extra_information=ExtraInformationDto(
+                extra_contact=ExtraContactDto.from_contact(request.extra_contact),
+                request_remarks=request.request_remarks,
+                reviewer_remarks=request.review_remarks,
+            ),
+            request_date=request.request_date,
+            legacy_request_id=request.legacy_request_id,
+        )
 
 
 class UpdatePublicationMetadataCommand(CodaBaseDto):
