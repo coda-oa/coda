@@ -141,19 +141,28 @@ class InvalidDoi(DomainError):
         super().__init__("Invalid DOI format", *args)
 
 
+def normalize_doi(value: str) -> str:
+    """Canonical stored form of a DOI: trimmed, lowercased, without scheme/host or trailing slash.
+
+    Accepts bare DOIs and resolver URLs such as ``https://doi.org/10.1234/abc``.
+    Search normalizes user input with this so pasted URLs match the stored form.
+    """
+    return (
+        NonEmptyStr(value)
+        .strip()
+        .lower()
+        .removeprefix("https://")
+        .removeprefix("http://")
+        .removeprefix("doi.org/")
+        .removesuffix("/")
+    )
+
+
 class Doi:
     __match_args__ = ("_doi",)
 
     def __init__(self, doi: str) -> None:
-        self._doi = (
-            NonEmptyStr(doi)
-            .strip()
-            .lower()
-            .removeprefix("https://")
-            .removeprefix("http://")
-            .removeprefix("doi.org/")
-            .removesuffix("/")
-        )
+        self._doi = normalize_doi(doi)
         if not self._valid():
             raise InvalidDoi()
 

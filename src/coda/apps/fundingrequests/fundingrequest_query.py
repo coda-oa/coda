@@ -18,6 +18,7 @@ from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication.links import normalize_doi
 from coda.domain.publication.publication import OpenAccessType
 
 type LabelId = int
@@ -145,7 +146,11 @@ SEARCH_FIELD_ALIASES: SearchFieldAliases = {
         "publication__article_journal__publisher__name",
         "publication__monograph_publisher__name",
     ],
-    "doi": ScopedAlias("publication__links__value", Q(publication__links__type__name="DOI")),
+    "doi": ScopedAlias(
+        "publication__links__value",
+        Q(publication__links__type__name="DOI"),
+        normalize=normalize_doi,
+    ),
     "eissn": "publication__article_journal__eissn",
 }
 

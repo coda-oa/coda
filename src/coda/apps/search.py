@@ -1,5 +1,5 @@
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from django.db.models import Q
@@ -7,18 +7,22 @@ from django.db.models import Q
 
 @dataclass(frozen=True)
 class ScopedAlias:
-    """A field alias with an additional row filter.
+    """A field alias with an additional row filter and optional value normalisation.
 
     Attributes:
-        fields: The Django field lookup the term should be searched against.
-        extra:  An additional Q condition applied to the same relation row as the
-                field match, e.g. ``Q(publication__links__type__name="DOI")`` when
-                ``fields`` is ``"publication__links__value"``. Must traverse the
-                same relation path as ``fields`` so both conditions apply to one row.
+        fields:    The Django field lookup the term should be searched against.
+        extra:     An additional Q condition applied to the same relation row as the
+                   field match, e.g. ``Q(publication__links__type__name="DOI")`` when
+                   ``fields`` is ``"publication__links__value"``. Must traverse the
+                   same relation path as ``fields`` so both conditions apply to one row.
+        normalize: Optional callable applied to the user's value before matching, so
+                   alternative spellings of an identifier (e.g. resolver URLs) match
+                   the form stored in the database.
     """
 
     fields: str
     extra: Q
+    normalize: Callable[[str], str] | None = None
 
 
 type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
@@ -154,8 +158,8 @@ def _parse_prefixed_terms(
     Only prefixes present in ``aliases`` are extracted; unknown prefixes are left
     in the remaining string as-is.
     """
-    # Normalise aliases to (fields, extra) pairs for uniform handling
-    normalized_aliases: dict[str, tuple[list[str], Q]] = {
+    # Normalise aliases to (fields, extra, normalize) tuples for uniform handling
+    normalized_aliases: dict[str, tuple[list[str], Q, Callable[[str], str] | None]] = {
         k: _normalise_alias(v) for k, v in aliases.items()
     }
 
@@ -167,8 +171,11 @@ def _parse_prefixed_terms(
         if prefix in normalized_aliases:
             # Strip surrounding quotes if present
             value = raw_value.strip('"')
-            if value:
-                fields, extra = normalized_aliases[prefix]
+            fields, extra, normalize = normalized_aliases[prefix]
+            # Whitespace-only values carry no term; normalizers may reject them
+            if normalize is not None and value.strip():
+                value = normalize(value)
+            if value.strip():
                 terms.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
             return ""
         return m.group(0)
@@ -189,17 +196,20 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
     return q
 
 
-def _normalise_alias(alias: str | list[str] | ScopedAlias) -> tuple[list[str], Q]:
-    """Normalise any alias form to a (fields, extra) pair.
+def _normalise_alias(
+    alias: str | list[str] | ScopedAlias,
+) -> tuple[list[str], Q, Callable[[str], str] | None]:
+    """Normalise any alias form to a (fields, extra, normalize) tuple.
 
     Returns:
-        A tuple (fields, extra) where fields is a list of Django lookups and extra
-        is the additional Q condition (an empty Q for plain field aliases).
+        A tuple (fields, extra, normalize) where fields is a list of Django lookups,
+        extra is the additional Q condition (an empty Q for plain field aliases) and
+        normalize is the optional value normaliser from a ``ScopedAlias``.
     """
     if isinstance(alias, ScopedAlias):
-        return [alias.fields], alias.extra
+        return [alias.fields], alias.extra, alias.normalize
     fields = [alias] if isinstance(alias, str) else alias
-    return fields, Q()
+    return fields, Q(), None
 
 
 def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
@@ -210,6 +220,6 @@ def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
     """
     fields: list[str] = []
     for alias in aliases.values():
-        normalised, _ = _normalise_alias(alias)
+        normalised, _, _ = _normalise_alias(alias)
         fields.extend(normalised)
     return fields

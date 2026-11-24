@@ -361,3 +361,36 @@ def test__searching_with_doi_prefix__matches_only_doi_typed_links(client: Client
 
     generic_response = search_fundingrequests(client, {"search_term": "9783608961157"})
     assert_contains(generic_response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "search_term",
+    [
+        "doi:10.1234/5678",
+        "doi:https://doi.org/10.1234/5678",
+        "doi:http://doi.org/10.1234/5678",
+        "doi:10.1234/5678/",
+    ],
+)
+def test__searching_with_doi__matches_bare_and_resolver_url_forms(
+    client: Client, search_term: str
+) -> None:
+    """Stored DOIs are canonicalised, so pasted resolver URLs must match too."""
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {"search_term": search_term})
+
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_whitespace_only_doi_value__matches_nothing(client: Client) -> None:
+    _ = modelfactory.fundingrequest()
+
+    response = search_fundingrequests(client, {"search_term": 'doi:" "'})
+
+    assert response.status_code == 200
+    assert_contains(response.context, set())

@@ -10,6 +10,7 @@ from coda.apps.search import (
     _PrefixedTerm,
     build_search_filter,
 )
+from coda.domain.publication.links import normalize_doi
 
 
 class TestParseSearchTerms:
@@ -245,7 +246,34 @@ class TestScopedAlias:
         )
         assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "https://doi.org/10.1234/abc",
+            "http://doi.org/10.1234/abc",
+            "doi.org/10.1234/abc",
+            "10.1234/abc/",
+        ],
+    )
+    def test_scoped_alias_normalize__resolver_url_matches_bare_value(self, value: str) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        q = build_search_filter(
+            f"doi:{value}",
+            "title",
+            field_aliases={
+                "doi": ScopedAlias("publication__links__value", extra, normalize=normalize_doi)
+            },
+        )
+        assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
 
+    def test_scoped_alias_normalize__whitespace_value_is_skipped(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        result = _parse_prefixed_terms(
+            'doi:" "',
+            {"doi": ScopedAlias("publication__links__value", extra, normalize=normalize_doi)},
+        )
+        assert result.terms == []
+        assert result.remaining == ""
 
     def test_scoped_plain_and_word_terms_order(self) -> None:
         """Scoped term (with extra filter) comes before generic words in AND order."""
