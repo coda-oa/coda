@@ -480,6 +480,30 @@ def test__invalid_processing_status_post__creating_export__re_renders_without_cr
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__inverted_period_dates__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-12-31",
+            "period_end": "2024-01-01",
+            "title": "Bad Period Export",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [(item.label, item.errors) for item in response.context["form_errors"]] == [
+        (
+            "Period End",
+            ["Start date 2024-12-31 must be before end date 2024-01-01"],
+        )
+    ]
+    assert FundingRequestCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__malformed_date_in_create_post__creating_export__re_renders_without_creating(
     client: Client,
 ) -> None:

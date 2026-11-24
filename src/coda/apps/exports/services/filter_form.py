@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from django import forms
 from django.db.models import QuerySet
@@ -23,6 +23,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
 )
 from coda.apps.fundingrequests.models import Label
 from coda.apps.invoices.models import FundingSource
+from coda.domain.date import DateRange, InvalidDateRangeError
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import DecimalSeparator
@@ -82,6 +83,17 @@ class FundingRequestFilterForm(forms.Form):
     )
     contract_name = forms.ModelChoiceField(queryset=Contract.objects.all(), required=False)
     contract_year = forms.IntegerField(required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        start = cleaned.get("period_start")
+        end = cleaned.get("period_end")
+        if start is not None and end is not None:
+            try:
+                DateRange(start, end)
+            except InvalidDateRangeError as error:
+                self.add_error("period_end", str(error))
+        return cleaned
 
 
 class FilterCleanedData(TypedDict):
