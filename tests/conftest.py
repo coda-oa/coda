@@ -109,8 +109,12 @@ def logged_in(client: Client) -> None:
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
-        if item.get_closest_marker("django_db") is not None:
-            item.add_marker(pytest.mark.usefixtures("populate_database"))
+        if isinstance(item, pytest.Function) and item.get_closest_marker("django_db") is not None:
+            # The fixture closure is computed before this hook runs, so a
+            # usefixtures mark added here is ignored (pytest #6908). Insert the
+            # fixture first so the session-scoped load happens before
+            # pytest-django opens its per-test atomic block.
+            item.fixturenames.insert(0, "populate_database")
 
 
 @pytest.fixture(scope="session")
