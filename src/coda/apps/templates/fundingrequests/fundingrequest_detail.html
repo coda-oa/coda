@@ -29,15 +29,15 @@
             <h2 class="my-1">
                 <span class="mr-1">Review</span>
                 {% if funding_request.review.value == "open" %}
-                    <span class="pill status-label open">Open</span>
+                    {% include "partials/status_pill.html" with pill_text="Open" pill_tone="open" %}
                 {% elif funding_request.review.value == "approved" %}
-                    <span class="pill status-label approved">Approved</span>
+                    {% include "partials/status_pill.html" with pill_text="Approved" pill_tone="approved" %}
                 {% elif funding_request.review.value == "rejected" %}
-                    <span class="pill status-label rejected">Rejected</span>
+                    {% include "partials/status_pill.html" with pill_text="Rejected" pill_tone="rejected" %}
                 {% elif funding_request.review.value == "waived" %}
-                    <span class="pill status-label waived">Costs Waived</span>
+                    {% include "partials/status_pill.html" with pill_text="Costs Waived" pill_tone="waived" %}
                 {% else %}
-                    <span class="pill status-label closed">Closed</span>
+                    {% include "partials/status_pill.html" with pill_text="Closed" pill_tone="closed" %}
                 {% endif %}
             </h2>
             <hr>

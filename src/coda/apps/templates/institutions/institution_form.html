@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}
     {{ title }}
-    {% if institution.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+    {% if institution.archived_at %}
+        {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+    {% endif %}
 {% endblock page_title %}
 {% block content %}
     <section class="my-2">

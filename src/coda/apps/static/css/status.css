@@ -50,3 +50,68 @@
 p:not(.messages, .text):is(.info, .success, .error, .danger, .warning) {
     padding: var(--coda-spacing) calc(var(--coda-spacing) * 1.5);
 }
+
+/* Spacing belongs to the layout: heading flex lines use `gap`, flex rows use
+   their container gap, and paragraph rows have no gap mechanism, so the pill
+   supplies its own inline-start margin. Scoped to `p` because paragraph rows
+   are the only inline text containers rendering a status pill today. */
+p > .status-pill {
+    margin-inline-start: 0.75em;
+}
+
+/* Status pills are 1rem in normal flow so list-row line boxes stay compact,
+   and 1.25rem inside headings so the badge reads at heading scale. Inside a
+   heading the pill is also inline-flex, so the heading line box contains its
+   padding instead of letting it bleed over adjacent text. */
+.status-pill {
+    --_status-color: var(--coda-secondary-background);
+    display: inline;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+    border-radius: var(--coda-pill-border-radius);
+    white-space: nowrap;
+    text-align: center;
+    background-color: var(--_status-color);
+    color: var(--coda-validation-text-color);
+}
+
+:is(h1, h2, h3, h4, h5, h6) > .status-pill {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    font-size: 1.25rem;
+}
+
+/* Headings whose direct child is a status pill lay it out on the title's flex
+   line. Centering keeps badge and title aligned; wrapping moves the badge below
+   a long title instead of squeezing it. The gap restores the word space that
+   disappears when the heading becomes a flex container. */
+:is(h1, h2, h3, h4, h5, h6):has(> .status-pill) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2em;
+}
+
+.status-pill.approved {
+    --_status-color: var(--coda-validation-valid-color);
+}
+
+.status-pill.rejected,
+.status-pill.archived {
+    --_status-color: var(--coda-validation-invalid-color);
+}
+
+.status-pill.open {
+    --_status-color: var(--coda-primary-background);
+}
+
+.status-pill.waived {
+    --_status-color: rgb(163, 100, 0);
+}
+
+.status-pill.closed {
+    --_status-color: rgb(73, 73, 73);
+}

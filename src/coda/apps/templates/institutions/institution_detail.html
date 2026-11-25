@@ -1,8 +1,12 @@
 {% extends "base.html" %}
-{% block page_supertitle %}Institution{% endblock page_supertitle %}
+{% block page_supertitle %}
+    Institution
+{% endblock page_supertitle %}
 {% block page_title %}
     {{ institution.name }}
-    {% if institution.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+    {% if institution.archived_at %}
+        {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+    {% endif %}
 {% endblock page_title %}
 {% block page_actions %}
     <a href="{% url 'institutions:edit' pk=institution.pk %}"

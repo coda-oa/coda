@@ -26,32 +26,6 @@
   height: 100%;
 }
 
-.status-label {
-  --_status-text-color: var(--coda-validation-text-color);
-  background-color: var(--_status-color, transparent);
-  color: var(--_status-text-color);
-
-  &.approved {
-    --_status-color: var(--coda-validation-valid-color);
-  }
-
-  &.rejected {
-    --_status-color: var(--coda-validation-invalid-color);
-  }
-
-  &.open {
-    --_status-color: var(--coda-primary-background);
-  }
-
-  &.waived {
-    --_status-color: rgb(163, 100, 0);
-  }
-
-  &.closed {
-    --_status-color: rgb(73, 73, 73);
-  }
-}
-
 ul:has(.fundingrequest-check) {
   padding: 0;
   margin: 0;

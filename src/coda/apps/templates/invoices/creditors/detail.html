@@ -1,8 +1,12 @@
 {% extends "base.html" %}
-{% block page_supertitle %}Creditor{% endblock page_supertitle %}
+{% block page_supertitle %}
+    Creditor
+{% endblock page_supertitle %}
 {% block page_title %}
     {{ creditor.name }}
-    {% if creditor.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+    {% if creditor.archived_at %}
+        {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+    {% endif %}
 {% endblock page_title %}
 {% block page_actions %}
     <a href="{% url "invoices:creditor_update" pk=creditor.pk %}"

@@ -1,8 +1,12 @@
 {% extends "base.html" %}
-{% block page_supertitle %}Funding Organization{% endblock page_supertitle %}
+{% block page_supertitle %}
+    Funding Organization
+{% endblock page_supertitle %}
 {% block page_title %}
     {{ object.name }}
-    {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+    {% if object.archived_at %}
+        {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+    {% endif %}
 {% endblock page_title %}
 {% block page_actions %}
     {% if has_ror_link %}
@@ -11,8 +15,7 @@
                 hx-target="body"
                 hx-swap="beforeend">Update from ROR</button>
     {% else %}
-        <button class="secondary" disabled
-                title="Add a ROR identifier first">Update from ROR</button>
+        <button class="secondary" disabled title="Add a ROR identifier first">Update from ROR</button>
     {% endif %}
     <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
        class="button secondary">Edit</a>

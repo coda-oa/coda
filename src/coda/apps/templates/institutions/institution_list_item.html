@@ -2,7 +2,9 @@
     <div>
         <p class="mt-1">
             <a href="{% url 'institutions:detail' pk=entity.id %}">{{ entity.name }}</a>
-            {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+            {% if entity.archived_at %}
+                {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+            {% endif %}
         </p>
         {% if entity.parent %}
             <p>

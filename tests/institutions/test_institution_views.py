@@ -42,7 +42,7 @@ def test__institution_detail_view__shows_archived_status(client: Client) -> None
 
     assert response.status_code == 200
     content = response.content.decode()
-    assert '<span class="pill danger">Archived</span>' in content
+    assert '<span class="status-pill archived">Archived</span>' in content
 
 
 @pytest.mark.django_db
@@ -53,7 +53,7 @@ def test__institution_edit_view__shows_archived_status(client: Client) -> None:
     response = client.get(reverse("institutions:edit", kwargs={"pk": archived.pk}))
 
     content = response.content.decode()
-    assert '<span class="pill danger">Archived</span>' in content
+    assert '<span class="status-pill archived">Archived</span>' in content
 
 
 @pytest.mark.django_db

@@ -1,7 +1,9 @@
 <article class="flex justify-between align-center">
     <div class="flex align-center">
         <a href="{% url 'fundingrequests:funder_detail' pk=entity.id %}">{{ entity.name }}</a>
-        {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        {% if entity.archived_at %}
+            {% include "partials/status_pill.html" with pill_text="Archived" pill_tone="archived" %}
+        {% endif %}
         {% for link in entity.links.all %}<small class="label pill identifier-batch">{{ link.value }}</small>{% endfor %}
     </div>
     <div class="flex align-center">
