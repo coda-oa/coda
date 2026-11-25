@@ -1,8 +1,9 @@
 from typing import Any
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -22,6 +23,13 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Funding Source"}
 
+    def form_valid(self, form: FundingSourceForm) -> HttpResponse:
+        messages.success(
+            self.request,
+            f"Funding source '{form.cleaned_data['name']}' created successfully.",
+        )
+        return super().form_valid(form)
+
 
 fundingsource_createview = CreateFundingSourceView.as_view()
 
@@ -35,6 +43,13 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Update Funding Source"}
+
+    def form_valid(self, form: FundingSourceForm) -> HttpResponse:
+        messages.success(
+            self.request,
+            f"Funding source '{form.cleaned_data['name']}' updated successfully.",
+        )
+        return super().form_valid(form)
 
 
 fundingsource_updateview = UpdateFundingSourceView.as_view()
