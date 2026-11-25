@@ -148,7 +148,7 @@ Full documentation about all the features is available at <a href="https://coda-
 
 3. Start the application:
    ```
-   ./commands/start-coda.sh --production
+   ./commands/start-coda.sh
    ```
 
 For a full deployment guide (local and production), see the <a href="https://coda-oa.github.io/coda/users/installation.html" target="_blank" rel="noopener noreferrer">documentation</a>.

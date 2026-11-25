@@ -510,7 +510,7 @@ For system administrators, CODA provides a command-line import tool:
 
 ```bash
 # Using the shell script
-./commands/import.sh --production import_fundingrequests /path/to/requests.json
+./commands/import.sh import_fundingrequests /path/to/requests.json
 
 # Or for local environments
 ./commands/import.sh --local import_fundingrequests /path/to/requests.json
