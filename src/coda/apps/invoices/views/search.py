@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.views import View
 
 from coda.apps.contracts.models import Contract
+from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from coda.apps.invoices.views.position_parsers import maybe_request_context
 from coda.apps.publications.models import Publication
 from coda.apps.search import (
@@ -26,11 +27,6 @@ PUBLICATION_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
         detect=parse_doi,
     ),
     "request": "fundingrequest__request_id",
-}
-
-CONTRACT_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
-    "name": "name",
-    "esac": ScopedAlias("links__value", Q(links__type__name="ESAC")),
 }
 
 _ModelT = TypeVar("_ModelT", bound=Model)

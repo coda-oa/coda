@@ -9,6 +9,7 @@ from coda.apps.search import (
     _parse_prefixed_terms,
     _parse_search_terms,
     _PrefixedTerm,
+    alias_field_paths,
     build_search_filter,
 )
 from coda.domain.issn import parse_issn
@@ -382,6 +383,16 @@ class TestIdentifierDetection:
         }
         q = build_search_filter("identifier", field_aliases=aliases)
         assert q == Q(first_field__icontains="canonical")
+
+
+class TestAliasFieldPaths:
+    def test_shared_field_paths_are_deduplicated(self) -> None:
+        aliases: SearchFieldAliases = {
+            "name": "name",
+            "esac": ScopedAlias("links__value", Q()),
+            "oai": ScopedAlias("links__value", Q()),
+        }
+        assert alias_field_paths(aliases) == ["name", "links__value"]
 
 
 class TestStopWords:

@@ -15,6 +15,7 @@ from coda.apps.contracts.forms import ContractForm, ContractLinkForm, EntityForm
 from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.contracts.models import ContractLink, ContractLinkType
+from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
@@ -31,12 +32,15 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_list_item_template = "contracts/contract_list_item.html"
     use_generic_entity_filter = True
     entity_filter_extra_template = "contracts/contract_inactive_checkbox.html"
+    entity_filter_helper_template = "contracts/partials/search_helper.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
         search_term = request.GET.get("query", "").strip()
         contracts = ContractModel.objects.all()
         if search_term:
-            contracts = contracts.filter(build_search_filter(search_term, "name"))
+            contracts = contracts.filter(
+                build_search_filter(search_term, field_aliases=CONTRACT_SEARCH_FIELD_ALIASES)
+            ).distinct()
         if request.GET.get("include_inactive") != "on":
             contracts = contracts.active()
 

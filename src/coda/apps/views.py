@@ -57,6 +57,7 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_list_layout_classes: str = ""
     use_generic_entity_filter: bool = False
     entity_filter_extra_template: str = ""
+    entity_filter_helper_template: str = ""
     no_results_message: str = ""
     no_results_clear_url: str = ""
 
@@ -74,6 +75,7 @@ class EntityListView(Generic[EntityType], TemplateView):
             "entity_list_layout_classes": self.entity_list_layout_classes,
             "use_generic_entity_filter": self.use_generic_entity_filter,
             "entity_filter_extra_template": self.entity_filter_extra_template,
+            "entity_filter_helper_template": self.entity_filter_helper_template,
             "no_results_message": self.no_results_message,
             "no_results_clear_url": self.no_results_clear_url,
             "query": self.request.GET.get("query", ""),

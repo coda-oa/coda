@@ -212,6 +212,17 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
     return q
 
 
+def _identifier_term(word: str, specs: Sequence[_AliasSpec]) -> _PrefixedTerm | None:
+    """First scoped identifier term whose detector claims ``word``, if any."""
+    for fields, extra, _, detect in specs:
+        if detect is None:
+            continue
+        value = detect(word)
+        if value is not None:
+            return _PrefixedTerm(fields=fields, value=value, extra=extra)
+    return None
+
+
 def _detect_identifiers(
     words: Sequence[str], aliases: SearchFieldAliases
 ) -> tuple[list[_PrefixedTerm], list[str]]:
@@ -224,21 +235,11 @@ def _detect_identifiers(
         and remaining holds words that no detector recognised.
     """
     specs = [_normalise_alias(alias) for alias in aliases.values()]
-    detected: list[_PrefixedTerm] = []
-    remaining: list[str] = []
-
-    for word in words:
-        for fields, extra, _, detect in specs:
-            if detect is None:
-                continue
-            value = detect(word)
-            if value is not None:
-                detected.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
-                break
-        else:
-            remaining.append(word)
-
-    return detected, remaining
+    matches = [(word, _identifier_term(word, specs)) for word in words]
+    return (
+        [term for _, term in matches if term is not None],
+        [word for word, term in matches if term is None],
+    )
 
 
 def _normalise_alias(alias: str | list[str] | ScopedAlias) -> _AliasSpec:
@@ -257,13 +258,11 @@ def _normalise_alias(alias: str | list[str] | ScopedAlias) -> _AliasSpec:
 
 
 def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
-    """All field paths referenced by an alias mapping, in dict order.
+    """All field paths referenced by an alias mapping, in dict order, de-duplicated.
 
     Returns:
-        The Django lookups referenced by every alias, flattened.
+        The Django lookups referenced by every alias, flattened; a path shared by
+        several aliases (e.g. contract link values scoped per link type) appears once.
     """
-    fields: list[str] = []
-    for alias in aliases.values():
-        normalised, _, _, _ = _normalise_alias(alias)
-        fields.extend(normalised)
-    return fields
+    paths = [path for alias in aliases.values() for path in _normalise_alias(alias)[0]]
+    return list(dict.fromkeys(paths))

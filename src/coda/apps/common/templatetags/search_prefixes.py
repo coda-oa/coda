@@ -1,12 +1,10 @@
 from django import template
 
+from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from coda.apps.fundingrequests.fundingrequest_query import (
     SEARCH_FIELD_ALIASES as FR_SEARCH_FIELD_ALIASES,
 )
-from coda.apps.invoices.views.search import (
-    CONTRACT_SEARCH_FIELD_ALIASES,
-    PUBLICATION_SEARCH_FIELD_ALIASES,
-)
+from coda.apps.invoices.views.search import PUBLICATION_SEARCH_FIELD_ALIASES
 
 register = template.Library()
 
