@@ -7,10 +7,16 @@ from django.db.models import Q
 
 @dataclass(frozen=True)
 class ScopedAlias:
-    """A field alias with an additional row filter and optional value normalisation.
+    """Declaration of a prefixed search alias in a ``SearchFieldAliases`` mapping.
+
+    A ``ScopedAlias`` is configuration; it carries no search value. The filter
+    builder normalises it to an internal ``_NormalizedAlias`` and, when the query
+    contains a matching prefix, creates one ``_PrefixedTerm`` per occurrence.
 
     Attributes:
-        fields:    The Django field lookup the term should be searched against.
+        fields:    The Django field lookup used for prefix matching and included in
+                   generic multi-field search. For prefix matching the term searches
+                   this field, optionally narrowed by ``extra``.
         extra:     An additional Q condition applied to the same relation row as the
                    field match, e.g. ``Q(publication__links__type__name="DOI")`` when
                    ``fields`` is ``"publication__links__value"``. Must traverse the
@@ -21,22 +27,76 @@ class ScopedAlias:
         detect:    Optional callable that recognises an unprefixed identifier value
                    and returns its canonical form (or None). Recognised unquoted
                    words are scoped to this alias instead of searched generically.
+        term_query: Optional callable that builds the Q condition for one term from
+                   its normalised value. When set, it replaces the field/extra match
+                   for prefixed and detected terms; ``fields`` still participates in
+                   generic search. Use it for aliases whose field traverses a to-many
+                   relation, so repeated terms can each match a different related row.
+
+    Examples:
+        A prefix scoped to DOI links::
+
+            aliases = {
+                "doi": ScopedAlias(
+                    "publication__links__value",
+                    Q(publication__links__type__name="DOI"),
+                ),
+            }
+            # doi:10.1234/abc -> link value match AND link type DOI
+
+        A per-term query, so each author term may match a different author row::
+
+            aliases = {
+                "author": ScopedAlias(
+                    "publication__relevant_authors__name",
+                    Q(),
+                    term_query=_author_matches,
+                ),
+            }
+            # author:"Jane Doe" author:"John Roe" -> two independent EXISTS
+            # (_author_matches is defined in fundingrequest_query.py)
     """
 
     fields: str
     extra: Q
     normalize: Callable[[str], str] | None = None
     detect: Callable[[str], str | None] | None = None
+    term_query: Callable[[str], Q] | None = None
 
 
+@dataclass(frozen=True)
+class _NormalizedAlias:
+    """Internal, value-free form of any ``SearchFieldAliases`` entry.
+
+    ``_normalise_alias`` converts every accepted declaration form to this type, so
+    parsing code has one shape to handle. ``fields`` is always a list because a
+    plain alias may name several fields; a ``ScopedAlias``'s ``extra``, ``normalize``,
+    ``detect`` and ``term_query`` are copied. This type carries no search value;
+    ``_PrefixedTerm`` adds the value for one matched term.
+
+    Examples::
+
+        "title"                    -> _NormalizedAlias(fields=["title"])
+        ["title", "author__name"]  -> _NormalizedAlias(fields=["title", "author__name"])
+        ScopedAlias("links__value", Q(links__type__name="DOI"))
+            -> _NormalizedAlias(
+                   fields=["links__value"],
+                   extra=Q(links__type__name="DOI"),
+               )
+    """
+
+    fields: list[str]
+    extra: Q = field(default_factory=Q)
+    normalize: Callable[[str], str] | None = None
+    detect: Callable[[str], str | None] | None = None
+    term_query: Callable[[str], Q] | None = None
+
+
+# Public alias declaration forms accepted by build_search_filter:
+#   "title"                         -> one field for prefix and generic search
+#   ["title", "author__name"]       -> several fields for prefix and generic search
+#   ScopedAlias(fields, extra, ...) -> scoped prefix with optional hooks
 type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
-
-type _AliasSpec = tuple[
-    list[str],
-    Q,
-    Callable[[str], str] | None,
-    Callable[[str], str | None] | None,
-]
 
 # Match a prefixed term: a word-char prefix, a colon, and either a
 # double-quoted value ("...") or a single non-whitespace word
@@ -52,18 +112,40 @@ _STOP_WORDS = {"and", "&"}
 
 @dataclass
 class _PrefixedTerm:
-    """A single recognised prefixed search term.
+    """One concrete term parsed from a search query.
+
+    Unlike ``ScopedAlias`` (declaration) and ``_NormalizedAlias`` (normalised
+    declaration), this carries the actual search value. A configured prefix or a
+    detected bare identifier creates one, and ``_term_query`` turns it into the Q
+    condition.
 
     Attributes:
         fields: The Django field lookups the term should be searched against.
         value:  The search value (quotes already stripped).
         extra:  Additional Q condition applied to the matched row; an empty Q
                 means no scope.
+        term_query: Optional callable that builds the term's Q condition from value.
+
+    Examples::
+
+        title:"john doe"
+            -> _PrefixedTerm(fields=["publication__title"], value="john doe")
+
+        doi:10.1234/abc
+            -> _PrefixedTerm(
+                   fields=["publication__links__value"],
+                   value="10.1234/abc",
+                   extra=Q(publication__links__type__name="DOI"),
+               )
+
+    A bare ``10.1234/abc`` detected by the DOI alias produces the same term as
+    ``doi:10.1234/abc``. ``term_query`` is copied from the alias when configured.
     """
 
     fields: list[str]
     value: str
     extra: Q = field(default_factory=Q)
+    term_query: Callable[[str], Q] | None = None
 
 
 @dataclass
@@ -74,6 +156,19 @@ class _PrefixedParseResult:
         terms:     All recognised prefix:value terms found in the input.
         remaining: The input string with recognised prefixed terms removed,
                    ready for generic multi-field search.
+
+    Example::
+
+        'title:"a b" doi:10.1234/abc springer'
+            -> terms=[
+                   _PrefixedTerm(fields=["publication__title"], value="a b"),
+                   _PrefixedTerm(
+                       fields=["publication__links__value"],
+                       value="10.1234/abc",
+                       extra=Q(publication__links__type__name="DOI"),
+                   ),
+               ]
+               remaining="springer"
     """
 
     terms: list[_PrefixedTerm]
@@ -131,7 +226,7 @@ def build_search_filter(
     result = _parse_prefixed_terms(query, field_aliases or {})
 
     for term in result.terms:
-        q &= _match_any_field(term.value, term.fields) & term.extra
+        q &= _term_query(term)
 
     if result.remaining:
         phrases, words = _parse_search_terms(result.remaining)
@@ -139,7 +234,7 @@ def build_search_filter(
         phrases = [phrase for phrase in phrases if phrase.strip()]
         detected, words = _detect_identifiers(words, field_aliases or {})
         for term in detected:
-            q &= _match_any_field(term.value, term.fields) & term.extra
+            q &= _term_query(term)
         for value in [*phrases, *words]:
             q &= _match_any_field(value, generic_fields)
 
@@ -176,8 +271,9 @@ def _parse_prefixed_terms(
     Only prefixes present in ``aliases`` are extracted; unknown prefixes are left
     in the remaining string as-is.
     """
-    # Normalise aliases to (fields, extra, normalize, detect) tuples for uniform handling
-    normalized_aliases: dict[str, _AliasSpec] = {k: _normalise_alias(v) for k, v in aliases.items()}
+    normalized_aliases: dict[str, _NormalizedAlias] = {
+        k: _normalise_alias(v) for k, v in aliases.items()
+    }
 
     terms: list[_PrefixedTerm] = []
 
@@ -187,17 +283,31 @@ def _parse_prefixed_terms(
         if prefix in normalized_aliases:
             # Strip surrounding quotes if present
             value = raw_value.strip('"')
-            fields, extra, normalize, _ = normalized_aliases[prefix]
+            alias = normalized_aliases[prefix]
             # Whitespace-only values carry no term; normalizers may reject them
-            if normalize is not None and value.strip():
-                value = normalize(value)
+            if alias.normalize is not None and value.strip():
+                value = alias.normalize(value)
             if value.strip():
-                terms.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
+                terms.append(
+                    _PrefixedTerm(
+                        fields=alias.fields,
+                        value=value,
+                        extra=alias.extra,
+                        term_query=alias.term_query,
+                    )
+                )
             return ""
         return m.group(0)
 
     remaining = _PREFIXED_TERM_RE.sub(_replace, search_term).strip()
     return _PrefixedParseResult(terms=terms, remaining=remaining)
+
+
+def _term_query(term: _PrefixedTerm) -> Q:
+    """Build the Q condition for one prefixed or detected term."""
+    if term.term_query is not None:
+        return term.term_query(term.value)
+    return _match_any_field(term.value, term.fields) & term.extra
 
 
 def _match_any_field(value: str, fields: Sequence[str]) -> Q:
@@ -212,14 +322,19 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
     return q
 
 
-def _identifier_term(word: str, specs: Sequence[_AliasSpec]) -> _PrefixedTerm | None:
+def _identifier_term(word: str, specs: Sequence[_NormalizedAlias]) -> _PrefixedTerm | None:
     """First scoped identifier term whose detector claims ``word``, if any."""
-    for fields, extra, _, detect in specs:
-        if detect is None:
+    for alias in specs:
+        if alias.detect is None:
             continue
-        value = detect(word)
+        value = alias.detect(word)
         if value is not None:
-            return _PrefixedTerm(fields=fields, value=value, extra=extra)
+            return _PrefixedTerm(
+                fields=alias.fields,
+                value=value,
+                extra=alias.extra,
+                term_query=alias.term_query,
+            )
     return None
 
 
@@ -242,19 +357,18 @@ def _detect_identifiers(
     )
 
 
-def _normalise_alias(alias: str | list[str] | ScopedAlias) -> _AliasSpec:
-    """Normalise any alias form to a (fields, extra, normalize, detect) tuple.
-
-    Returns:
-        A tuple (fields, extra, normalize, detect) where fields is a list of Django
-        lookups, extra is the additional Q condition (an empty Q for plain field
-        aliases), normalize is the optional value normaliser and detect the optional
-        unprefixed-identifier recogniser from a ``ScopedAlias``.
-    """
+def _normalise_alias(alias: str | list[str] | ScopedAlias) -> _NormalizedAlias:
+    """Normalise any alias form to a ``_NormalizedAlias``."""
     if isinstance(alias, ScopedAlias):
-        return [alias.fields], alias.extra, alias.normalize, alias.detect
+        return _NormalizedAlias(
+            fields=[alias.fields],
+            extra=alias.extra,
+            normalize=alias.normalize,
+            detect=alias.detect,
+            term_query=alias.term_query,
+        )
     fields = [alias] if isinstance(alias, str) else alias
-    return fields, Q(), None, None
+    return _NormalizedAlias(fields=fields)
 
 
 def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
@@ -264,5 +378,5 @@ def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
         The Django lookups referenced by every alias, flattened; a path shared by
         several aliases (e.g. contract link values scoped per link type) appears once.
     """
-    paths = [path for alias in aliases.values() for path in _normalise_alias(alias)[0]]
+    paths = [path for alias in aliases.values() for path in _normalise_alias(alias).fields]
     return list(dict.fromkeys(paths))

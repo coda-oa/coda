@@ -12,6 +12,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
+from coda.domain.author import Role
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId, Review
@@ -118,6 +119,51 @@ def test__searching_funding_request_by_author_with_multi_word_search__each_word_
     response = search_fundingrequests(client, {"search_term": "Liv Meier"})
 
     assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_funding_request_by_multiple_authors__matches_requests_with_all(
+    client: Client,
+) -> None:
+    first_author = domainfactory.author(role=Role.SUBMITTER)
+    first_author.name = NonEmptyStr("Coauthor Alpha")
+    second_author = domainfactory.author(role=Role.CO_AUTHOR)
+    second_author.name = NonEmptyStr("Coauthor Beta")
+    matching_request = modelfactory.fundingrequest(authors=Authors([first_author, second_author]))
+
+    only_first_author = domainfactory.author(role=Role.CO_AUTHOR)
+    only_first_author.name = NonEmptyStr("Coauthor Alpha")
+    _ = modelfactory.fundingrequest(authors=Authors([only_first_author]))
+
+    response = search_fundingrequests(
+        client,
+        {"search_term": f'author:"{first_author.name}" author:"{second_author.name}"'},
+    )
+
+    assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_by_quoted_author_phrase__does_not_match_across_author_rows(
+    client: Client,
+) -> None:
+    first_author = domainfactory.author(role=Role.SUBMITTER)
+    first_author.name = NonEmptyStr("Phrase First")
+    second_author = domainfactory.author(role=Role.CO_AUTHOR)
+    second_author.name = NonEmptyStr("Phrase Second")
+    matching_request = modelfactory.fundingrequest(authors=Authors([first_author, second_author]))
+
+    phrase_response = search_fundingrequests(
+        client, {"search_term": 'author:"Phrase First Phrase Second"'}
+    )
+    assert phrase_response.context["entities"] == []
+
+    single_author_response = search_fundingrequests(
+        client, {"search_term": 'author:"Phrase First"'}
+    )
+    assert_contains(single_author_response.context, {matching_request})
 
 
 @pytest.mark.django_db

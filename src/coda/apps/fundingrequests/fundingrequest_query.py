@@ -3,9 +3,10 @@ import enum
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from django.db.models import F, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
+from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.search import (
@@ -139,8 +140,32 @@ class PublicationStateCriteria:
         return Q(publication__publication_state__in=self.publication_states)
 
 
+_AUTHOR_NAME_FIELD = "name"
+_AUTHOR_SEARCH_FIELD = f"publication__relevant_authors__{_AUTHOR_NAME_FIELD}"
+
+
+def _author_matches(name: str) -> Q:
+    """Match a funding request when any of its publication's authors matches name.
+
+    An independent EXISTS per term lets repeated ``author:`` terms match different
+    author rows; a single filter join would require one row to satisfy every term.
+    """
+    return Q(
+        Exists(
+            Author.objects.filter(
+                publication_id=OuterRef("publication_id"),
+                **{f"{_AUTHOR_NAME_FIELD}__icontains": name},
+            )
+        )
+    )
+
+
 SEARCH_FIELD_ALIASES: SearchFieldAliases = {
-    "author": "publication__relevant_authors__name",
+    "author": ScopedAlias(
+        _AUTHOR_SEARCH_FIELD,
+        Q(),
+        term_query=_author_matches,
+    ),
     "title": "publication__title",
     "journal": "publication__article_journal__title",
     "publisher": [

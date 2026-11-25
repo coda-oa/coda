@@ -285,6 +285,27 @@ class TestScopedAlias:
         assert result.terms == []
         assert result.remaining == ""
 
+    def test_scoped_alias_term_query__builds_independent_q_per_term(self) -> None:
+        aliases: SearchFieldAliases = {
+            "author": ScopedAlias(
+                "author__name", Q(), term_query=lambda value: Q(author_matched=value)
+            )
+        }
+        q = build_search_filter('author:"one" author:"two"', "title", field_aliases=aliases)
+        assert q == Q(author_matched="one") & Q(author_matched="two")
+
+    def test_detected_identifier_uses_alias_match(self) -> None:
+        aliases: SearchFieldAliases = {
+            "custom": ScopedAlias(
+                "field",
+                Q(),
+                detect=lambda word: "canonical" if word == "raw" else None,
+                term_query=lambda value: Q(matched=value),
+            )
+        }
+        q = build_search_filter("raw", "title", field_aliases=aliases)
+        assert q == Q(matched="canonical")
+
     def test_scoped_plain_and_word_terms_order(self) -> None:
         """Scoped term (with extra filter) comes before generic words in AND order."""
         extra = Q(publication__links__type__name="DOI")
