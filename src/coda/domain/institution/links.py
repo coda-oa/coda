@@ -35,6 +35,10 @@ class InvalidRinggold(DomainError):
         super().__init__(message, *args)
 
 
+_ROR_ID_RE = re.compile(r"^0[a-hj-km-np-tv-z\d]{6}\d{2}$", re.IGNORECASE)
+_ROR_URL_PREFIX = "https://ror.org/"
+
+
 class Ror:
     __match_args__ = ("_ror",)
 
@@ -49,13 +53,12 @@ class Ror:
         return "ROR"
 
     def _validate(self) -> str | None:
-        if not self._ror.startswith("https://ror.org/"):
-            return "Invalid ROR format: must start with 'https://ror.org/'"
+        if not self._ror.startswith(_ROR_URL_PREFIX):
+            return f"Invalid ROR format: must start with '{_ROR_URL_PREFIX}'"
 
-        ror_id = self._ror.split("/")[-1]
+        ror_id = self._ror.removeprefix(_ROR_URL_PREFIX)
 
-        pattern = r"^0[a-hj-km-np-tv-z\d]{6}\d{2}$"
-        if not re.match(pattern, ror_id, re.IGNORECASE):
+        if not _ROR_ID_RE.fullmatch(ror_id):
             return "Invalid ROR format: ID must be 0 + 6 base32 characters + 2 checksum digits"
 
         base32_part = ror_id[1:7]  # Skip the leading '0', take next 6 chars
@@ -92,11 +95,11 @@ class Ror:
 def parse_ror(value: str) -> str | None:
     """Canonical ROR URL for a full URL or bare ID, or None when invalid."""
     candidate = value.strip().lower()
-    ror_id = candidate.removeprefix("https://ror.org/").rstrip("/")
-    if not ror_id or "/" in ror_id:
+    ror_id = candidate.removeprefix(_ROR_URL_PREFIX).rstrip("/")
+    if not _ROR_ID_RE.fullmatch(ror_id):
         return None
 
-    canonical = f"https://ror.org/{ror_id}"
+    canonical = f"{_ROR_URL_PREFIX}{ror_id}"
     try:
         return Ror(canonical).url()
     except ValueError:
@@ -113,7 +116,7 @@ def detect_ror(value: str) -> str | None:
     if canonical is None:
         return None
 
-    if value.strip().lower().startswith("https://ror.org/"):
+    if value.strip().lower().startswith(_ROR_URL_PREFIX):
         return canonical
 
     if canonical.rsplit("/", 1)[-1].isdigit():
