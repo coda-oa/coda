@@ -2,6 +2,7 @@ import functools
 from collections.abc import Callable, Sequence
 from typing import Any, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
@@ -79,7 +80,14 @@ def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpRespo
         save_contract = create_contract
 
     if request.method == "POST":
-        response = _handle_contract_post(request, save_contract, context)
+        success_message = (
+            "Contract created successfully."
+            if pk is None
+            else "Contract '{name}' updated successfully."
+        )
+        response = _handle_contract_post(
+            request, save_contract, context, success_message=success_message
+        )
         if response:
             return response
 
@@ -90,6 +98,8 @@ def _handle_contract_post(
     request: HttpRequest,
     save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId],
     context: dict[str, Any],
+    *,
+    success_message: str | None = None,
 ) -> HttpResponse | None:
     contract_form = ContractForm(request.POST)
     publisher_formset = EntityFormset(request.POST, prefix="publishers")
@@ -106,6 +116,8 @@ def _handle_contract_post(
     if all(form.is_valid() for form in forms) and links_valid:
         contract_id = save_contract(contract_form, publisher_formset, journal_formset)
         _save_contract_links(contract_id, link_forms)
+        if success_message:
+            messages.success(request, success_message.format(name=contract_form.get_name()))
         return redirect("contracts:detail", contract_id)
 
     context["links"] = get_links_with_errors(request)
