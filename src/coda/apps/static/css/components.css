@@ -131,9 +131,12 @@ search-select:not(:defined) {
   max-width: var(--messages-max-width, 100%);
   padding: var(--coda-spacing) !important;
   margin-block: var(--coda-spacing) !important;
-  background-color: var(--_background-color);
   border-radius: var(--coda-border-radius);
-  color: white;
+}
+
+/* Message lists keep room for their bullets. */
+ul.messages:not(.undecorated) {
+  padding-inline-start: calc(var(--coda-spacing) * 2) !important;
 }
 
 .wizard-nav {
