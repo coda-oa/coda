@@ -2,11 +2,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views.generic import CreateView, DetailView, FormView, UpdateView
 
@@ -110,12 +111,19 @@ journal_list_view = JournalListView.as_view()
 class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"
-    success_url = reverse_lazy("publishing:journals:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Create Journal"
         return context
+
+    def form_valid(self, form: JournalForm) -> HttpResponse:
+        messages.success(self.request, "Journal created successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return self.object.get_absolute_url()
 
 
 journal_create_view = JournalCreateView.as_view()
@@ -126,12 +134,21 @@ class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
     model = Journal
     form_class = JournalForm
     template_name = "generic_form_view.html"
-    success_url = reverse_lazy("publishing:journals:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Update Journal"
         return context
+
+    def form_valid(self, form: JournalForm) -> HttpResponse:
+        messages.success(
+            self.request, f"Journal '{form.cleaned_data['title']}' updated successfully."
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return self.object.get_absolute_url()
 
 
 journal_update_view = JournalUpdateView.as_view()
