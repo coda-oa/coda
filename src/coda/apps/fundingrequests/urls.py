@@ -6,7 +6,11 @@ from coda.apps.fundingrequests.forms import (
     include_inactive_contracts,
 )
 from coda.apps.fundingrequests.views import review
-from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
+from coda.apps.fundingrequests.views.detailview import (
+    delete_fundingrequest,
+    fundingrequest_detail,
+    request_delete_fundingrequest,
+)
 from coda.apps.fundingrequests.views.doi_preview import (
     DOIImportInputView,
     DOIPreviewDetailView,
@@ -141,6 +145,12 @@ urlpatterns = [
         name="doi_preview_reset_type",
     ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
+    path(
+        "<int:pk>/request-delete/",
+        request_delete_fundingrequest,
+        name="fundingrequest_request_delete",
+    ),
+    path("<int:pk>/delete/", delete_fundingrequest, name="fundingrequest_delete"),
     path("review/<int:pk>/", review.review_view, name="review"),
     path("create/wizard/", ArticleRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),

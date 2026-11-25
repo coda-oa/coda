@@ -71,4 +71,10 @@
             </div>
         </aside>
     </div>
+    <div class="flex justify-end my-2">
+        <button class="danger"
+                hx-get="{% url 'fundingrequests:fundingrequest_request_delete' pk=funding_request.id %}"
+                hx-target="body"
+                hx-swap="beforeend">Delete</button>
+    </div>
 {% endblock content %}

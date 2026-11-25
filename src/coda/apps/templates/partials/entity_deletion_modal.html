@@ -16,7 +16,7 @@
             {% if can_delete == False %}
                 <div class="messages error undecorated mt-2">
                     <p class="error">
-                        <strong>Cannot delete this {{ entity_type|lower }}:</strong>
+                        <strong>{% if reason_intro %}{{ reason_intro }}{% else %}Cannot delete this {{ entity_type|lower }}:{% endif %}</strong>
                     </p>
                     <ul class="error">
                         {% for reason in blocking_reasons %}<li>{{ reason }}</li>{% endfor %}
