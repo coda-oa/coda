@@ -11,7 +11,7 @@ You can access the Contracts page from the navigation menu. The overview display
 - Active status
 - Action buttons for viewing details and editing
 
-You can search for contracts by name using the search box at the top of the page.
+You can search for contracts by name or by any of their link identifiers (ESAC, OAI, EZB). Prefix a term with `name:`, `esac:`, `oai:` or `ezb:` to restrict it to that field; an unprefixed term matches the name and every link value regardless of type.
 
 ![](/_static/img/contracts_overview.png)
 

@@ -57,6 +57,11 @@
   flex: 1;
 }
 
+.filter-toolbar-helper {
+  flex: 0 0 100%;
+  color: var(--coda-muted-color);
+}
+
 .filter-sort {
   width: auto;
   margin-block: 0;

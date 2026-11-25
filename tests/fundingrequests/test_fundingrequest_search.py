@@ -12,6 +12,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
+from coda.domain.author import Role
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId, Review
@@ -118,6 +119,51 @@ def test__searching_funding_request_by_author_with_multi_word_search__each_word_
     response = search_fundingrequests(client, {"search_term": "Liv Meier"})
 
     assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_funding_request_by_multiple_authors__matches_requests_with_all(
+    client: Client,
+) -> None:
+    first_author = domainfactory.author(role=Role.SUBMITTER)
+    first_author.name = NonEmptyStr("Coauthor Alpha")
+    second_author = domainfactory.author(role=Role.CO_AUTHOR)
+    second_author.name = NonEmptyStr("Coauthor Beta")
+    matching_request = modelfactory.fundingrequest(authors=Authors([first_author, second_author]))
+
+    only_first_author = domainfactory.author(role=Role.CO_AUTHOR)
+    only_first_author.name = NonEmptyStr("Coauthor Alpha")
+    _ = modelfactory.fundingrequest(authors=Authors([only_first_author]))
+
+    response = search_fundingrequests(
+        client,
+        {"search_term": f'author:"{first_author.name}" author:"{second_author.name}"'},
+    )
+
+    assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_by_quoted_author_phrase__does_not_match_across_author_rows(
+    client: Client,
+) -> None:
+    first_author = domainfactory.author(role=Role.SUBMITTER)
+    first_author.name = NonEmptyStr("Phrase First")
+    second_author = domainfactory.author(role=Role.CO_AUTHOR)
+    second_author.name = NonEmptyStr("Phrase Second")
+    matching_request = modelfactory.fundingrequest(authors=Authors([first_author, second_author]))
+
+    phrase_response = search_fundingrequests(
+        client, {"search_term": 'author:"Phrase First Phrase Second"'}
+    )
+    assert phrase_response.context["entities"] == []
+
+    single_author_response = search_fundingrequests(
+        client, {"search_term": 'author:"Phrase First"'}
+    )
+    assert_contains(single_author_response.context, {matching_request})
 
 
 @pytest.mark.django_db
@@ -330,3 +376,116 @@ def test__unparsable_filter_param__is_ignored_by_filter(
 
     assert response.status_code == 200
     assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__search_helper__lists_field_aliases(client: Client) -> None:
+    response = search_fundingrequests(client)
+
+    assert "author, title, journal, publisher, doi, eissn" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_doi_prefix__matches_only_doi_typed_links(client: Client) -> None:
+    """The doi: prefix must only match links of type DOI, not other link types.
+
+    Every factory publication carries a Doi("10.1234/5678") and an
+    Isbn("9783608961157") link, so the same value on a non-DOI link must not match.
+    """
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    # Positive: the DOI value matches under the doi: prefix.
+    doi_response = search_fundingrequests(client, {"search_term": "doi:10.1234/5678"})
+    assert_contains(doi_response.context, requests)
+
+    # Negative: the ISBN value does not match under the doi: prefix, even though
+    # a generic search for the same value would find it.
+    isbn_response = search_fundingrequests(client, {"search_term": "doi:9783608961157"})
+    assert_contains(isbn_response.context, set())
+
+    generic_response = search_fundingrequests(client, {"search_term": "9783608961157"})
+    assert_contains(generic_response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "search_term",
+    [
+        "doi:10.1234/5678",
+        "doi:https://doi.org/10.1234/5678",
+        "doi:http://doi.org/10.1234/5678",
+        "doi:10.1234/5678/",
+    ],
+)
+def test__searching_with_doi__matches_bare_and_resolver_url_forms(
+    client: Client, search_term: str
+) -> None:
+    """Stored DOIs are canonicalised, so pasted resolver URLs must match too."""
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {"search_term": search_term})
+
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_whitespace_only_doi_value__matches_nothing(client: Client) -> None:
+    _ = modelfactory.fundingrequest()
+
+    response = search_fundingrequests(client, {"search_term": 'doi:" "'})
+
+    assert response.status_code == 200
+    assert_contains(response.context, set())
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_doi__matches_doi_links(client: Client) -> None:
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {"search_term": "10.1234/5678"})
+
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_doi_token__is_scoped_to_doi_links(client: Client) -> None:
+    """A DOI-shaped title token stops matching generically once detection is on."""
+    _ = modelfactory.fundingrequest("10.9999/xyz")
+
+    response = search_fundingrequests(client, {"search_term": "10.9999/xyz"})
+
+    assert_contains(response.context, set())
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_unprefixed_eissn__matches_its_journal(client: Client) -> None:
+    matching = modelfactory.fundingrequest()
+    journal = matching.publication.article_journal
+    assert journal is not None
+    # Same E-ISSN text in an unrelated title: only the scoped DOI/EISSN search may
+    # ignore this row, so the test fails if detection is removed.
+    _ = modelfactory.fundingrequest(journal.eissn)
+
+    response = search_fundingrequests(client, {"search_term": journal.eissn})
+
+    assert_contains(response.context, {matching})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_eissn_prefix__matches_its_journal(client: Client) -> None:
+    matching = modelfactory.fundingrequest()
+    _ = modelfactory.fundingrequest()
+    journal = matching.publication.article_journal
+    assert journal is not None
+
+    response = search_fundingrequests(client, {"search_term": f"eissn:{journal.eissn}"})
+
+    assert_contains(response.context, {matching})

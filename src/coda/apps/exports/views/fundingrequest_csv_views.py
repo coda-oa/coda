@@ -33,7 +33,7 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
 from coda.apps.exports.views.responses import stored_artifact_response
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
@@ -73,7 +73,7 @@ class FundingRequestCSVExportListView(
         queryset = FundingRequestCSVExport.objects.defer("csv_content")
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
 
         order_by = self.ordering or self.search_fields
         return DomainQuerySet(queryset.order_by(*order_by), lambda x: x)

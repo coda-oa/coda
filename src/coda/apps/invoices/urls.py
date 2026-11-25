@@ -50,7 +50,7 @@ from coda.apps.invoices.views.position_views import (
     remove_position,
     switch_position_tab,
 )
-from coda.apps.invoices.views.search import search_contracts, search_publications
+from coda.apps.invoices.views.search import ContractSearchPickerView, PublicationSearchPickerView
 from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
 
 app_name = "invoices"
@@ -61,8 +61,16 @@ urlpatterns = [
     path("list/region/", invoice_list_region, name="list_region"),
     path("<int:pk>/", invoice_detail, name="detail"),
     path("create/", create_invoice, name="create"),
-    path("create/search-publications/", search_publications, name="pub_search"),
-    path("create/search-contracts/", search_contracts, name="contract_search"),
+    path(
+        "create/search-publications/",
+        PublicationSearchPickerView.as_view(),
+        name="pub_search",
+    ),
+    path(
+        "create/search-contracts/",
+        ContractSearchPickerView.as_view(),
+        name="contract_search",
+    ),
     path("create/tab-switch/", switch_position_tab, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
     path("create/remove-position/", remove_position, name="remove_position"),

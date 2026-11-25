@@ -1,17 +1,15 @@
-from collections.abc import Sequence
 from typing import Any
+
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import FundingSourceForm
-from coda.apps.search import words_icontains
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @breadcrumb("Create Funding Source", parent_url_name="invoices:fundingsource_list")
@@ -49,14 +47,10 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
     entity_create_url = "invoices:fundingsource_create"
     entity_list_item_template = "invoices/fundingsources/list.html"
     use_generic_entity_filter = True
+    ordering = ["name"]
 
-    def get_entities(self, request: HttpRequest) -> Sequence[FundingSource]:
-        search_term = request.GET.get("query", "").strip()
-        fs = FundingSource.objects.filter(type="budget")
-        if search_term:
-            fs = fs.filter(words_icontains(search_term, "name"))
-
-        return DomainQuerySet(fs, lambda fs: fs)
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[FundingSource]:
+        return FundingSource.objects.filter(type="budget")
 
 
 fundingsource_listview = FundingSourceListView.as_view()

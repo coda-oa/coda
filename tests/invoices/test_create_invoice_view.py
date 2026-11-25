@@ -9,6 +9,7 @@ from django.contrib.messages import get_messages
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
+from pytest_django import DjangoAssertNumQueries
 from pytest_django.asserts import assertRedirects
 
 from coda import formdata
@@ -76,6 +77,25 @@ def test__searching_for_publication_with_funding_request_id__returns_matches_in_
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__searching_for_publication__more_than_result_limit__caps_results_and_reports_it(
+    client: Client, django_assert_max_num_queries: DjangoAssertNumQueries
+) -> None:
+    for i in range(51):
+        modelfactory.fundingrequest(title=f"ResultLimitToken {i}")
+
+    with django_assert_max_num_queries(10):
+        response = search_publication(client, "ResultLimitToken")
+
+    assert 50 == len(response.context["publications"])
+    assert response.context["has_more"] is True
+    content = response.content.decode()
+    assert "More than 50 publications match" in content
+    assert '<output class="messages warning"' in content
+    assert 'for="publication_query"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
     contract = ContractDomainMapper.map(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
@@ -102,6 +122,56 @@ def test__searching_for_contract_with_esac__returns_matches_in_response(
     contract = ContractDomainMapper.map(contract_model)
     expected_context = expect_contract_search_result(contract)
     assert [expected_context] == response.context["contracts"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize("link_type", ["ESAC", "OAI", "EZB"])
+def test__searching_for_contract__matches_link_value_of_any_type(
+    client: Client, link_type: str
+) -> None:
+    contract_model = modelfactory.contract()
+    link_type_obj, _ = ContractLinkType.objects.get_or_create(name=link_type)
+    link = ContractLink.objects.create(
+        contract=contract_model,
+        type=link_type_obj,
+        value="unique-link-value",
+    )
+
+    response = client.post(reverse("invoices:contract_search"), {"contract_query": link.value})
+
+    contract = ContractDomainMapper.map(contract_model)
+    assert [expect_contract_search_result(contract)] == response.context["contracts"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ("matching_type", "prefix"),
+    [("ESAC", "esac"), ("OAI", "oai"), ("EZB", "ezb")],
+)
+def test__searching_for_contract_with_link_prefix__scopes_to_link_type(
+    client: Client, matching_type: str, prefix: str
+) -> None:
+    matching_model = modelfactory.contract()
+    other_model = modelfactory.contract()
+    matching_type_obj, _ = ContractLinkType.objects.get_or_create(name=matching_type)
+    other_type_name = next(t for t in ("ESAC", "OAI", "EZB") if t != matching_type)
+    other_type_obj, _ = ContractLinkType.objects.get_or_create(name=other_type_name)
+    ContractLink.objects.create(
+        contract=matching_model, type=matching_type_obj, value="shared-link-value"
+    )
+    ContractLink.objects.create(
+        contract=other_model, type=other_type_obj, value="shared-link-value"
+    )
+
+    response = client.post(
+        reverse("invoices:contract_search"),
+        {"contract_query": f"{prefix}:shared-link-value"},
+    )
+
+    contract = ContractDomainMapper.map(matching_model)
+    assert [expect_contract_search_result(contract)] == response.context["contracts"]
 
 
 @pytest.mark.django_db

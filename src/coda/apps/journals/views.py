@@ -16,7 +16,7 @@ from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import EntityListView
 
 
@@ -83,7 +83,7 @@ class JournalListView(LoginRequiredMixin, EntityListView[JournalViewModel]):
         search_term = request.GET.get("query", "").strip()
         queryset = Journal.objects.select_related("publisher")
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
         if request.GET.get("blocked_only") == "on":
             queryset = queryset.filter(pk__in=self.blocked_journal_ids)
         order_by = self.ordering or self.search_fields

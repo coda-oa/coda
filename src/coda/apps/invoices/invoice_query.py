@@ -13,7 +13,7 @@ from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.invoices.mappers._list import InvoiceListMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
@@ -65,7 +65,7 @@ class GenericSearchCriterion(InvoiceSearchCriterion):
 def generic_search_criterion(criterion: GenericSearchCriterion) -> Q:
     if not criterion.generic_search.strip():
         return Q()
-    return words_icontains(
+    return build_search_filter(
         criterion.generic_search,
         "number",
         "creditor__name",

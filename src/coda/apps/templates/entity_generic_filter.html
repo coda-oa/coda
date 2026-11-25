@@ -10,9 +10,13 @@
                name="query"
                id="id-query"
                placeholder="{{ search_placeholder|default:"Search..." }}"
+               {% if entity_filter_helper_template %}aria-describedby="entity-filter-helper"{% endif %}
                value="{{ request.GET.query }}">
         <button type="submit" class="form-row-item-sm">Search</button>
     </div>
+    {% if entity_filter_helper_template %}
+        {% include entity_filter_helper_template %}
+    {% endif %}
     {% if entity_filter_extra_template %}
         {% include entity_filter_extra_template %}
     {% endif %}

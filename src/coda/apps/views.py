@@ -1,16 +1,16 @@
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar
 
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Model
+from django.db.models import Model, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.version import (
     check_update as check_version_update,
 )
@@ -57,6 +57,7 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_list_layout_classes: str = ""
     use_generic_entity_filter: bool = False
     entity_filter_extra_template: str = ""
+    entity_filter_helper_template: str = ""
     no_results_message: str = ""
     no_results_clear_url: str = ""
 
@@ -74,6 +75,7 @@ class EntityListView(Generic[EntityType], TemplateView):
             "entity_list_layout_classes": self.entity_list_layout_classes,
             "use_generic_entity_filter": self.use_generic_entity_filter,
             "entity_filter_extra_template": self.entity_filter_extra_template,
+            "entity_filter_helper_template": self.entity_filter_helper_template,
             "no_results_message": self.no_results_message,
             "no_results_clear_url": self.no_results_clear_url,
             "query": self.request.GET.get("query", ""),
@@ -95,12 +97,27 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
     search_fields: list[str] = ["name"]
     ordering: list[str] = []
 
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[ModelType]:
+        """The queryset searched and listed before any per-view filtering."""
+        return self.model.objects.all()  # type: ignore[attr-defined]
+
+    def filter_queryset(
+        self, queryset: QuerySet[ModelType], request: HttpRequest
+    ) -> QuerySet[ModelType]:
+        """View-specific filtering (checkbox switches, annotations, prefetching)."""
+        return queryset
+
+    def map_entity(self, entity: ModelType) -> ModelType:
+        return entity
+
     def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
         search_term = request.GET.get("query", "").strip()
-        queryset = self.model.objects.all()  # type: ignore[attr-defined]
+        queryset = self.get_base_queryset(request)
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
+
+        queryset = self.filter_queryset(queryset, request)
 
         order_by = self.ordering or self.search_fields
-        return DomainQuerySet(queryset.order_by(*order_by), lambda x: cast(ModelType, x))
+        return DomainQuerySet(queryset.order_by(*order_by), self.map_entity)
