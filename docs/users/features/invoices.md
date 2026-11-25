@@ -16,7 +16,7 @@ Wrap a term in double quotes to search for an exact phrase: `"alpha beta"` match
 
 The words `and` and `&` are ignored in unquoted search - they carry no search weight. Inside quotes they are searched literally.
 
-When adding positions, the publication and contract search boxes support field prefixes: `title:`, `doi:` and `request:` for publications, `name:`, `esac:`, `oai:` and `ezb:` for contracts (e.g. `doi:10.1234/abc`). An unprefixed contract term matches the name and all link values regardless of type. The `doi:` prefix also accepts a `https://doi.org/` resolver URL such as `doi:https://doi.org/10.1234/abc`, and a bare DOI is detected automatically.
+When adding positions, the publication and contract search boxes support field prefixes: `title:`, `doi:` and `request:` for publications, `name:`, `esac:`, `oai:` and `ezb:` for contracts (e.g. `doi:10.1234/abc`). An unprefixed contract term matches the name and all link values regardless of type. The `doi:` prefix also accepts a `https://doi.org/` resolver URL such as `doi:https://doi.org/10.1234/abc`, and a bare DOI is detected automatically. The publication picker shows at most 50 matches and indicates when more publications match; refine the search to narrow the results.
 
 ![](/_static/img/invoices_list.png)
 

@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Any, ClassVar, Generic, TypeVar
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -44,6 +45,7 @@ class SearchPickerView(LoginRequiredMixin, View, Generic[_ModelT]):
     field_aliases: ClassVar[SearchFieldAliases]
     template_name: ClassVar[str]
     result_key: ClassVar[str]
+    result_limit: ClassVar[int | None] = None
 
     def get_queryset(self) -> QuerySet[_ModelT]:
         raise NotImplementedError
@@ -53,15 +55,26 @@ class SearchPickerView(LoginRequiredMixin, View, Generic[_ModelT]):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         query = request.POST.get(self.query_param, "").strip()
-        queryset = self.get_queryset().none()
+        matches: Iterable[_ModelT] = self.get_queryset().none()
+        truncated = False
         if query:
             queryset = (
                 self.get_queryset()
                 .filter(build_search_filter(query, field_aliases=self.field_aliases))
                 .distinct()
             )
+            if self.result_limit is None:
+                matches = queryset
+            else:
+                limited = list(queryset[: self.result_limit + 1])
+                truncated = len(limited) > self.result_limit
+                matches = limited[: self.result_limit]
 
-        context = {self.result_key: [self.to_result(obj) for obj in queryset]}
+        context = {
+            self.result_key: [self.to_result(obj) for obj in matches],
+            "has_more": truncated,
+            "result_limit": self.result_limit,
+        }
         return render(request, self.template_name, context)
 
 
@@ -70,9 +83,10 @@ class PublicationSearchPickerView(SearchPickerView[Publication]):
     field_aliases = PUBLICATION_SEARCH_FIELD_ALIASES
     template_name = "invoices/search_publications.html"
     result_key = "publications"
+    result_limit = 50
 
     def get_queryset(self) -> QuerySet[Publication]:
-        return Publication.objects.all()
+        return Publication.objects.select_related("fundingrequest")
 
     def to_result(self, publication: Publication) -> dict[str, Any]:
         return {

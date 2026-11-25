@@ -9,6 +9,7 @@ from django.contrib.messages import get_messages
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
+from pytest_django import DjangoAssertNumQueries
 from pytest_django.asserts import assertRedirects
 
 from coda import formdata
@@ -72,6 +73,25 @@ def test__searching_for_publication_with_funding_request_id__returns_matches_in_
 
     expected_context = expect_publication_search_result(fr.publication)
     assert [expected_context] == response.context["publications"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_publication__more_than_result_limit__caps_results_and_reports_it(
+    client: Client, django_assert_max_num_queries: DjangoAssertNumQueries
+) -> None:
+    for i in range(51):
+        modelfactory.fundingrequest(title=f"ResultLimitToken {i}")
+
+    with django_assert_max_num_queries(10):
+        response = search_publication(client, "ResultLimitToken")
+
+    assert 50 == len(response.context["publications"])
+    assert response.context["has_more"] is True
+    content = response.content.decode()
+    assert "More than 50 publications match" in content
+    assert '<output class="messages warning"' in content
+    assert 'for="publication_query"' in content
 
 
 @pytest.mark.django_db

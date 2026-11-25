@@ -54,4 +54,8 @@
             </tbody>
         </table>
     {% endif %}
+    {% if has_more %}
+        <output class="messages warning"
+                for="publication_query">More than {{ result_limit }} publications match. Refine your search to see the rest.</output>
+    {% endif %}
 </div>
