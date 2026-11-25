@@ -69,7 +69,7 @@ class InstitutionLinkFormMixin:
 
 
 @breadcrumb("Organization Structure")
-class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institution]):
+class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institution, Institution]):
     model = Institution
     template_name = "institutions/institution_list.html"
     entity_name = "Organization Structure"

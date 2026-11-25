@@ -54,7 +54,8 @@ def get_ror_client() -> RORClient:
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
 class FundingOrganizationListView(
-    LoginRequiredMixin, SimpleSearchEntityListView[FundingOrganization]
+    LoginRequiredMixin,
+    SimpleSearchEntityListView[FundingOrganization, FundingOrganization],
 ):
     model = FundingOrganization
     entity_name = "Funding Organizations"

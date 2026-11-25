@@ -60,7 +60,9 @@ OPENCOST_FORM_CONFIG = ExportFormConfig(
 
 
 @breadcrumb("openCost Reports", parent_url_name="exports:export_home")
-class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
+class ReportListView(
+    LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport, OpenCostReport]
+):
     model = OpenCostReport
     paginate_by = 20
     entity_name = "openCost Reports"

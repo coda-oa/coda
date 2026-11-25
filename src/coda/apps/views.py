@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -92,7 +92,7 @@ class EntityListView(Generic[EntityType], TemplateView):
 ModelType = TypeVar("ModelType", bound=Model)
 
 
-class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
+class SimpleSearchEntityListView(EntityListView[EntityType], Generic[ModelType, EntityType]):
     model: type[ModelType]
     search_fields: ClassVar[list[str]] = ["name"]
     search_field_aliases: ClassVar[SearchFieldAliases | None] = None
@@ -109,10 +109,10 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         """View-specific filtering (checkbox switches, annotations, prefetching)."""
         return queryset
 
-    def map_entity(self, entity: ModelType) -> ModelType:
-        return entity
+    def map_entity(self, entity: ModelType) -> EntityType:
+        return cast(EntityType, entity)
 
-    def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
+    def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         search_term = request.GET.get("query", "").strip()
         queryset = self.get_base_queryset(request)
 
@@ -130,7 +130,7 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         queryset = self.filter_queryset(queryset, request)
 
         order_by = self.ordering or self.search_fields
-        return DomainQuerySet(queryset.order_by(*order_by), self.map_entity)
+        return DomainQuerySet[ModelType, Any](queryset.order_by(*order_by), self.map_entity)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {

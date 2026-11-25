@@ -56,7 +56,9 @@ fundingsource_updateview = UpdateFundingSourceView.as_view()
 
 
 @breadcrumb("Funding Sources", parent_url_name="invoices:finances_home")
-class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingSource]):
+class FundingSourceListView(
+    LoginRequiredMixin, SimpleSearchEntityListView[FundingSource, FundingSource]
+):
     model = FundingSource
     entity_name = "Funding Sources"
     entity_create_url = "invoices:fundingsource_create"

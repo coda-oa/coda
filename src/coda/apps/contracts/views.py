@@ -27,7 +27,7 @@ from coda.domain.publication import JournalId
 
 
 @breadcrumb("Contracts")
-class ContractListView(LoginRequiredMixin, SimpleSearchEntityListView[ContractModel]):
+class ContractListView(LoginRequiredMixin, SimpleSearchEntityListView[ContractModel, Contract]):
     model = ContractModel
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
@@ -46,7 +46,7 @@ class ContractListView(LoginRequiredMixin, SimpleSearchEntityListView[ContractMo
             contracts = contracts.active()
         return contracts
 
-    def map_entity(self, entity: ContractModel) -> Contract:  # type: ignore[override]
+    def map_entity(self, entity: ContractModel) -> Contract:
         return ContractDomainMapper.map(entity)
 
 

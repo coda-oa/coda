@@ -20,7 +20,7 @@ from coda.domain.finance.invoice import CreditorId
 
 
 @breadcrumb("Creditors", parent_url_name="invoices:finances_home")
-class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor]):
+class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor, Creditor]):
     model = Creditor
     paginate_by = 10
     entity_name = "Creditors"
