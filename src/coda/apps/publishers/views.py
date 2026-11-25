@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from django import forms
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -91,12 +92,19 @@ class PublisherForm(forms.ModelForm[Publisher]):
 class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherForm]):
     template_name = "generic_form_view.html"
     form_class = PublisherForm
-    success_url = reverse_lazy("publishing:publishers:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Create Publisher"
         return context
+
+    def form_valid(self, form: PublisherForm) -> HttpResponse:
+        messages.success(self.request, "Publisher created successfully.")
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return self.object.get_absolute_url()
 
 
 @breadcrumb("Update Publisher", parent_url_name="publishing:publishers:list")
@@ -104,12 +112,21 @@ class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherFor
     template_name = "generic_form_view.html"
     queryset = Publisher.objects.all()
     form_class = PublisherForm
-    success_url = reverse_lazy("publishing:publishers:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Update Publisher"
         return context
+
+    def form_valid(self, form: PublisherForm) -> HttpResponse:
+        messages.success(
+            self.request, f"Publisher '{form.cleaned_data['name']}' updated successfully."
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return self.object.get_absolute_url()
 
 
 @login_required
