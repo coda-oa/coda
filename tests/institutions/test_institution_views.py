@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -391,3 +392,38 @@ def test__archive_with_no_successor_selected__shows_inline_error_in_modal(client
     assert 'aria-invalid="true"' in html
     assert "Please select a successor institution" in html
     assert "<dialog open>" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__create_institution__redirects_to_detail_and_flashes_success(client: Client) -> None:
+    response = client.post(
+        reverse("institutions:create"),
+        {"name": "New University", "parent": "", "internal_id": ""},
+    )
+
+    institution = Institution.objects.get(name="New University")
+    assert response.status_code == 302
+    assert response["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Institution created successfully"
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_institution__redirects_to_detail_and_flashes_named_success(
+    client: Client,
+) -> None:
+    institution = Institution.objects.create(name="Old University")
+
+    response = client.post(
+        reverse("institutions:edit", kwargs={"pk": institution.pk}),
+        {"name": "New University", "parent": "", "internal_id": institution.internal_id or ""},
+    )
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Institution 'New University' updated successfully."
+    ]
