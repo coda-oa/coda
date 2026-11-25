@@ -4,9 +4,9 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.contracts.models import ContractLink, ContractLinkType
+from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from tests import modelfactory
 
 
@@ -155,6 +155,23 @@ def test__contract_list__link_prefix_scopes_to_link_type(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__contract_list__mixed_prefixes__match_separate_link_rows(client: Client) -> None:
+    matching = _named_contract("Matching Contract")
+    _add_link(matching, "ESAC", "esac-mixed")
+    _add_link(matching, "OAI", "oai-mixed")
+    other = _named_contract("Other Contract")
+    _add_link(other, "ESAC", "esac-mixed")
+    _add_link(other, "OAI", "oai-other")
+
+    response = client.get(reverse("contracts:list"), {"query": "esac:esac-mixed oai:oai-mixed"})
+
+    content = response.content.decode()
+    assert "Matching Contract" in content
+    assert "Other Contract" not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__contract_list__matching_multiple_links__lists_contract_once(client: Client) -> None:
     contract = _named_contract("Duplicated Contract")
     _add_link(contract, "ESAC", "dupe-42")
@@ -163,3 +180,18 @@ def test__contract_list__matching_multiple_links__lists_contract_once(client: Cl
     response = client.get(reverse("contracts:list"), {"query": "dupe-42"})
 
     assert [entity.name for entity in response.context["entities"]] == ["Duplicated Contract"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_list__orders_by_name(client: Client) -> None:
+    today = datetime.datetime.now(tz=datetime.UTC).date()
+    _create_contract("Zulu Contract", today, None)
+    _create_contract("Alpha Contract", today, None)
+
+    response = client.get(reverse("contracts:list"))
+
+    assert [entity.name for entity in response.context["entities"]] == [
+        "Alpha Contract",
+        "Zulu Contract",
+    ]

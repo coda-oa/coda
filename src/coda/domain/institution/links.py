@@ -89,6 +89,39 @@ class Ror:
         return hash((self._ror,))
 
 
+def parse_ror(value: str) -> str | None:
+    """Canonical ROR URL for a full URL or bare ID, or None when invalid."""
+    candidate = value.strip().lower()
+    ror_id = candidate.removeprefix("https://ror.org/").rstrip("/")
+    if not ror_id or "/" in ror_id:
+        return None
+
+    canonical = f"https://ror.org/{ror_id}"
+    try:
+        return Ror(canonical).url()
+    except ValueError:
+        return None
+
+
+def detect_ror(value: str) -> str | None:
+    """ROR URL for unambiguous identifier-shaped input.
+
+    Bare all-numeric IDs are left undetected because they are indistinguishable from
+    numeric Crossref IDs. A full ROR URL is unambiguous even when its ID is numeric.
+    """
+    canonical = parse_ror(value)
+    if canonical is None:
+        return None
+
+    if value.strip().lower().startswith("https://ror.org/"):
+        return canonical
+
+    if canonical.rsplit("/", 1)[-1].isdigit():
+        return None
+
+    return canonical
+
+
 class Isni:
     __match_args__ = ("_isni",)
 

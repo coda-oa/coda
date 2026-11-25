@@ -176,6 +176,46 @@ def test__searching_for_contract_with_link_prefix__scopes_to_link_type(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__searching_for_contract_with_mixed_link_prefixes__matches_separate_rows(
+    client: Client,
+) -> None:
+    matching_model = modelfactory.contract()
+    other_model = modelfactory.contract()
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+    ContractLink.objects.create(contract=matching_model, type=esac_type, value="esac-mixed")
+    ContractLink.objects.create(contract=matching_model, type=oai_type, value="oai-mixed")
+    ContractLink.objects.create(contract=other_model, type=esac_type, value="esac-mixed")
+    ContractLink.objects.create(contract=other_model, type=oai_type, value="oai-other")
+
+    response = client.post(
+        reverse("invoices:contract_search"),
+        {"contract_query": "esac:esac-mixed oai:oai-mixed"},
+    )
+
+    contract = ContractDomainMapper.map(matching_model)
+    assert [expect_contract_search_result(contract)] == response.context["contracts"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_contract_with_multiple_matches__returns_contract_once(
+    client: Client,
+) -> None:
+    contract_model = modelfactory.contract()
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+    ContractLink.objects.create(contract=contract_model, type=esac_type, value="dupe-picker")
+    ContractLink.objects.create(contract=contract_model, type=oai_type, value="dupe-picker")
+
+    response = client.post(reverse("invoices:contract_search"), {"contract_query": "dupe-picker"})
+
+    contract = ContractDomainMapper.map(contract_model)
+    assert [expect_contract_search_result(contract)] == response.context["contracts"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__add_publication_as_position__returns_position_in_response(client: Client) -> None:
     fr = modelfactory.fundingrequest()
     publication = fr.publication
