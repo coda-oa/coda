@@ -1,6 +1,7 @@
 from dataclasses import asdict
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -58,6 +59,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     if parsed_invoice:
         parsed_invoice.id = invoice.id
         invoice_service.save(parsed_invoice)
+        messages.success(request, f"Invoice '{parsed_invoice.number}' updated successfully.")
         return redirect("invoices:detail", pk=invoice.id)
 
     if errors:

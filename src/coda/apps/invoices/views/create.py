@@ -39,6 +39,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         invoice, errors = try_parse_invoice(request, position_list, conversions=conversion)
         if invoice:
             new_id = invoice_service.save(invoice)
+            messages.success(request, "Invoice created successfully.")
             return redirect("invoices:detail", pk=new_id)
 
         if errors:

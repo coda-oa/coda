@@ -298,6 +298,9 @@ def test__given_positions__create__saves_new_invoice__position_list(client: Clie
     actual = repository.first()
     assert actual is not None
     assert_invoice_eq(expected, actual)
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Invoice created successfully."
+    ]
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": actual.id}))
 
 
