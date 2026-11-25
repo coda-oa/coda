@@ -8,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
@@ -39,6 +39,8 @@ from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
 FUNDER_ENTITY_NAME = "Funding Organization"
+FUNDER_CREATE_SUCCESS_MSG = "Funding organization '{name}' created successfully."
+FUNDER_UPDATE_SUCCESS_MSG = "Funding organization '{name}' updated successfully."
 FUNDER_ARCHIVE_SUCCESS_MSG = "Funding organization '{name}' archived successfully."
 FUNDER_RESTORE_SUCCESS_MSG = "Funding organization '{name}' restored successfully."
 FUNDER_DELETE_SUCCESS_MSG = "Funding organization '{name}' deleted successfully."
@@ -168,7 +170,6 @@ class FundingOrganizationCreateView(
     model = FundingOrganization
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -188,7 +189,12 @@ class FundingOrganizationCreateView(
         if response:
             return response
 
+        messages.success(self.request, FUNDER_CREATE_SUCCESS_MSG.format(name=self.object.name))
         return redirect(self.get_success_url())
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse(FUNDER_DETAIL_URL, kwargs={"pk": self.object.pk})
 
 
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
@@ -204,7 +210,6 @@ class FundingOrganizationUpdateView(
     queryset = FundingOrganization.all_objects.all()
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -229,7 +234,12 @@ class FundingOrganizationUpdateView(
         if response:
             return response
 
+        messages.success(self.request, FUNDER_UPDATE_SUCCESS_MSG.format(name=self.object.name))
         return redirect(self.get_success_url())
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse(FUNDER_DETAIL_URL, kwargs={"pk": self.object.pk})
 
 
 fundingorganizations_update = FundingOrganizationUpdateView.as_view()
