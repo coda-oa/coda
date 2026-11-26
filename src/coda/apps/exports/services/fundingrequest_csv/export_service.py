@@ -58,6 +58,18 @@ CSV_COLUMNS = [
     "funding_source_type",
 ]
 
+FORMULA_INJECTION_PREFIXES = ("=", "+", "-", "@")
+
+
+def _neutralize_formula_injection(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            key: (f"'{value}" if value.startswith(FORMULA_INJECTION_PREFIXES) else value)
+            for key, value in row.items()
+        }
+        for row in rows
+    ]
+
 
 def export_fundingrequests_to_csv(
     params: FundingRequestSearchParams,
@@ -80,14 +92,17 @@ def export_fundingrequests_to_csv(
         rows = flatten_detailed(dto)
         all_rows.extend(rows)
 
-    # 4. Build Polars DataFrame from rows
+    # 4. Neutralize leading formula characters to prevent spreadsheet formula injection
+    all_rows = _neutralize_formula_injection(all_rows)
+
+    # 5. Build Polars DataFrame from rows
     if not all_rows:
         schema = {column: pl.String for column in CSV_COLUMNS}
         df = pl.DataFrame(schema=schema)
     else:
         df = pl.DataFrame(all_rows)
 
-    # 5. Write CSV to StringIO with separator semicolon
+    # 6. Write CSV to StringIO with separator semicolon
     buffer = StringIO()
     df.write_csv(buffer, separator=";")
 

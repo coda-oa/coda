@@ -63,6 +63,27 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
 
 
 @pytest.mark.django_db
+def test__funding_request_with_formula_like_title__export_to_csv__neutralizes_leading_formula_character() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="=1+1")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    period_start = date(2026, 1, 1)
+    period_end = date(2026, 12, 31)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    assert df.height == 1
+
+    publication_title = df["publication_title"][0]
+    assert not publication_title.startswith(
+        ("=", "+", "-", "@")
+    ), f"publication_title was not neutralized and is still a formula: {publication_title!r}"
+
+
+@pytest.mark.django_db
 def test__funding_request_without_invoices__export_to_csv__returns_one_row_with_empty_cost_fields() -> (
     None
 ):
