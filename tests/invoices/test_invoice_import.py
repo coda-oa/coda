@@ -3,7 +3,7 @@ import io
 import json
 from collections.abc import Callable, Iterable
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -22,7 +22,11 @@ from coda.contexts.finance.dto.import_dtos import (
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
-from coda.contexts.finance.services.invoice_import import InvoiceImportReport, import_invoices
+from coda.contexts.finance.services.invoice_import import (
+    InvoiceImportDataError,
+    InvoiceImportReport,
+    import_invoices,
+)
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
@@ -41,6 +45,25 @@ from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.invoices import payment_assertions
 from tests.invoices.test_invoice_repository import assert_invoice_eq
+
+
+def invoice_dto(
+    number: str = "INV-001", positions: Iterable[CommonPositionImportDto] = ()
+) -> InvoiceImportDto:
+    return InvoiceImportDto(
+        number=number,
+        date=datetime.date(2023, 10, 1),
+        creditor="creditor-name",
+        currency=Currency.BBD.code,
+        status=PaymentStatus.Unpaid,
+        external_id="external-invoice-id",
+        comment="Test invoice comment",
+        conversion=ConversionImportDto(
+            target_currency=Currency.EUR.code,
+            exchange_rate=Decimal("5.00"),
+        ),
+        positions=list(positions),
+    )
 
 
 @pytest.mark.django_db
@@ -62,11 +85,11 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
     contract_position = contract_position_import_dto()
     import_dto = invoice_import_list_dto([contract_position])
 
-    modelfactory.budget(name=contract_position.funding_source)
-    modelfactory.creditor(name=import_dto.invoices[0].creditor)
-    create_contract_from(contract_position)
+    _ = modelfactory.budget(name=contract_position.funding_source)
+    _ = modelfactory.creditor(name=import_dto.invoices[0].creditor)
+    _ = create_contract_from(contract_position)
 
-    import_invoices_from_dto_json(import_dto)
+    _ = import_invoices_from_dto_json(import_dto)
 
     assert FundingSource.objects.count() == 1
     assert Creditor.objects.count() == 1
@@ -419,12 +442,12 @@ def test__invoice_with_budget_and_non_existing_institution__import_invoices__doe
     _ = import_invoices_from_dto_json(import_dto)
 
     with pytest.raises(funding_source_repository.FundingSourceNotFound):
-        funding_source_repository.get_by_name("valid budget")
+        _ = funding_source_repository.get_by_name("valid budget")
 
 
 @pytest.mark.django_db
 def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice() -> None:
-    invalid_data = {
+    invalid_data: Any = {
         "invoices": [
             {
                 "number": "INV-001",
@@ -457,7 +480,7 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
 
 @pytest.mark.django_db
 def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
-    invalid_data = {
+    invalid_data: Any = {
         "invoices": [
             {
                 # Missing "number" field
@@ -478,20 +501,28 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     assert "<unknown-0>" in actual.invoices_with_errors()
 
 
-PaidInvoicePaymentFixture = (
-    lambda fr: paid_invoice_dto(
-        number="INV-2025-001",
+def paid_invoice_dto_for_fundingrequest(fr: AnyFundingRequest) -> InvoiceImportDto:
+    return paid_invoice_dto(
+        number="INV-2025-002",
         positions=[publication_position_import_dto(fr)],
-    ),
+    )
+
+
+PaidInvoicePaymentFixture = (
+    paid_invoice_dto_for_fundingrequest,
     payment_assertions.new_invoice_paid_assertion,
 )
 
 
-UnpaidInvoicePaymentFixture = (
-    lambda fr: invoice_dto(
+def invoice_dto_for_fundingrequest(fr: AnyFundingRequest) -> InvoiceImportDto:
+    return invoice_dto(
         number="INV-2025-002",
         positions=[publication_position_import_dto(fr)],
-    ),
+    )
+
+
+UnpaidInvoicePaymentFixture = (
+    invoice_dto_for_fundingrequest,
     payment_assertions.new_invoice_received_assertion,
 )
 
@@ -519,6 +550,74 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
     assert_payment_status = create_payments_assertion(imported_invoice)
     assert isinstance(payment_status, PublicationPayments)
     assert_payment_status(payment_status)
+
+
+@pytest.mark.django_db
+def test__paid_invoice_with_unassigned_costs__is_not_imported() -> None:
+    position = free_position_import_dto()
+    position.amount = Decimal(100)
+    position.funding_source = ""
+    position.funding_assignments = [
+        FundingAssignmentImportDto(
+            type="budget",
+            name="test-budget",
+            amount=Decimal(50),
+        )
+    ]
+
+    invoice = invoice_dto(positions=[position])
+    invoice.status = PaymentStatus.Paid
+    results = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice]))
+
+    assert results.valid_invoices == 0
+    assert results.invalid_invoices == 1
+    assert results.invoices_with_errors() == [invoice.number]
+
+
+@pytest.mark.django_db
+def test__one_valid_and_one_malformed_invoice__imports_valid_invoice() -> None:
+    valid_invoice = invoice_dto()
+    invalid_invoice = invoice_dto().model_copy(update={"currency": "invalid"})
+
+    results = import_invoices_from_dto_json(
+        InvoiceListImportDto(invoices=[invalid_invoice, valid_invoice])
+    )
+
+    assert results.valid_invoices == 1
+    assert results.invalid_invoices == 1
+    assert results.invoices_with_errors() == [invalid_invoice.number]
+    assert repository.first() is not None
+
+
+@pytest.mark.parametrize(
+    ("json_content", "expected_reason"),
+    [
+        ("{}", "invoices: Field required"),
+        (f'{{"typo": [ {invoice_dto().model_dump_json()} ]}}', "invoices: Field required"),
+        ('{"invoices": "not-a-list"}', "invoices: Input should be a valid list"),
+        ('{"invoices": null}', "invoices: Input should be a valid list"),
+        ("[]", "Import file must contain a JSON object"),
+        ('{"invoices": ', "Invalid JSON"),
+    ],
+)
+def test__invalid_import_document__raises_data_error(
+    json_content: str, expected_reason: str
+) -> None:
+    with pytest.raises(InvoiceImportDataError) as exc_info:
+        import_invoices(io.StringIO(json_content))
+
+    assert expected_reason in "; ".join(exc_info.value.reasons)
+
+
+@pytest.mark.django_db
+def test__invoice_json_is_not_an_object__is_not_imported() -> None:
+    json_content = json.dumps({"invoices": ["not-an-object"]})
+
+    results = import_invoices(io.StringIO(json_content))
+
+    assert results.valid_invoices == 0
+    assert results.invalid_invoices == 1
+    assert results.invoices_with_errors() == ["<unknown-0>"]
 
 
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
@@ -597,25 +696,6 @@ def free_position_import_dto() -> FreePositionImportDto:
 
 def invoice_import_list_dto(positions: list[CommonPositionImportDto]) -> InvoiceListImportDto:
     return InvoiceListImportDto(invoices=[invoice_dto(positions=positions)])
-
-
-def invoice_dto(
-    number: str = "INV-001", positions: Iterable[CommonPositionImportDto] = ()
-) -> InvoiceImportDto:
-    return InvoiceImportDto(
-        number=number,
-        date=datetime.date(2023, 10, 1),
-        creditor="creditor-name",
-        currency=Currency.BBD.code,
-        status=PaymentStatus.Unpaid,
-        external_id="external-invoice-id",
-        comment="Test invoice comment",
-        conversion=ConversionImportDto(
-            target_currency=Currency.EUR.code,
-            exchange_rate=Decimal("5.00"),
-        ),
-        positions=list(positions),
-    )
 
 
 def paid_invoice_dto(

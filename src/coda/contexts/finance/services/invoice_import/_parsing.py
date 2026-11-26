@@ -20,7 +20,7 @@ from coda.contexts.finance.services.invoice_import.types import (
 from coda.domain import errors
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import Budget
-from coda.domain.finance.invoice import CreditorId, Invoice
+from coda.domain.finance.invoice import CreditorId, Invoice, UnassignedCosts
 from coda.domain.finance.invoice_positions import (
     ContractItem,
     FreeItem,
@@ -121,15 +121,21 @@ def create_invoice(
     Returns:
         Domain Invoice object
     """
-    invoice = Invoice.new(
-        number=invoice_dto.number,
-        date=invoice_dto.date,
-        creditor=creditor,
-        status=invoice_dto.status,
-        external_invoice_id=invoice_dto.external_id,
-        comment=invoice_dto.comment,
-        positions=positions,
-    )
+    try:
+        invoice = Invoice.new(
+            number=invoice_dto.number,
+            date=invoice_dto.date,
+            creditor=creditor,
+            status=invoice_dto.status,
+            external_invoice_id=invoice_dto.external_id,
+            comment=invoice_dto.comment,
+            positions=positions,
+        )
+    except UnassignedCosts:
+        raise InvoiceProcessingError(
+            invoice_dto.number,
+            reasons=["Cannot import paid invoice with unassigned costs"],
+        )
 
     if invoice_dto.conversion:
         invoice.add_conversion(
@@ -217,14 +223,21 @@ def create_invoices_from_dtos(
         if not results.has_errors()
     }
 
-    parsed_invoices = [
-        create_invoice(
-            invoice_dto,
-            lookups.creditor_lookup[invoice_dto.creditor],
-            valid_invoice_positions[invoice_key(invoice_dto)],
+    with errors.capture(InvoiceProcessingError) as capture:
+        parse_results = errors.results(
+            [
+                capture(
+                    create_invoice,
+                    invoice_dto,
+                    lookups.creditor_lookup[invoice_dto.creditor],
+                    valid_invoice_positions[invoice_key(invoice_dto)],
+                )
+                for invoice_dto in invoice_dtos
+                if invoice_key(invoice_dto) in valid_invoice_positions
+            ]
         )
-        for invoice_dto in invoice_dtos
-        if invoice_key(invoice_dto) in valid_invoice_positions
-    ]
+
+    parsed_invoices = parse_results.values()
+    invoices_with_errors.extend(parse_results.errors())
 
     return parsed_invoices, invoices_with_errors

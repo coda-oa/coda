@@ -36,7 +36,12 @@ from ._validation import (
     find_invoices_with_missing_publications,
     validate_invoices,
 )
-from .types import ImportLookups, InvoiceImportReport, InvoiceProcessingError
+from .types import (
+    ImportLookups,
+    InvoiceImportDataError,
+    InvoiceImportReport,
+    InvoiceProcessingError,
+)
 
 
 def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
@@ -47,25 +52,37 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
 
     Returns:
         Import report with counts and any processing errors
+
+    Raises:
+        InvoiceImportDataError: if the input is not valid JSON, the root is not a JSON
+            object, or the ``invoices`` field is missing or not a list
     """
     text_content = json_stream.read()
-    data = json.loads(text_content)
+    try:
+        data = json.loads(text_content)
+    except json.JSONDecodeError as exc:
+        raise InvoiceImportDataError(
+            [f"Invalid JSON: {exc.msg} at line {exc.lineno} column {exc.colno}"]
+        ) from exc
 
-    invoice_dtos, validation_errors = validate_invoices(data["invoices"])
+    if not isinstance(data, dict):
+        raise InvoiceImportDataError(["Import file must contain a JSON object"])
 
-    if validation_errors:
-        return InvoiceImportReport(
-            valid_invoices=0,
-            invalid_invoices=len(validation_errors),
-            errors=validation_errors,
-        )
+    if "invoices" not in data:
+        raise InvoiceImportDataError(["invoices: Field required"])
 
+    json_invoices = data["invoices"]
+    if not isinstance(json_invoices, list):
+        raise InvoiceImportDataError(["invoices: Input should be a valid list"])
+
+    invoice_dtos, validation_errors = validate_invoices(json_invoices)
     processed_invoices, processing_errors = _process_invoices(invoice_dtos)
+    all_errors = validation_errors + processing_errors
 
     return InvoiceImportReport(
         valid_invoices=len(processed_invoices),
-        invalid_invoices=len(invoice_dtos) - len(processed_invoices),
-        errors=processing_errors,
+        invalid_invoices=len(all_errors),
+        errors=all_errors,
     )
 
 

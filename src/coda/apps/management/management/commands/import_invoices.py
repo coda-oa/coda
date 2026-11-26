@@ -1,9 +1,12 @@
 from pathlib import Path
 from typing import Any
 
-from django.core.management import BaseCommand, CommandParser
+from django.core.management import BaseCommand, CommandError, CommandParser
 
-from coda.contexts.finance.services.invoice_import import import_invoices
+from coda.contexts.finance.services.invoice_import import (
+    InvoiceImportDataError,
+    import_invoices,
+)
 
 
 class Command(BaseCommand):
@@ -24,7 +27,13 @@ class Command(BaseCommand):
         file = options["json_file"]
         self.stdout.write(f"Importing invoices from {file}...")
         with Path(file).open("r") as f:
-            result = import_invoices(f)
+            try:
+                result = import_invoices(f)
+            except InvoiceImportDataError as e:
+                for reason in e.reasons:
+                    self.stderr.write(self.style.ERROR(reason))
+                raise CommandError("Invoice import failed") from e
+
             for error in result.errors:
                 self.stdout.write(
                     self.style.ERROR(f"Error importing invoice: {error.invoice_number}")

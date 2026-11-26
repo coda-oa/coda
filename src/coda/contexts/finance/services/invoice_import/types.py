@@ -19,6 +19,12 @@ class InvoiceProcessingError(errors.DomainError):
         return self.invoice_number, self.reasons
 
 
+class InvoiceImportDataError(errors.DomainError):
+    def __init__(self, reasons: list[str]) -> None:
+        super().__init__("; ".join(reasons))
+        self.reasons = reasons
+
+
 @dataclass
 class InvoiceImportReport:
     valid_invoices: int
