@@ -8,7 +8,7 @@ You can access the Funders page from the **Request Center** section in the navig
 
 You can search for funders by name or by linked identifiers (DOI, ROR, Crossref) using the search box at the top of the page. By default, only active (non-archived) funders are shown. Use the **Include archived** checkbox to also display archived funders in the list.
 
-Prefix a term with `name:`, `doi:`, `ror:` or `crossref:` to restrict it to that field; an unprefixed term matches the name and any link value. Bare DOIs and bare non-numeric ROR IDs are recognised automatically. An all-numeric ROR ID is indistinguishable from a numeric Crossref ID, so it is searched generically; use `ror:` to scope it explicitly.
+Prefix a term with `name:`, `doi:`, `ror:` or `crossref:` to restrict it to that field; an unprefixed term matches the name and any link value. Bare DOIs and bare non-numeric ROR IDs are recognised automatically. ROR URLs are recognised with `https`, `http`, or no scheme (`ror.org/...`). An all-numeric ROR ID without a URL prefix is indistinguishable from a numeric Crossref ID, so it is searched generically; use `ror:` to scope it explicitly.
 
 ![](/_static/img/funders_overview.png)
 

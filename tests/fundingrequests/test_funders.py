@@ -47,6 +47,25 @@ def test__create_funder_with_ror__persists_ror_link(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "link_value",
+    ["http://ror.org/04aj4c181", "ror.org/04aj4c181"],
+)
+def test__create_funder_with_alternate_ror_form__persists_canonical_link(
+    client: Client, link_value: str
+) -> None:
+    client.post(
+        reverse("fundingrequests:funders_create"),
+        data={"name": "DFG", "link_type": ["ROR"], "link_value": [link_value]},
+    )
+    org = FundingOrganization.objects.get(name="DFG")
+    link = org.links.get()
+    assert link.type.name == "ROR"
+    assert link.value == "https://ror.org/04aj4c181"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__update_funder_replaces_links(client: Client) -> None:
     org = FundingOrganization.objects.create(name="BMBF")
     org.set_links([Doi("10.13039/old-doi")])
@@ -237,7 +256,13 @@ def test__funder_list__detects_bare_doi(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize(
     "query",
-    ["02mhbdp94", "https://ror.org/02mhbdp94", "https://ror.org/02mhbdp94/"],
+    [
+        "02mhbdp94",
+        "https://ror.org/02mhbdp94",
+        "https://ror.org/02mhbdp94/",
+        "http://ror.org/02mhbdp94",
+        "ror.org/02mhbdp94",
+    ],
 )
 def test__funder_list__detects_bare_and_url_ror(client: Client, query: str) -> None:
     org = FundingOrganization.objects.create(name="ROR Funder")

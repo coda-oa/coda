@@ -84,7 +84,7 @@ You can add identifiers to your institutional structure by using the edit button
 
 CODA automatically validates institutional identifiers when you enter them:
 
-- **ROR IDs** must follow the format `https://ror.org/` followed by exactly 9 characters
+- **ROR IDs** must be `https://ror.org/` followed by exactly 9 characters. `http://ror.org/...` and `ror.org/...` are also accepted and stored in the canonical `https://ror.org/...` form
 - **ISNI values** must be exactly 16 digits (with or without spaces/hyphens)
 - **Ringgold IDs** must be numeric
 
