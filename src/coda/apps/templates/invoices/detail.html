@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
-{% block page_supertitle %}Invoice{% endblock page_supertitle %}
+{% block page_supertitle %}
+    Invoice
+{% endblock page_supertitle %}
 {% block page_title %}
     Invoice {{ invoice.number }}
     {% if invoice.status == "Paid" %}
-        <small class="pill status-label approved">{{ invoice.status }}</small>
+        {% include "partials/status_pill.html" with pill_text=invoice.status pill_tone="approved" %}
     {% elif invoice.status == "Unpaid" %}
-        <small class="pill status-label open">{{ invoice.status }}</small>
+        {% include "partials/status_pill.html" with pill_text=invoice.status pill_tone="open" %}
     {% else %}
-        <small class="pill status-label rejected">{{ invoice.status }}</small>
+        {% include "partials/status_pill.html" with pill_text=invoice.status pill_tone="rejected" %}
     {% endif %}
 {% endblock page_title %}
 {% block page_actions %}
@@ -31,78 +33,78 @@
         </header>
         <table>
             <tbody>
-            <tr>
-                <th>
-                    <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
-                </th>
-                <td>
-                    <input readonly
-                           type="text"
-                           id="id-head-invoice-number"
-                           name="id-head-invoice-number"
-                           value="{{ invoice.number }}">
-                </td>
-            </tr>
-            <tr>
-                <th>
-                    <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
-                </th>
-                <td>
-                    <input readonly
-                           type="text"
-                           id="id-head-invoice-date"
-                           name="id-head-invoice-date"
-                           value="{{ invoice.date }}"/>
-                </td>
-            </tr>
-            <tr>
-                <th>
-                    <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
-                </th>
-                <td>
-                    <input readonly
-                           type="text"
-                           id="id-head-creditor_name"
-                           name="id-head-creditor_name"
-                           value="{{ invoice.creditor_name }}">
-                </td>
-            </tr>
-            <tr>
-                <th>
-                    <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
-                </th>
-                <td>
-                    <input readonly
-                           type="text"
-                           id="id-head-currency"
-                           name="id-head-currency"
-                           value="{{ invoice.currency.code }}">
-                </td>
-            </tr>
-            <tr>
-                <th>
-                    <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
-                </th>
-                <td>
-                    <input readonly
-                           type="text"
-                           id="id-head-external-id"
-                           name="id-head-external-id"
-                           value="{{ invoice.external_invoice_id }}">
-                </td>
-            </tr>
-            <tr>
-                <th>
-                    <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
-                </th>
-                <td>
+                <tr>
+                    <th>
+                        <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-invoice-number"
+                               name="id-head-invoice-number"
+                               value="{{ invoice.number }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-invoice-date"
+                               name="id-head-invoice-date"
+                               value="{{ invoice.date }}" />
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-creditor_name"
+                               name="id-head-creditor_name"
+                               value="{{ invoice.creditor_name }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-currency"
+                               name="id-head-currency"
+                               value="{{ invoice.currency.code }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-external-id"
+                               name="id-head-external-id"
+                               value="{{ invoice.external_invoice_id }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
+                    </th>
+                    <td>
                         <textarea readonly
                                   name="id-head-comment"
                                   cols="40"
                                   rows="10"
                                   id="id-head-comment"> {{ invoice.comment }}</textarea>
-                </td>
-            </tr>
+                    </td>
+                </tr>
             </tbody>
         </table>
     </article>
@@ -134,60 +136,63 @@
         {% endif %}
         <table>
             <thead>
-            <tr>
-                <th>Type</th>
-                <th>Position</th>
-                <th>Funding Assignments</th>
-                <th>Cost Type</th>
-                <th>Tax (%)</th>
-                <th>Tax ({{ display_currency.code }})</th>
-                <th>Net Cost ({{ display_currency.code }})</th>
-            </tr>
+                <tr>
+                    <th>Type</th>
+                    <th>Position</th>
+                    <th>Funding Assignments</th>
+                    <th>Cost Type</th>
+                    <th>Tax (%)</th>
+                    <th>Tax ({{ display_currency.code }})</th>
+                    <th>Net Cost ({{ display_currency.code }})</th>
+                </tr>
             </thead>
             <tbody>
-            {% for position in display_invoice.positions %}
-                <tr>
-                    <td>
-                        {% if position.type == "publication" %}
-                            Publication
-                        {% elif position.type == "contract" %}
-                            Contract
-                        {% else %}
-                            Free Position
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if position.url %}
-                            <a href="{{ position.url }}">{{ position.title }}</a>
-                            {% if position.error %}
-                                <span data-tooltip="{{ position.error }}">
-                                        <img src="{% static "assets/exclamation.svg" %}" alt="{{ position.error }}"
-                                             height="auto" width="auto" class="mb-0_5">
-                                    </span>
+                {% for position in display_invoice.positions %}
+                    <tr>
+                        <td>
+                            {% if position.type == "publication" %}
+                                Publication
+                            {% elif position.type == "contract" %}
+                                Contract
+                            {% else %}
+                                Free Position
                             {% endif %}
-                        {% else %}
-                            {{ position.title }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if position.funding_assignments %}
-                            <ul class="funding-assignments-list">
-                                {% for assignment in position.funding_assignments %}
-                                    <li>
-                                        <strong>{{ assignment.funding_source_name }}</strong>: {{ assignment.amount|floatformat:2 }}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <span class="funding-assignment-empty">—</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ position.cost_type }}</td>
-                    <td>{{ position.tax_rate|floatformat:1 }}</td>
-                    <td>{{ position.tax_amount }}</td>
-                    <td>{{ position.net_costs }}</td>
-                </tr>
-            {% endfor %}
+                        </td>
+                        <td>
+                            {% if position.url %}
+                                <a href="{{ position.url }}">{{ position.title }}</a>
+                                {% if position.error %}
+                                    <span data-tooltip="{{ position.error }}">
+                                        <img src="{% static "assets/exclamation.svg" %}"
+                                             alt="{{ position.error }}"
+                                             height="auto"
+                                             width="auto"
+                                             class="mb-0_5">
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                {{ position.title }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if position.funding_assignments %}
+                                <ul class="funding-assignments-list">
+                                    {% for assignment in position.funding_assignments %}
+                                        <li>
+                                            <strong>{{ assignment.funding_source_name }}</strong>: {{ assignment.amount|floatformat:2 }}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="funding-assignment-empty">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ position.cost_type }}</td>
+                        <td>{{ position.tax_rate|floatformat:1 }}</td>
+                        <td>{{ position.tax_amount }}</td>
+                        <td>{{ position.net_costs }}</td>
+                    </tr>
+                {% endfor %}
             </tbody>
         </table>
         <footer>
