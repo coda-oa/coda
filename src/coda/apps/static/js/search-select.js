@@ -224,7 +224,8 @@ class SearchSelect extends HTMLElement {
 
   setValueToActiveElementOrFirstMatch() {
     const activeElementIsCurrent =
-      this.visibleItems.includes(this.activeElement) && this.matches(this.activeElement);
+      this.visibleItems.includes(this.activeElement) &&
+      this._matchesSearchTerm(this.activeElement);
     const option = activeElementIsCurrent ? this.activeElement : this.firstMatch();
 
     if (option === undefined) {
@@ -237,7 +238,7 @@ class SearchSelect extends HTMLElement {
   }
 
   firstMatch() {
-    return this.visibleItems.find((li) => this.matches(li));
+    return this.visibleItems.find((li) => this._matchesSearchTerm(li));
   }
 
   navigateListItems(direction) {
@@ -260,11 +261,11 @@ class SearchSelect extends HTMLElement {
   filterListItems() {
     const arr = Array.from(this.listItems);
     arr
-      .filter((li) => this.isVisible(li) && !this.matches(li))
+      .filter((li) => this.isVisible(li) && !this._matchesSearchTerm(li))
       .forEach((li) => (li.style.display = "none"));
 
     arr
-      .filter((li) => !this.isVisible(li) && this.matches(li))
+      .filter((li) => !this.isVisible(li) && this._matchesSearchTerm(li))
       .forEach((li) => (li.style.display = "list-item"));
 
     this.visibleItems = arr.filter((li) => this.isVisible(li));
@@ -284,7 +285,7 @@ class SearchSelect extends HTMLElement {
     return li.style.display !== "none";
   }
 
-  matches(li) {
+  _matchesSearchTerm(li) {
     const searchTerm = this.searchBox.value;
     return (
       searchTerm.length == 0 ||
