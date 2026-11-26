@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.messages import get_messages
 from django.test.client import Client
 from django.urls import reverse
 
@@ -179,3 +180,32 @@ def test__list_view__multi_word_search__each_word_matches_independently(
 
     assert response.status_code == 200
     assert "Alpha Beta Gamma" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__create_funder__redirects_to_detail_and_flashes_named_success(client: Client) -> None:
+    response = client.post(reverse("fundingrequests:funders_create"), {"name": "BMBF"})
+
+    org = FundingOrganization.objects.get(name="BMBF")
+    assert response.status_code == 302
+    assert response["Location"] == reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Funding organization 'BMBF' created successfully."
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_funder__redirects_to_detail_and_flashes_named_success(client: Client) -> None:
+    org = FundingOrganization.objects.create(name="Old Name")
+
+    response = client.post(
+        reverse("fundingrequests:funders_update", kwargs={"pk": org.pk}), {"name": "New Name"}
+    )
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Funding organization 'New Name' updated successfully."
+    ]

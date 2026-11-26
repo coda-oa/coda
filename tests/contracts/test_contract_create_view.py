@@ -2,6 +2,7 @@ import datetime
 from collections.abc import Iterable
 
 import pytest
+from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
 
@@ -204,3 +205,51 @@ def test__contract_list_view__multi_word_search__each_word_matches_independently
 
     assert response.status_code == 200
     assert "Alpha Beta Gamma" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__create_contract__redirects_to_detail_and_flashes_success(client: Client) -> None:
+    publishers = make_publishers()
+    journals = make_journals(publishers)
+    contract = make_contract(publishers, journals)
+
+    data = (
+        contract_form_data(contract)
+        | to_htmx_formset_data(entity_form_data(publishers), prefix="publishers")
+        | to_htmx_formset_data(entity_form_data(journals), prefix="journals")
+    )
+    response = client.post(reverse("contracts:create"), data)
+
+    actual = repository.first()
+    assert actual is not None
+    assert response.status_code == 302
+    assert response["Location"] == reverse("contracts:detail", kwargs={"pk": actual.id})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Contract created successfully."
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_contract__redirects_to_detail_and_flashes_named_success(
+    client: Client,
+) -> None:
+    publishers = make_publishers()
+    journals = make_journals(publishers)
+    contract = make_contract(publishers, journals)
+    contract_id = repository.create(contract)
+
+    data = (
+        contract_form_data(contract)
+        | {"name": "Renamed Contract"}
+        | to_htmx_formset_data(entity_form_data(publishers), prefix="publishers")
+        | to_htmx_formset_data(entity_form_data(journals), prefix="journals")
+    )
+    response = client.post(reverse("contracts:update", kwargs={"pk": contract_id}), data)
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("contracts:detail", kwargs={"pk": contract_id})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Contract 'Renamed Contract' updated successfully."
+    ]

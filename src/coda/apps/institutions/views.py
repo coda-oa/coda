@@ -126,7 +126,8 @@ class CreateInstitutionView(
         return redirect(self.get_success_url())
 
     def get_success_url(self) -> str:
-        return reverse("institutions:list")
+        assert self.object is not None
+        return reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": self.object.pk})
 
 
 @breadcrumb("Edit Institution", parent_url_name="institutions:list")
@@ -171,11 +172,12 @@ class UpdateInstitutionView(
         if not self.validate_and_save_links(self.object):
             return self.form_invalid(form)
 
-        messages.success(self.request, "Institution updated successfully")
+        messages.success(self.request, f"Institution '{self.object.name}' updated successfully.")
         return redirect(self.get_success_url())
 
     def get_success_url(self) -> str:
-        return reverse("institutions:list")
+        assert self.object is not None
+        return reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": self.object.pk})
 
 
 @login_required

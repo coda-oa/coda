@@ -224,7 +224,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
     _flash_report_outcome(request, report)
 
-    return redirect("opencost:list")
+    return redirect("opencost:detail", report_id=report.id)
 
 
 @login_required

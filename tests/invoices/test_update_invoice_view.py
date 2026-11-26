@@ -182,6 +182,9 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(
 
     actual = repository.get_by_id(invoice.id)
     assert_invoice_eq(expected, actual)
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Invoice '456' updated successfully."
+    ]
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": invoice.id}))
 
 

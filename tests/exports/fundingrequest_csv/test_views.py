@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 import pytest
+from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -110,6 +111,10 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
     assert response.status_code == 302
     export = FundingRequestCSVExport.objects.get(name=title)
     assert export is not None
+    assert response["Location"] == reverse("exports:fundingrequests_csv_detail", args=[export.id])
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        f"CSV export '{title}' created successfully."
+    ]
     assert export.filters["period_start"] == period_start
     assert export.filters["period_end"] == period_end
     assert export.record_count == 1
@@ -427,6 +432,10 @@ def test__fundingrequest_csv_regen__called_with_existing_export__regenerates_csv
     response = client.post(reverse("exports:fundingrequests_csv_regen", args=[export.id]))
 
     assert response.status_code == 302
+    assert response["Location"] == reverse("exports:fundingrequests_csv_detail", args=[export.id])
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "CSV export 'Regen Export' regenerated successfully."
+    ]
     export.refresh_from_db()
     assert "Regen Test Publication" in export.csv_content
     assert export.record_count == 1

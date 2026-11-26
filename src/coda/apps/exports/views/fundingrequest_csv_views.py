@@ -159,6 +159,8 @@ def fundingrequest_csv_export_create_view(
             csv_content=result.content,
         )
 
+        messages.success(request, f"CSV export '{title}' created successfully.")
+
         return redirect(
             "exports:fundingrequests_csv_detail",
             pk=export.pk,
@@ -218,6 +220,8 @@ def fundingrequest_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse
     export.csv_content = result.content
     export.record_count = result.row_count
     export.save(update_fields=["csv_content", "record_count"])
+
+    messages.success(request, f"CSV export '{export.name}' regenerated successfully.")
 
     return redirect(
         "exports:fundingrequests_csv_detail",

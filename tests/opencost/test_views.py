@@ -179,6 +179,7 @@ def test__generate_with_home_institution__exports_its_item_and_reports_no_issues
 
     assert response.status_code == 302
     report = OpenCostReport.objects.get(title="Institution Report")
+    assert response["Location"] == reverse("opencost:detail", args=[report.id])
     assert report.publications.get().exported is True
     assert report.has_issues() is False
 
