@@ -18,7 +18,6 @@ from pydantic import (
     Field,
     PlainValidator,
     PositiveInt,
-    ValidationError,
     WithJsonSchema,
     model_validator,
 )
@@ -211,7 +210,7 @@ class PublicationImportDto(BaseModel):
     @model_validator(mode="after")
     def verify_eissn(self) -> Self:
         if self.kind == "article" and self.eissn == "":
-            raise ValidationError("EISSN must be provided for articles")
+            raise ValueError("EISSN must be provided for articles")
 
         return self
 

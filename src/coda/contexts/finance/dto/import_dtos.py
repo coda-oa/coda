@@ -17,7 +17,6 @@ from pydantic import (
     BaseModel,
     Field,
     PlainValidator,
-    ValidationError,
     WithJsonSchema,
     model_validator,
 )
@@ -65,13 +64,21 @@ class CommonPositionImportDto(BaseModel, ABC):
     )
     funding_source: str = Field(
         default="",
-        description="Single funding source name (backwards compatibility; prefer funding_assignments).",
+        description="Single funding source name (backwards compatibility); cannot be combined "
+        "with funding_assignments.",
     )
     external_id: str = Field(default="", description="Position reference ID from external systems.")
     funding_assignments: list[FundingAssignmentImportDto] = Field(
         default_factory=list,
-        description="Cost splitting across funding sources; total may not exceed the position cost.",
+        description="Cost splitting across funding sources; cannot be combined with "
+        "funding_source; total may not exceed the position cost.",
     )
+
+    @model_validator(mode="after")
+    def validate_funding_source_exclusivity(self) -> "CommonPositionImportDto":
+        if self.funding_source and self.funding_assignments:
+            raise ValueError("Use either funding_source or funding_assignments, not both.")
+        return self
 
 
 def _validate_request_id(value: str | None) -> str | None:
@@ -117,7 +124,7 @@ class PublicationPositionImportDto(CommonPositionImportDto):
     @model_validator(mode="after")
     def validate_request_id(self) -> "PublicationPositionImportDto":
         if not self.request_id and not self.legacy_request_id:
-            raise ValidationError("Either request_id or legacy_request_id must be provided.")
+            raise ValueError("Either request_id or legacy_request_id must be provided.")
 
         return self
 

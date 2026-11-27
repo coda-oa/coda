@@ -272,10 +272,8 @@ def _map_position_to_dto(
         _map_funding_assignment_to_dto(fa) for fa in position.funding_assignments.all()
     ]
 
-    # Get funding source from first assignment if exists
+    # Legacy funding_source is import-only; never emit it alongside funding_assignments.
     funding_source = ""
-    if funding_assignments:
-        funding_source = funding_assignments[0].name
 
     # Common fields
     common_kwargs = {
