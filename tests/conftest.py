@@ -107,14 +107,13 @@ def logged_in(client: Client) -> None:
     client.force_login(User.objects.create_user("testuser"))
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    for item in items:
-        if item.get_closest_marker("django_db") is not None:
-            item.add_marker(pytest.mark.usefixtures("populate_database"))
+@pytest.fixture(autouse=True, scope="session")
+def populate_database(request: pytest.FixtureRequest, django_db_blocker: DjangoDbBlocker) -> None:
+    """Load config fixtures once per session, but only when the run uses the database."""
+    if not any(item.get_closest_marker("django_db") is not None for item in request.session.items):
+        return
 
-
-@pytest.fixture(scope="session")
-def populate_database(django_db_setup: Any, django_db_blocker: DjangoDbBlocker) -> None:
+    request.getfixturevalue("django_db_setup")
     with django_db_blocker.unblock():
         fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))
         call_command("loaddata", *fixtures)
