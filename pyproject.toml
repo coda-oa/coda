@@ -21,7 +21,7 @@ dependencies = [
   "pydantic-extra-types>=2.10.2",
   "opencost>=0.3.0",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 
@@ -50,6 +50,7 @@ alltests = "pytest -vv -n auto"
 [tool.mypy]
 mypy_path = "$MYPY_CONFIG_FILE_DIR:$MYPY_CONFIG_FILE_DIR/src"
 packages = ["coda", "tests"]
+python_version = "3.13"
 
 strict = true
 check_untyped_defs = true
@@ -87,7 +88,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py315"
+target-version = "py313"
 
 force-exclude = true
 line-length = 100
