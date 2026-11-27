@@ -88,12 +88,12 @@ def parse_into_position(
             raise ValueError(f"Unknown position type: {p.type}.\n{p}")
 
     if p.funding_source:
-        position.assign_remaining(lookups.funding_sources.legacy[p.funding_source])
+        position.assign_remaining(lookups.funding_sources.assignments[("budget", p.funding_source)])
     else:
         position.assign_many(
             [
                 PartialAssignment(
-                    lookups.funding_sources.assignments[fa.name],
+                    lookups.funding_sources.assignments[(fa.type, fa.name)],
                     fa.amount,
                 )
                 for fa in p.funding_assignments

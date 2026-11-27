@@ -353,8 +353,8 @@ All positions share these common fields:
 - `type` (required): "publication", "contract", or "free"
 - `amount` (required): Cost amount (can be negative for credits)
 - `tax_rate`: Tax rate percentage (default: 19.00)
-- `funding_source`: Single funding source name (for backwards compatibility)
-- `funding_assignments`: Array of funding assignments for cost splitting
+- `funding_source`: Single budget name (backwards compatibility); use either this or `funding_assignments`
+- `funding_assignments`: Array of funding assignments for cost splitting; use either this or `funding_source`
 - `external_id`: External system position reference
 
 **Publication Position:**

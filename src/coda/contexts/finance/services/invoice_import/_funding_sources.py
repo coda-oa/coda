@@ -12,8 +12,7 @@ from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSour
 
 @dataclass
 class FundingSourceStaging:
-    legacy: dict[str, FundingSource]
-    assignments: dict[str, FundingSource]
+    assignments: dict[tuple[str, str], FundingSource]
 
     def commit(self, referenced: Iterable[FundingSource]) -> None:
         pending = [source for source in referenced if source.id is None]
@@ -41,18 +40,22 @@ def stage_funding_sources(invoice_dtos: Iterable[InvoiceImportDto]) -> FundingSo
     assignment_budget_names = {name for type_, name in assignment_sources if type_ == "budget"}
     institution_names = {name for type_, name in assignment_sources if type_ == "institution"}
 
-    budgets = _stage_budgets(legacy_names | assignment_budget_names)
+    budget_names = legacy_names | assignment_budget_names
+    budgets = _stage_budgets(budget_names)
     splits = _stage_institutions(institution_names)
 
-    assignments: dict[str, FundingSource] = {
-        name: budgets[name] for name in assignment_budget_names
+    assignments: dict[tuple[str, str], FundingSource] = {
+        _funding_source_key(budgets[name]): budgets[name] for name in budget_names
     }
-    assignments.update({name: splits[name] for name in institution_names if name in splits})
-
-    return FundingSourceStaging(
-        legacy={name: budgets[name] for name in legacy_names},
-        assignments=assignments,
+    assignments.update(
+        {
+            _funding_source_key(splits[name]): splits[name]
+            for name in institution_names
+            if name in splits
+        }
     )
+
+    return FundingSourceStaging(assignments=assignments)
 
 
 def _stage_budgets(names: set[str]) -> dict[str, FundingSource]:

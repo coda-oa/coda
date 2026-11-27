@@ -179,10 +179,7 @@ def test__multiple_invoices_with_different_currencies__import__each_keeps_correc
 def test__invoice_with_split_position_with_explicit_assignments__import_invoice__imports_with_splits(
     assignments: list[FundingAssignmentImportDto],
 ) -> None:
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = assignments
+    position_dto = split_free_position_dto(assignments, amount=Decimal(30))
     import_dto = invoice_import_list_dto([position_dto])
 
     _ = import_invoices_from_dto_json(import_dto)
@@ -211,13 +208,13 @@ def test__invoice_with_split_position_with_explicit_assignments__import_invoice_
 def test__invoice_with_split_position_with_implicit_assignments__import_invoice__imports_with_splits() -> (
     None
 ):
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = [
-        FundingAssignmentImportDto(type="budget", name="split 1"),
-        FundingAssignmentImportDto(type="budget", name="split 2"),
-    ]
+    position_dto = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(type="budget", name="split 1"),
+            FundingAssignmentImportDto(type="budget", name="split 2"),
+        ],
+        amount=Decimal(30),
+    )
     import_dto = invoice_import_list_dto([position_dto])
 
     _ = import_invoices_from_dto_json(import_dto)
@@ -248,13 +245,13 @@ def test__invoice_with_split_institution_position__import_invoices__creates_inst
 ):
     institution_1 = modelfactory.institution()
     institution_2 = modelfactory.institution()
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = [
-        FundingAssignmentImportDto(type="institution", name=institution_1.name),
-        FundingAssignmentImportDto(type="institution", name=institution_2.name),
-    ]
+    position_dto = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(type="institution", name=institution_1.name),
+            FundingAssignmentImportDto(type="institution", name=institution_2.name),
+        ],
+        amount=Decimal(30),
+    )
     import_dto = invoice_import_list_dto([position_dto])
 
     _ = import_invoices_from_dto_json(import_dto)
@@ -388,14 +385,33 @@ def test__publication_position_with_invalid_request_id__import_invoices__returns
 
 
 @pytest.mark.django_db
+def test__publication_position_without_request_id__import_invoices__returns_validation_error() -> (
+    None
+):
+    base_dto = publication_position_import_dto(create_funding_request())
+    invalid_request_ids: dict[str, None] = {"request_id": None, "legacy_request_id": None}
+    invalid_position = base_dto.model_copy(update=invalid_request_ids)
+    invoice = invoice_dto(number="INV-001").model_copy(update={"positions": [invalid_position]})
+
+    actual = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice]))
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert "INV-001" in actual.invoices_with_errors()
+    assert len(actual.errors) == 1
+    assert "Either request_id or legacy_request_id must be provided." in actual.errors[0].reasons[0]
+    assert len(repository.all()) == 0
+
+
+@pytest.mark.django_db
 def test__invalid_split_amount_in_invoice__import_invoices__returns_error_report() -> None:
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = [
-        FundingAssignmentImportDto(type="budget", name="split 1", amount=Decimal(20)),
-        FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(40)),
-    ]
+    position_dto = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(type="budget", name="split 1", amount=Decimal(20)),
+            FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(40)),
+        ],
+        amount=Decimal(30),
+    )
     import_dto = invoice_import_list_dto([position_dto])
     invoice_dto = import_dto.invoices[0]
 
@@ -410,12 +426,10 @@ def test__invalid_split_amount_in_invoice__import_invoices__returns_error_report
 def test__non_existing_institution_in_invoice_position__import_invoices__returns_error_report() -> (
     None
 ):
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = [
-        FundingAssignmentImportDto(type="institution", name="does not exist")
-    ]
+    position_dto = split_free_position_dto(
+        [FundingAssignmentImportDto(type="institution", name="does not exist")],
+        amount=Decimal(30),
+    )
     import_dto = invoice_import_list_dto([position_dto])
     invoice_dto = import_dto.invoices[0]
 
@@ -430,13 +444,13 @@ def test__non_existing_institution_in_invoice_position__import_invoices__returns
 def test__invoice_with_budget_and_non_existing_institution__import_invoices__does_not_create_budget() -> (
     None
 ):
-    position_dto = free_position_import_dto()
-    position_dto.funding_source = ""
-    position_dto.amount = Decimal(30)
-    position_dto.funding_assignments = [
-        FundingAssignmentImportDto(type="budget", name="valid budget"),
-        FundingAssignmentImportDto(type="institution", name="does not exist"),
-    ]
+    position_dto = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(type="budget", name="valid budget"),
+            FundingAssignmentImportDto(type="institution", name="does not exist"),
+        ],
+        amount=Decimal(30),
+    )
     import_dto = invoice_import_list_dto([position_dto])
 
     _ = import_invoices_from_dto_json(import_dto)
@@ -554,16 +568,15 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
 
 @pytest.mark.django_db
 def test__paid_invoice_with_unassigned_costs__is_not_imported() -> None:
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="test-budget",
-            amount=Decimal(50),
-        )
-    ]
+    position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="test-budget",
+                amount=Decimal(50),
+            )
+        ]
+    )
 
     invoice = invoice_dto(positions=[position])
     invoice.status = PaymentStatus.Paid
@@ -576,16 +589,15 @@ def test__paid_invoice_with_unassigned_costs__is_not_imported() -> None:
 
 @pytest.mark.django_db
 def test__paid_invoice_with_unassigned_costs__does_not_create_its_creditor_or_budget() -> None:
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="orphan-budget",
-            amount=Decimal(50),
-        )
-    ]
+    position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="orphan-budget",
+                amount=Decimal(50),
+            )
+        ]
+    )
 
     invoice = invoice_dto(number="INV-ORPHAN", positions=[position])
     invoice.creditor = "orphan-creditor"
@@ -604,16 +616,15 @@ def test__paid_invoice_with_unassigned_costs__does_not_create_its_creditor_or_bu
 @pytest.mark.django_db
 def test__paid_invoice_with_unassigned_costs__does_not_create_its_contract() -> None:
     contract_position = contract_position_import_dto()
-    unassigned_position = free_position_import_dto()
-    unassigned_position.amount = Decimal(100)
-    unassigned_position.funding_source = ""
-    unassigned_position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="orphan-budget",
-            amount=Decimal(50),
-        )
-    ]
+    unassigned_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="orphan-budget",
+                amount=Decimal(50),
+            )
+        ]
+    )
 
     invoice = invoice_dto(
         number="INV-ORPHAN-CONTRACT",
@@ -686,16 +697,15 @@ def test__paid_invoice_with_unassigned_costs__keeps_budget_needed_by_valid_invoi
 @pytest.mark.django_db
 def test__paid_invoice_with_unassigned_costs__keeps_contract_needed_by_valid_invoice() -> None:
     contract_position = contract_position_import_dto()
-    unassigned_position = free_position_import_dto()
-    unassigned_position.amount = Decimal(100)
-    unassigned_position.funding_source = ""
-    unassigned_position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="orphan-budget",
-            amount=Decimal(50),
-        )
-    ]
+    unassigned_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="orphan-budget",
+                amount=Decimal(50),
+            )
+        ]
+    )
 
     rejected = invoice_dto(
         number="INV-REJECTED",
@@ -725,16 +735,15 @@ def test__paid_invoice_with_unassigned_costs__keeps_pre_existing_entities() -> N
     contract_position = contract_position_import_dto()
     _ = create_contract_from(contract_position)
 
-    unassigned_position = free_position_import_dto()
-    unassigned_position.amount = Decimal(100)
-    unassigned_position.funding_source = ""
-    unassigned_position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="pre-existing-budget",
-            amount=Decimal(50),
-        )
-    ]
+    unassigned_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="pre-existing-budget",
+                amount=Decimal(50),
+            )
+        ]
+    )
 
     invoice = invoice_dto(
         number="INV-REJECTED",
@@ -765,59 +774,108 @@ def test__legacy_funding_source_name_matching_institution_source__is_imported_as
 
     results = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice]))
 
-    assert results.valid_invoices == 1
-    assert FundingSource.objects.filter(name="legacy-funding-source", type="budget").exists()
     imported = repository.first()
     assert imported is not None
     imported_position = next(iter(imported.positions))
     funding = next(iter(imported_position.funding_assignments())).funding_source
+    funding_source_model = FundingSource.objects.get(name="legacy-funding-source", type="budget")
+    assert results.valid_invoices == 1
     assert isinstance(funding, Budget)
+    assert funding.id == FundingSourceId(funding_source_model.pk)
 
 
 @pytest.mark.django_db
-def test__assignment_name_matching_budget_and_institution__resolves_institution_source() -> None:
-    _ = modelfactory.budget(name="collision-name")
+def test__position_with_funding_source_and_funding_assignments__import_invoices__rejects_invoice() -> (
+    None
+):
+    contradicting_assignments = {
+        "funding_source": "legacy-budget",
+        "funding_assignments": [
+            FundingAssignmentImportDto(type="budget", name="split-budget", amount=Decimal(100))
+        ],
+    }
+    invalid_position = free_position_import_dto().model_copy(update=contradicting_assignments)
+    invoice = invoice_dto(number="INV-CONFLICT")
+    invoice = invoice.model_copy(update={"positions": [invalid_position]})
+
+    report = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice]))
+
+    assert report.valid_invoices == 0
+    assert report.invalid_invoices == 1
+    assert len(report.errors) == 1
+    assert (
+        "Use either funding_source or funding_assignments, not both." in report.errors[0].reasons[0]
+    )
+    assert FundingSource.objects.count() == 0
+    assert Creditor.objects.count() == 0
+    assert len(repository.all()) == 0
+
+
+@pytest.mark.django_db
+def test__assignment_name_collision_between_budget_and_institution__resolves_by_declared_type() -> (
+    None
+):
     institution = modelfactory.institution()
     institution.name = "collision-name"
     institution.save(update_fields=["name"])
 
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="institution",
-            name="collision-name",
-            amount=Decimal(100),
-        )
-    ]
-    invoice = invoice_dto(number="INV-COLLISION", positions=[position])
+    institution_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="institution",
+                name="collision-name",
+                amount=Decimal(100),
+            )
+        ]
+    )
+
+    budget_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="collision-name",
+                amount=Decimal(100),
+            )
+        ]
+    )
+
+    invoice = invoice_dto(number="INV-COLLISION", positions=[institution_position, budget_position])
 
     results = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice]))
 
     assert results.valid_invoices == 1
-    assert FundingSource.objects.filter(name="collision-name", type="budget").exists()
-    assert FundingSource.objects.filter(name="collision-name", type="institution").exists()
     imported = repository.first()
     assert imported is not None
-    imported_position = next(iter(imported.positions))
-    funding = next(iter(imported_position.funding_assignments())).funding_source
-    assert isinstance(funding, SplitSource)
-    assert funding.institution == InstitutionId(institution.pk)
+    funding_by_kind = {
+        assignment.funding_source.kind(): assignment.funding_source
+        for position in imported.positions
+        for assignment in position.funding_assignments()
+        if assignment.funding_source is not None
+    }
+    institution_funding = funding_by_kind["institution"]
+    budget_funding = funding_by_kind["budget"]
+    assert isinstance(institution_funding, SplitSource)
+    assert institution_funding.institution == InstitutionId(institution.pk)
+    assert isinstance(budget_funding, Budget)
+    assert budget_funding.name == "collision-name"
+
+    institution_source = FundingSource.objects.get(name="collision-name", type="institution")
+    budget_source = FundingSource.objects.get(name="collision-name", type="budget")
+    assert institution_funding.id == FundingSourceId(institution_source.pk)
+    assert budget_funding.id == FundingSourceId(budget_source.pk)
 
 
 @pytest.mark.django_db
 def test__invoice_with_over_allocated_assignment__does_not_create_creditor_or_budget() -> None:
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="orphan-budget",
-            amount=Decimal(150),
-        )
-    ]
+    position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="orphan-budget",
+                amount=Decimal(150),
+            )
+        ]
+    )
 
     invoice = invoice_dto(number="INV-INVALID-SPLIT", positions=[position])
     invoice.creditor = "orphan-creditor"
@@ -834,16 +892,15 @@ def test__invoice_with_over_allocated_assignment__does_not_create_creditor_or_bu
 
 @pytest.mark.django_db
 def test__identical_invoices_with_invalid_position__report_one_error_each() -> None:
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name="orphan-budget",
-            amount=Decimal(150),
-        )
-    ]
+    position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name="orphan-budget",
+                amount=Decimal(150),
+            )
+        ]
+    )
     invoice = invoice_dto(number="INV-DUPLICATE", positions=[position])
 
     results = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invoice, invoice]))
@@ -857,16 +914,15 @@ def test__identical_invoices_with_invalid_position__report_one_error_each() -> N
 @pytest.mark.django_db
 def test__invoice_with_two_reasons__counts_as_one_invalid_invoice() -> None:
     publication_position = non_existing_publication_position_import_dto()
-    institution_position = free_position_import_dto()
-    institution_position.amount = Decimal(100)
-    institution_position.funding_source = ""
-    institution_position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="institution",
-            name="non-existing-institution",
-            amount=Decimal(100),
-        )
-    ]
+    institution_position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="institution",
+                name="non-existing-institution",
+                amount=Decimal(100),
+            )
+        ]
+    )
 
     invoice = invoice_dto(
         number="INV-MULTI",
@@ -1001,6 +1057,17 @@ def free_position_import_dto() -> FreePositionImportDto:
     )
 
 
+def split_free_position_dto(
+    assignments: list[FundingAssignmentImportDto],
+    amount: Decimal = Decimal(100),
+) -> FreePositionImportDto:
+    position = free_position_import_dto()
+    position.amount = amount
+    position.funding_source = ""
+    position.funding_assignments = assignments
+    return position
+
+
 def invoice_import_list_dto(positions: list[CommonPositionImportDto]) -> InvoiceListImportDto:
     return InvoiceListImportDto(invoices=[invoice_dto(positions=positions)])
 
@@ -1020,16 +1087,15 @@ def invoice_with_budget_assignment(
     assigned_amount: Decimal,
     status: PaymentStatus = PaymentStatus.Unpaid,
 ) -> InvoiceImportDto:
-    position = free_position_import_dto()
-    position.amount = Decimal(100)
-    position.funding_source = ""
-    position.funding_assignments = [
-        FundingAssignmentImportDto(
-            type="budget",
-            name=budget,
-            amount=assigned_amount,
-        )
-    ]
+    position = split_free_position_dto(
+        [
+            FundingAssignmentImportDto(
+                type="budget",
+                name=budget,
+                amount=assigned_amount,
+            )
+        ]
+    )
 
     invoice = invoice_dto(number=number, positions=[position])
     invoice.creditor = creditor
