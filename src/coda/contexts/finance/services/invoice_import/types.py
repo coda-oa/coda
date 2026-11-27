@@ -2,10 +2,13 @@
 
 from dataclasses import dataclass
 
+from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
+from coda.contexts.finance.services.invoice_import._funding_sources import (
+    FundingSourceStaging,
+)
 from coda.domain import errors
 from coda.domain.contract import Contract
-from coda.domain.finance.funding_sources import FundingSource
-from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.publication import PublicationId
 
 
@@ -39,8 +42,31 @@ class InvoiceImportReport:
 class ImportLookups:
     """Unified lookup structure for invoice import."""
 
-    creditor_lookup: dict[str, CreditorId]
-    funding_sources_lookup: dict[str, FundingSourceId]
+    funding_sources: FundingSourceStaging
     request_id_lookup: dict[str, PublicationId]
     contract_lookup: dict[str, Contract]
-    funding_assignments_lookup: dict[str, FundingSource]
+
+
+@dataclass(frozen=True)
+class ParsedInvoice:
+    invoice_dto: InvoiceImportDto
+    positions: tuple[Position, ...]
+
+
+@dataclass(frozen=True)
+class InvoiceImportFailure:
+    invoice_number: str
+    errors: tuple[InvoiceProcessingError, ...]
+
+
+type InvoiceOutcome = ParsedInvoice | InvoiceImportFailure
+
+
+@dataclass(frozen=True)
+class InvoiceImportPlan:
+    invoices: tuple[ParsedInvoice, ...]
+    lookups: ImportLookups
+    failures: tuple[InvoiceImportFailure, ...]
+
+    def errors(self) -> list[InvoiceProcessingError]:
+        return [error for failure in self.failures for error in failure.errors]

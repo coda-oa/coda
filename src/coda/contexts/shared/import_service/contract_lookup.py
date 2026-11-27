@@ -13,53 +13,45 @@ class ContractReference(Protocol):
     year: int
 
 
-def fetch_or_create_contracts(contracts: Iterable[ContractReference]) -> dict[str, Contract]:
-    """
-    Fetches all existing contracts by name and creates any that are missing.
-    Returns a mapping of contract name to Contract domain object.
+def contract_periods(contracts: Iterable[ContractReference]) -> dict[str, DateRange]:
+    """Compute the full-year period per contract name from all references."""
+    periods: dict[str, tuple[int, int]] = {}
+    for contract in contracts:
+        low, high = periods.get(contract.name, (contract.year, contract.year))
+        periods[contract.name] = (min(contract.year, low), max(contract.year, high))
 
-    Note: The input contracts iterable is eagerly realized as a list to avoid
-    generator exhaustion in cases where the input is a generator. Multiple passes
-    over this collection are required, so collection is necessary.
-    """
+    return {
+        name: DateRange.create(
+            start=datetime.date(low, 1, 1),
+            end=datetime.date(high, 12, 31),
+        )
+        for name, (low, high) in periods.items()
+    }
+
+
+def find_contracts(names: Iterable[str]) -> dict[str, Contract]:
+    """Resolve existing contracts by name; the first match wins."""
+    lookup: dict[str, Contract] = {}
+    for contract in contract_repository.find_all_by_names(names):
+        lookup.setdefault(str(contract.name), contract)
+
+    return lookup
+
+
+def fetch_or_create_contracts(contracts: Iterable[ContractReference]) -> dict[str, Contract]:
+    """Fetch existing contracts and create missing ones, returning a name lookup."""
     contracts = list(contracts)
     if not contracts:
         return {}
 
-    contract_names = {c.name for c in contracts}
-
-    contract_periods: dict[str, tuple[int, int]] = {}
-    for c in contracts:
-        if c.name not in contract_periods:
-            contract_periods[c.name] = (c.year, c.year)
-        else:
-            current = contract_periods[c.name]
-            contract_periods[c.name] = (min(c.year, current[0]), max(c.year, current[1]))
-
-    existing_contracts = contract_repository.find_all_by_names(contract_names)
-
-    lookup: dict[str, Contract] = {}
-    for domain_obj in existing_contracts:
-        name_str = str(domain_obj.name)
-        if name_str not in lookup:
-            lookup[name_str] = domain_obj
-
-    missing_names = contract_names - set(lookup.keys())
-
-    if missing_names:
-        new_contracts = [
-            Contract.new(
-                name=NonEmptyStr(name),
-                period=DateRange.create(
-                    start=datetime.date(contract_periods[name][0], 1, 1),
-                    end=datetime.date(contract_periods[name][1], 12, 31),
-                ),
-            )
-            for name in missing_names
-        ]
-        created_contracts = contract_repository.create_many(new_contracts)
-        for contract in created_contracts:
-            name_str = str(contract.name)
-            lookup[name_str] = contract
+    periods = contract_periods(contracts)
+    lookup = find_contracts(periods)
+    missing = [
+        Contract.new(name=NonEmptyStr(name), period=period)
+        for name, period in periods.items()
+        if name not in lookup
+    ]
+    for created in contract_repository.create_many(missing):
+        lookup[str(created.name)] = created
 
     return lookup
