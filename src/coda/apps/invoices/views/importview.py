@@ -7,7 +7,11 @@ from django.views.decorators.http import require_http_methods
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.formbase import JsonUploadForm
-from coda.contexts.finance.services.invoice_import import import_invoices, InvoiceImportReport
+from coda.contexts.finance.services.invoice_import import (
+    InvoiceImportDataError,
+    InvoiceImportReport,
+    import_invoices,
+)
 
 
 @login_required
@@ -23,6 +27,8 @@ def import_invoices_view(request: HttpRequest) -> HttpResponse:
     try:
         report = import_invoices(import_file)
         import_errors = _handle_import_report(request, report)
+    except InvoiceImportDataError as e:
+        import_errors = e.reasons
     except pydantic.ValidationError as e:
         import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]
 
