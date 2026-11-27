@@ -1,6 +1,6 @@
 import pytest
 
-from coda.domain.institution.links import Isni, Ringgold, Ror
+from coda.domain.institution.links import Isni, Ringgold, Ror, detect_ror, parse_ror
 
 
 def test__can_create_valid_ror() -> None:
@@ -31,9 +31,10 @@ def test__ror_with_invalid_checksum__raises_error() -> None:
         "https://ror.org/",
         "https://ror.org/123",
         "https://ror.org/0123456789",
-        "http://ror.org/02mhbdp94",
-        "ror.org/02mhbdp94",
+        "https://ror.org/http://ror.org/02mhbdp94",
+        "https://ror.org/02mhbdp94/extra",
         "02mhbdp94",
+        "ftp://ror.org/02mhbdp94",
         "https://ror.com/02mhbdp94",
     ],
 )
@@ -53,6 +54,74 @@ def test__invalid_ror_formats__raise_error(invalid_ror: str) -> None:
 def test_valid_ror_formats(valid_ror: str) -> None:
     sut = Ror(valid_ror)
     assert str(sut) == valid_ror
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://ror.org/02mhbdp94",
+        "ror.org/02mhbdp94",
+        "HTTP://ROR.ORG/02mhbdp94",
+        "HTTPS://ROR.ORG/02MHBDp94",
+        " https://ror.org/02mhbdp94/ ",
+    ],
+)
+def test__ror_with_alternate_scheme__canonicalized_to_https(value: str) -> None:
+    sut = Ror(value)
+    assert str(sut) == "https://ror.org/02mhbdp94"
+    assert sut.value() == "https://ror.org/02mhbdp94"
+    assert sut == Ror("https://ror.org/02mhbdp94")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("https://ror.org/02mhbdp94", "https://ror.org/02mhbdp94"),
+        (" https://ror.org/02MHBDp94/ ", "https://ror.org/02mhbdp94"),
+        ("02mhbdp94", "https://ror.org/02mhbdp94"),
+        ("02MHBDp94/", "https://ror.org/02mhbdp94"),
+        ("http://ror.org/02mhbdp94", "https://ror.org/02mhbdp94"),
+        ("ror.org/02MHBDp94", "https://ror.org/02mhbdp94"),
+        ("HTTP://ROR.ORG/02mhbdp94/", "https://ror.org/02mhbdp94"),
+    ],
+)
+def test__parse_ror__returns_canonical_url(value: str, expected: str) -> None:
+    assert parse_ror(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "https://ror.org/",
+        "https://ror.org/not-a-ror",
+        "ftp://ror.org/02mhbdp94",
+        "02mhbdp95",
+    ],
+)
+def test__parse_ror__rejects_invalid_values(value: str) -> None:
+    assert parse_ror(value) is None
+
+
+def test__detect_ror__detects_bare_non_numeric_id() -> None:
+    assert detect_ror("02mhbdp94") == "https://ror.org/02mhbdp94"
+
+
+def test__detect_ror__leaves_bare_numeric_id_generic() -> None:
+    assert parse_ror("000000195") == "https://ror.org/000000195"
+    assert detect_ror("000000195") is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://ror.org/000000195",
+        "http://ror.org/000000195",
+        "ror.org/000000195",
+    ],
+)
+def test__detect_ror__detects_numeric_id_in_url_form(value: str) -> None:
+    assert detect_ror(value) == "https://ror.org/000000195"
 
 
 def test_can_create_valid_isni() -> None:

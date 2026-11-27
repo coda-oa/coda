@@ -11,7 +11,7 @@ You can access the Contracts page from the navigation menu. The overview display
 - Active status
 - Action buttons for viewing details and editing
 
-You can search for contracts by name or by any of their link identifiers (ESAC, OAI, EZB). Prefix a term with `name:`, `esac:`, `oai:` or `ezb:` to restrict it to that field; an unprefixed term matches the name and every link value regardless of type.
+You can search for contracts by name or by any of their link identifiers (ESAC, OAI, EZB). Prefix a term with `name:`, `esac:`, `oai:` or `ezb:` to restrict it to that field; an unprefixed term matches the name and every link value regardless of type. Different prefixes such as `esac:X oai:Y` may match different link rows of the same contract. Contracts are listed alphabetically by name.
 
 ![](/_static/img/contracts_overview.png)
 

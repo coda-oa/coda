@@ -16,6 +16,7 @@ from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
+from coda.apps.fundingrequests.funders_search import FUNDER_SEARCH_FIELD_ALIASES
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
     FundingOrganization,
@@ -32,6 +33,7 @@ from coda.apps.fundingrequests.services.funder_services import (
     search_organizations_for_merge,
     update_funder_from_ror,
 )
+from coda.apps.search import SearchFieldAliases
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -52,7 +54,8 @@ def get_ror_client() -> RORClient:
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
 class FundingOrganizationListView(
-    LoginRequiredMixin, SimpleSearchEntityListView[FundingOrganization]
+    LoginRequiredMixin,
+    SimpleSearchEntityListView[FundingOrganization, FundingOrganization],
 ):
     model = FundingOrganization
     entity_name = "Funding Organizations"
@@ -60,6 +63,11 @@ class FundingOrganizationListView(
     entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
     use_generic_entity_filter = True
     entity_filter_extra_template = "partials/archived_filter_checkbox.html"
+    entity_filter_helper_template = "partials/search_prefix_helper.html"
+    search_fields: ClassVar[list[str]] = ["name", "links__value"]
+    search_field_aliases: ClassVar[SearchFieldAliases] = FUNDER_SEARCH_FIELD_ALIASES
+    search_distinct: ClassVar[bool] = True
+    ordering: ClassVar[list[str]] = ["name"]
 
     def get_base_queryset(self, request: HttpRequest) -> QuerySet[FundingOrganization]:
         include_archived = request.GET.get("include_archived") == "on"

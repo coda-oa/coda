@@ -12,7 +12,7 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.invoices.models import FundingSource, Invoice
 from coda.apps.preferences.models import GlobalPreferences
-from coda.domain.institution.links import create_link
+from coda.domain.institution.links import create_link, parse_ror
 
 # Constants
 BULK_OPERATION_BATCH_SIZE = 100
@@ -482,6 +482,9 @@ def _try_match_by_identifier(
     if not identifier_str:
         return None
 
+    if identifier_type == "ROR":
+        identifier_str = parse_ror(identifier_str) or identifier_str
+
     lookup_key = identifier_type.lower()
     return lookups[lookup_key].get(identifier_str)
 
@@ -572,7 +575,8 @@ def _collect_values_from_csv(df: pl.DataFrame) -> dict[str, set[str]]:
             values["internal_ids"].add(str(internal_id).strip())
 
         if ror := row.get("ROR"):
-            values["ror_values"].add(str(ror).strip())
+            ror_value = str(ror).strip()
+            values["ror_values"].add(parse_ror(ror_value) or ror_value)
 
         if isni := row.get("ISNI"):
             values["isni_values"].add(str(isni).strip())

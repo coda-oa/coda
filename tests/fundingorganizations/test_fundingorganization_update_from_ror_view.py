@@ -141,7 +141,7 @@ class TestUpdateFromRorNoMatch:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
+@pytest.mark.usefixtures("logged_in", "inject_ror_client")
 class TestUpdateFromRorUpToDate:
     """ROR returns a record but the stored data already matches it."""
 

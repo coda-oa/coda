@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import build_search_filter
+from coda.apps.search import SearchFieldAliases, build_search_filter
 from coda.apps.version import (
     check_update as check_version_update,
 )
@@ -92,14 +92,16 @@ class EntityListView(Generic[EntityType], TemplateView):
 ModelType = TypeVar("ModelType", bound=Model)
 
 
-class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
+class SimpleSearchEntityListView(EntityListView[EntityType], Generic[ModelType, EntityType]):
     model: type[ModelType]
-    search_fields: list[str] = ["name"]
-    ordering: list[str] = []
+    search_fields: ClassVar[list[str]] = ["name"]
+    search_field_aliases: ClassVar[SearchFieldAliases | None] = None
+    search_distinct: ClassVar[bool] = False
+    ordering: ClassVar[list[str]] = []
 
     def get_base_queryset(self, request: HttpRequest) -> QuerySet[ModelType]:
         """The queryset searched and listed before any per-view filtering."""
-        return self.model.objects.all()  # type: ignore[attr-defined]
+        return self.model.objects.all()  # type: ignore[attr-defined,no-any-return]
 
     def filter_queryset(
         self, queryset: QuerySet[ModelType], request: HttpRequest
@@ -107,17 +109,30 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         """View-specific filtering (checkbox switches, annotations, prefetching)."""
         return queryset
 
-    def map_entity(self, entity: ModelType) -> ModelType:
-        return entity
+    def map_entity(self, entity: ModelType) -> EntityType:
+        return cast(EntityType, entity)
 
-    def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
+    def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         search_term = request.GET.get("query", "").strip()
         queryset = self.get_base_queryset(request)
 
         if search_term:
-            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
+            queryset = queryset.filter(
+                build_search_filter(
+                    search_term,
+                    *self.search_fields,
+                    field_aliases=self.search_field_aliases,
+                )
+            )
+            if self.search_distinct:
+                queryset = queryset.distinct()
 
         queryset = self.filter_queryset(queryset, request)
 
         order_by = self.ordering or self.search_fields
-        return DomainQuerySet(queryset.order_by(*order_by), self.map_entity)
+        return DomainQuerySet[ModelType, Any](queryset.order_by(*order_by), self.map_entity)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {
+            "search_prefixes": ", ".join(self.search_field_aliases or {}),
+        }

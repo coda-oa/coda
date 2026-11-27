@@ -55,7 +55,8 @@ CSV_EXPORT_FORM_CONFIG = ExportFormConfig(
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
 class FundingRequestCSVExportListView(
-    LoginRequiredMixin, SimpleSearchEntityListView[FundingRequestCSVExport]
+    LoginRequiredMixin,
+    SimpleSearchEntityListView[FundingRequestCSVExport, FundingRequestCSVExport],
 ):
     model = FundingRequestCSVExport
     context_object_name = "exports"

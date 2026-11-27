@@ -1,10 +1,11 @@
 import functools
-from collections.abc import Callable, Sequence
-from typing import Any, cast
+from collections.abc import Callable
+from typing import Any, ClassVar, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,35 +18,36 @@ from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
-from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.search import build_search_filter
-from coda.apps.views import EntityListView
+from coda.apps.search import SearchFieldAliases
+from coda.apps.views import SimpleSearchEntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
 
 
 @breadcrumb("Contracts")
-class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
+class ContractListView(LoginRequiredMixin, SimpleSearchEntityListView[ContractModel, Contract]):
+    model = ContractModel
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
     use_generic_entity_filter = True
     entity_filter_extra_template = "contracts/contract_inactive_checkbox.html"
-    entity_filter_helper_template = "contracts/partials/search_helper.html"
+    entity_filter_helper_template = "partials/search_prefix_helper.html"
+    search_fields: ClassVar[list[str]] = ["name", "links__value"]
+    search_field_aliases: ClassVar[SearchFieldAliases] = CONTRACT_SEARCH_FIELD_ALIASES
+    search_distinct: ClassVar[bool] = True
+    ordering: ClassVar[list[str]] = ["name"]
 
-    def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
-        search_term = request.GET.get("query", "").strip()
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[ContractModel]:
         contracts = ContractModel.objects.all()
-        if search_term:
-            contracts = contracts.filter(
-                build_search_filter(search_term, field_aliases=CONTRACT_SEARCH_FIELD_ALIASES)
-            ).distinct()
         if request.GET.get("include_inactive") != "on":
             contracts = contracts.active()
+        return contracts
 
-        return DomainQuerySet(contracts, ContractDomainMapper.map)
+    def map_entity(self, entity: ContractModel) -> Contract:
+        return ContractDomainMapper.map(entity)
 
 
 @login_required
