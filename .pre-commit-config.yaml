@@ -30,11 +30,7 @@ repos:
     rev: v3.22.0
     hooks:
       - id: pyupgrade
-        # --py315-plus (pyupgrade v3.22.0) rewrites chain.from_iterable(genexp) into a
-        # starred genexp with scrambled clause order -> NameError at runtime
-        # (e.g. src/coda/apps/opencost/report_service.py). Re-enable only after
-        # upstream fixes the rewrite.
-        args: [--py314-plus]
+        args: [--py313-plus]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: 'v2.4.1'
