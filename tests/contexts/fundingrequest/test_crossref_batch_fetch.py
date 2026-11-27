@@ -81,9 +81,9 @@ def _make_item(doi: str, title: str = "Test Title") -> dict[str, Any]:
 def assert_all_found(result: Mapping[str, object], dois: list[Doi]) -> None:
     """Every requested DOI resolved to ExternalPublicationMetadata, not an error."""
     for doi in dois:
-        assert isinstance(
-            result[str(doi)], ExternalPublicationMetadata
-        ), f"{doi} should be metadata"
+        assert isinstance(result[str(doi)], ExternalPublicationMetadata), (
+            f"{doi} should be metadata"
+        )
 
 
 def assert_not_found(result: Mapping[str, object], dois: list[Doi]) -> None:

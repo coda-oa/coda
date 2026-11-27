@@ -21,6 +21,18 @@ def test__redo_button__prefills_processing_status(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__opencost_generate_form__is_opened__does_not_offer_decimal_separator_choice(
+    client: Client,
+) -> None:
+    response = get_opencost_generate_response(client)
+
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert 'name="decimal_separator"' not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__redo_button__prefills_publication_states(client: Client) -> None:
     response = get_opencost_generate_response(client, publication_states=["Published", "Submitted"])
     assert_current_filters(response, publication_states=["Published", "Submitted"])

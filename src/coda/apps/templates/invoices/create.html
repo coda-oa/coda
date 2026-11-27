@@ -1,12 +1,12 @@
 {% extends "base.html" %}
+{% block page_title %}{{ mode_name }} Invoice{% endblock page_title %}
 {% block content %}
-    <div class="flex justify-between align-center my-2">
-        <h1 class="my-2">{{ mode_name }} Invoice</h1>
-    </div>
     <form id="invoice-form" method="post">
         {% csrf_token %}
         <article>
-            <h2>Invoice Head</h2>
+            <header>
+                <h2 class="my-0">Invoice Head</h2>
+            </header>
             <table>
                 <tbody>
                     {% for field in form %}

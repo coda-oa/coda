@@ -1,15 +1,18 @@
 from dataclasses import asdict
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import models
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
+from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.create import build_position_errors, try_parse_invoice
 from coda.apps.invoices.views.position_context import (
     DefaultContext as _DefaultContext,
@@ -23,9 +26,6 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
-from django.db import models
-
-from coda.apps.invoices.models import Creditor
 
 invoice_breadcrumb_title = generate_dynamic_title(
     model_name="Edit Invoice",
@@ -37,6 +37,7 @@ invoice_breadcrumb_title = generate_dynamic_title(
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb(invoice_breadcrumb_title, parent_url_name="invoices:detail", preserve_filters=True)
 def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
@@ -58,6 +59,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     if parsed_invoice:
         parsed_invoice.id = invoice.id
         invoice_service.save(parsed_invoice)
+        messages.success(request, f"Invoice '{parsed_invoice.number}' updated successfully.")
         return redirect("invoices:detail", pk=invoice.id)
 
     if errors:

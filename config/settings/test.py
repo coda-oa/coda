@@ -4,7 +4,7 @@ With these settings, tests run faster.
 
 from pathlib import Path
 
-from .base import *  # noqa
+from .base import *
 from .base import env
 
 # CODA SETTINGS
@@ -29,13 +29,13 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # EMAIL
 # ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+# https://docs.djangoproject.com/en/dev/ref/settings/#mailers
+MAILERS["default"]["BACKEND"] = "django.core.mail.backends.locmem.EmailBackend"
 
 # DEBUGGING FOR TEMPLATES
 # ------------------------------------------------------------------------------
-TEMPLATES[0]["DIRS"].append(Path() / "tests" / "templates")  # type: ignore # noqa: F405
-TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore # noqa: F405
+TEMPLATES[0]["DIRS"].append(Path() / "tests" / "templates")  # type: ignore
+TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore
 
 # MEDIA
 # ------------------------------------------------------------------------------

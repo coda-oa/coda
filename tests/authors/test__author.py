@@ -28,6 +28,12 @@ JOSIAHS_DATA = Author.new(
 )
 
 
+def test__author_domain_mapper__prefetch__orders_authors_by_id() -> None:
+    qs = AuthorDomainMapper.prefetch(AuthorModel.objects.all())
+
+    assert qs.query.order_by == ("id",)
+
+
 @pytest.mark.django_db
 def test__can_create_author_with_empty_orcid() -> None:
     no_orcid = Author.new(JOSIAHS_DATA.name, JOSIAHS_DATA.email, orcid=None)
@@ -35,6 +41,25 @@ def test__can_create_author_with_empty_orcid() -> None:
 
     actual = get_by_id(new_id)
     assert_author_eq(actual, no_orcid)
+
+
+@pytest.mark.django_db
+def test__author_without_person_id__round_trips() -> None:
+    """The identifier FK is nullable (a request may never have recorded an
+    ORCID for this author); the mapper must treat a missing PersonId as
+    orcid=None, not crash on it."""
+    from coda.apps.authors.models import Author as AuthorModel
+
+    model = AuthorModel.objects.create(
+        name="No Identifier", email="n.i@example.com", roles="CO_AUTHOR"
+    )
+
+    actual = AuthorDomainMapper.map(
+        AuthorDomainMapper.prefetch(AuthorModel.objects.all()).get(pk=model.pk)
+    )
+
+    assert actual.name == NonEmptyStr("No Identifier")
+    assert actual.orcid is None
 
 
 @pytest.mark.django_db

@@ -1,11 +1,16 @@
 {% load static %}
+{% load nav_tags %}
 {% url link as url %}
+{% nav_is_active path section|default:url match|default:"prefix" as is_active %}
 <a href="{{ url }}"
-   class="contrast {% if request.path == url %}active{% endif %}">
-    <img src="{% static image %}"
-         alt="nav link"
-         class="nav-link-icon"
-         width="auto"
-         height="auto">
+   class="contrast{% if is_active %} active{% endif %}"
+   {% if is_active %}aria-current="page"{% endif %}>
+    {% if image %}
+        <img src="{% static image %}"
+             alt=""
+             class="nav-link-icon"
+             width="auto"
+             height="auto">
+    {% endif %}
     <span>{{ text }}</span>
 </a>

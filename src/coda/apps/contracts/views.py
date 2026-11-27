@@ -1,9 +1,11 @@
 import functools
-from collections.abc import Callable, Sequence
-from typing import Any, cast
+from collections.abc import Callable
+from typing import Any, ClassVar, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -11,33 +13,41 @@ from django.views.decorators.http import require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
-from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.forms import ContractForm, ContractLinkForm, EntityFormset
-from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
-from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.contracts.mappers import ContractDomainMapper
+from coda.apps.contracts.models import Contract as ContractModel
+from coda.apps.contracts.models import ContractLink, ContractLinkType
+from coda.apps.contracts.search import CONTRACT_SEARCH_FIELD_ALIASES
 from coda.apps.journals.models import Journal
-from coda.apps.search import words_icontains
 from coda.apps.publishers.models import Publisher
-from coda.apps.views import EntityListView
+from coda.apps.search import SearchFieldAliases
+from coda.apps.views import SimpleSearchEntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
 
 
 @breadcrumb("Contracts")
-class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
+class ContractListView(LoginRequiredMixin, SimpleSearchEntityListView[ContractModel, Contract]):
+    model = ContractModel
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
+    entity_filter_extra_template = "contracts/contract_inactive_checkbox.html"
+    entity_filter_helper_template = "partials/search_prefix_helper.html"
+    search_fields: ClassVar[list[str]] = ["name", "links__value"]
+    search_field_aliases: ClassVar[SearchFieldAliases] = CONTRACT_SEARCH_FIELD_ALIASES
+    search_distinct: ClassVar[bool] = True
+    ordering: ClassVar[list[str]] = ["name"]
 
-    def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
-        search_term = request.GET.get("query", "").strip()
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[ContractModel]:
         contracts = ContractModel.objects.all()
-        if search_term:
-            contracts = contracts.filter(words_icontains(search_term, "name"))
+        if request.GET.get("include_inactive") != "on":
+            contracts = contracts.active()
+        return contracts
 
-        return DomainQuerySet(ContractDomainMapper.prefetch(contracts), ContractDomainMapper.map)
+    def map_entity(self, entity: ContractModel) -> Contract:
+        return ContractDomainMapper.map(entity)
 
 
 @login_required
@@ -72,7 +82,14 @@ def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpRespo
         save_contract = create_contract
 
     if request.method == "POST":
-        response = _handle_contract_post(request, save_contract, context)
+        success_message = (
+            "Contract created successfully."
+            if pk is None
+            else "Contract '{name}' updated successfully."
+        )
+        response = _handle_contract_post(
+            request, save_contract, context, success_message=success_message
+        )
         if response:
             return response
 
@@ -83,6 +100,8 @@ def _handle_contract_post(
     request: HttpRequest,
     save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId],
     context: dict[str, Any],
+    *,
+    success_message: str | None = None,
 ) -> HttpResponse | None:
     contract_form = ContractForm(request.POST)
     publisher_formset = EntityFormset(request.POST, prefix="publishers")
@@ -99,6 +118,8 @@ def _handle_contract_post(
     if all(form.is_valid() for form in forms) and links_valid:
         contract_id = save_contract(contract_form, publisher_formset, journal_formset)
         _save_contract_links(contract_id, link_forms)
+        if success_message:
+            messages.success(request, success_message.format(name=contract_form.get_name()))
         return redirect("contracts:detail", contract_id)
 
     context["links"] = get_links_with_errors(request)

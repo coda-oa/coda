@@ -15,6 +15,8 @@ from coda.domain.date import DateRange
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.vocabulary import VocabularyConcept
 from tests import domainfactory
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Currency, Money
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
@@ -89,6 +91,34 @@ def test__updating_fundingrequest_extra_information__updates_funding_request_and
     actual = repository.get_by_id(fr_id)
     assert_fundingrequest_eq(actual, expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
+
+
+@pytest.mark.django_db
+@UseWizardSubmitter.singular(update_extra_information_wizard)
+def test__updating_fundingrequest_reviewer_remarks__updates_review_remarks_only(
+    client: Client,
+    get_builder: BuilderFactory[TDataBuilder],
+    get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
+) -> None:
+    builder = get_builder()
+    fr_id = repository.create(builder.expected)
+    repository.save_review(
+        Review(
+            fr_id,
+            Money(100, Currency.GBP),
+            remarks="initial remarks",
+            result=ReviewResult.Approved,
+        )
+    )
+
+    builder = builder.with_new_request_remarks().with_new_reviewer_remarks()
+    wizard = get_wizard(client, fr_id, builder)
+    wizard.submit_all()
+
+    review = repository.get_review(fr_id)
+    assert review.remarks == builder.reviewer_remarks
+    assert review.decided_funding == Money(100, Currency.GBP)
+    assert review.result == ReviewResult.Approved
 
 
 @pytest.mark.django_db
@@ -320,9 +350,9 @@ def test__existing_request_with_outdated_contract_year__update_publication_meta_
     from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 
     if isinstance(updated_builder, ArticleRequestDataBuilder):
-        updated_builder = updated_builder.with_journal(fr_before.publication.journal)  # type: ignore
+        updated_builder = updated_builder.with_journal(fr_before.publication.journal)
     elif isinstance(updated_builder, MonographRequestDataBuilder):
-        updated_builder = updated_builder.with_publisher(fr_before.publication.publisher)  # type: ignore
+        updated_builder = updated_builder.with_publisher(fr_before.publication.publisher)
 
     wizard = get_wizard(client, fr_id, updated_builder)
     wizard.step_iterator = complete_early_iterator(until=0)

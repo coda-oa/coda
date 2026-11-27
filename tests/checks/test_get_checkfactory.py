@@ -15,7 +15,7 @@ def test__get_checkfactory__loads_checkfactory_from_settings() -> None:
 
 @pytest.fixture
 def production_checkfactory(settings: Settings) -> Generator[None]:
-    settings.CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"  # type: ignore
+    settings.CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
     yield
 
 

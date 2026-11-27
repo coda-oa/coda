@@ -1,0 +1,47 @@
+<data xmlns="https://opencost.de">
+  <contract>
+    <contract_name>Fixture Contract Gamma</contract_name>
+    <institution>
+      <name>
+        <value>Fixture Home Institution Two</value>
+        <type>full</type>
+      </name>
+    </institution>
+    <participation>
+      <to>2026-12-31</to>
+      <from>2026-01-01</from>
+    </participation>
+    <primary_identifier>
+      <value>esac-fixture-gamma-003</value>
+      <type>ESAC</type>
+    </primary_identifier>
+    <cost_data>
+      <invoice_group>
+        <group_id>8b498d39-7537-4e65-b6e1-6018b970caf8</group_id>
+        <invoices_period>
+          <from>2026-01-01</from>
+          <to>2026-12-31</to>
+        </invoices_period>
+        <invoice>
+          <amount_invoice>
+            <currency>EUR</currency>
+            <amount>800.00</amount>
+          </amount_invoice>
+          <invoice_number>INV-FIX-G-001</invoice_number>
+          <creditor>Gamma Creditor</creditor>
+          <dates>
+            <invoice>2026-02-10</invoice>
+          </dates>
+          <amounts_paid>
+            <amount_paid>
+              <currency>EUR</currency>
+              <amount>500.00</amount>
+              <cost_type>publish</cost_type>
+              <vat>95.00</vat>
+            </amount_paid>
+          </amounts_paid>
+        </invoice>
+      </invoice_group>
+    </cost_data>
+  </contract>
+</data>

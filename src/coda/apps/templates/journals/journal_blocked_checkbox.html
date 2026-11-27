@@ -1,0 +1,10 @@
+<label class="form-row-item">
+    <input type="checkbox"
+           role="switch"
+           class="filter-switch"
+           name="blocked_only"
+           id="id-blocked-only"
+           aria-checked="{% if request.GET.blocked_only %}true{% else %}false{% endif %}"
+           {% if request.GET.blocked_only %}checked{% endif %}>
+    Show blocked only
+</label>

@@ -22,8 +22,10 @@ class ContractDomainMapper:
         return Contract(
             id=ContractId(model.pk),
             name=NonEmptyStr(model.name),
-            publishers=LazyCachedIterable(PublisherId(p.pk) for p in model.publishers.all()),
-            journals=LazyCachedIterable(JournalId(j.pk) for j in model.journals.all()),
+            publishers=LazyCachedIterable(
+                lambda: (PublisherId(p.pk) for p in model.publishers.all())
+            ),
+            journals=LazyCachedIterable(lambda: (JournalId(j.pk) for j in model.journals.all())),
             period=DateRange.create(start=model.start_date, end=model.end_date),
             publication_billing=PublicationBilling(model.publication_billing),
         )

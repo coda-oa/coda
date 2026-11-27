@@ -1,27 +1,29 @@
 from collections.abc import Callable
-
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
+from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
+from django_htmx.http import HttpResponseClientRedirect
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
+from coda.apps.fundingrequests.funders_search import FUNDER_SEARCH_FIELD_ALIASES
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
     FundingOrganization,
     FundingOrganizationLinkType,
 )
 from coda.apps.fundingrequests.services.funder_services import (
+    RorUpdateResult,
     can_delete_funding_organization,
     can_merge_funding_organization,
     compute_merge_preview,
@@ -31,6 +33,7 @@ from coda.apps.fundingrequests.services.funder_services import (
     search_organizations_for_merge,
     update_funder_from_ror,
 )
+from coda.apps.search import SearchFieldAliases
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -38,6 +41,8 @@ from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
 FUNDER_ENTITY_NAME = "Funding Organization"
+FUNDER_CREATE_SUCCESS_MSG = "Funding organization '{name}' created successfully."
+FUNDER_UPDATE_SUCCESS_MSG = "Funding organization '{name}' updated successfully."
 FUNDER_ARCHIVE_SUCCESS_MSG = "Funding organization '{name}' archived successfully."
 FUNDER_RESTORE_SUCCESS_MSG = "Funding organization '{name}' restored successfully."
 FUNDER_DELETE_SUCCESS_MSG = "Funding organization '{name}' deleted successfully."
@@ -49,33 +54,31 @@ def get_ror_client() -> RORClient:
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
 class FundingOrganizationListView(
-    LoginRequiredMixin, SimpleSearchEntityListView[FundingOrganization]
+    LoginRequiredMixin,
+    SimpleSearchEntityListView[FundingOrganization, FundingOrganization],
 ):
     model = FundingOrganization
     entity_name = "Funding Organizations"
     entity_create_url = "fundingrequests:funders_create"
     entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
-    supports_archiving = True
+    entity_filter_extra_template = "partials/archived_filter_checkbox.html"
+    entity_filter_helper_template = "partials/search_prefix_helper.html"
+    search_fields: ClassVar[list[str]] = ["name", "links__value"]
+    search_field_aliases: ClassVar[SearchFieldAliases] = FUNDER_SEARCH_FIELD_ALIASES
+    search_distinct: ClassVar[bool] = True
+    ordering: ClassVar[list[str]] = ["name"]
 
-    def get_entities(self, request: HttpRequest) -> Any:
-        search_term = request.GET.get("query", "").strip()
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[FundingOrganization]:
         include_archived = request.GET.get("include_archived") == "on"
+        if include_archived:
+            return FundingOrganization.all_objects.all()
+        return FundingOrganization.objects.all()
 
-        queryset = (
-            FundingOrganization.all_objects.all()
-            if include_archived
-            else FundingOrganization.objects.all()
-        )
-
-        if search_term:
-            queryset = queryset.filter(words_icontains(search_term, "name"))
-
-        return DomainQuerySet(
-            queryset.prefetch_related("links").order_by("name"),
-            lambda x: cast(FundingOrganization, x),
-        )
+    def filter_queryset(
+        self, queryset: QuerySet[FundingOrganization], request: HttpRequest
+    ) -> QuerySet[FundingOrganization]:
+        return queryset.prefetch_related("links")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
@@ -89,7 +92,28 @@ fundingorganizations_list = FundingOrganizationListView.as_view()
 class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
     class Meta:
         model = FundingOrganization
-        fields = ["name"]
+        fields: ClassVar[list[str]] = ["name"]
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "name": forms.TextInput(attrs={"autofocus": True}),
+        }
+
+    def clean_name(self) -> str:
+        name: str = self.cleaned_data["name"].strip()
+        if not name:
+            return name
+
+        duplicates = FundingOrganization.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        duplicate = duplicates.first()
+        if duplicate is not None:
+            error = format_html(
+                'A funding organization named <a href="{}">{}</a> already exists.',
+                duplicate.get_absolute_url(),
+                duplicate.name,
+            )
+            raise forms.ValidationError(error)
+        return name
 
 
 class FundingOrganizationLinkFormMixin:
@@ -135,8 +159,10 @@ class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrgani
         funding_records = ExternalFunding.objects.filter(organization=self.object).select_related(
             "funding_request"
         )
+        has_ror_link = _has_ror_link(self.object)
         return super().get_context_data(**kwargs) | {
             "funding_records": funding_records,
+            "has_ror_link": has_ror_link,
         }
 
 
@@ -152,11 +178,9 @@ class FundingOrganizationCreateView(
     model = FundingOrganization
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["title"] = "Create Funding Organization"
         context["link_types"] = FundingOrganizationLinkType.objects.all()
         context["links"] = self.assemble_link_data() if self.has_links() else []
         return context
@@ -173,7 +197,12 @@ class FundingOrganizationCreateView(
         if response:
             return response
 
+        messages.success(self.request, FUNDER_CREATE_SUCCESS_MSG.format(name=self.object.name))
         return redirect(self.get_success_url())
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse(FUNDER_DETAIL_URL, kwargs={"pk": self.object.pk})
 
 
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
@@ -189,11 +218,9 @@ class FundingOrganizationUpdateView(
     queryset = FundingOrganization.all_objects.all()
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["title"] = "Update Funding Organization"
         context["link_types"] = FundingOrganizationLinkType.objects.all()
         context["links"] = self._get_links_for_context()
         return context
@@ -215,16 +242,15 @@ class FundingOrganizationUpdateView(
         if response:
             return response
 
+        messages.success(self.request, FUNDER_UPDATE_SUCCESS_MSG.format(name=self.object.name))
         return redirect(self.get_success_url())
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse(FUNDER_DETAIL_URL, kwargs={"pk": self.object.pk})
 
 
 fundingorganizations_update = FundingOrganizationUpdateView.as_view()
-
-
-def _htmx_redirect(url: str) -> HttpResponse:
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = url
-    return response
 
 
 def _guard_can_merge(
@@ -236,7 +262,7 @@ def _guard_can_merge(
     can_merge, reasons = can_merge_funding_organization(source, target)
     if not can_merge:
         messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     return None
 
 
@@ -275,7 +301,7 @@ def _archival_action(
             _modal_context(org, url_key, url_name, error=str(e)),
         )
     messages.success(request, success_msg.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -306,10 +332,10 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
         delete_funding_organization(org)
     except ValueError as e:
         messages.error(request, str(e))
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
     messages.success(request, FUNDER_DELETE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDERS_LIST_URL))
+    return HttpResponseClientRedirect(reverse(FUNDERS_LIST_URL))
 
 
 @login_required
@@ -424,6 +450,8 @@ def add_funder_linkrow(request: HttpRequest) -> HttpResponse:
 @require_GET
 def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    if not _has_ror_link(org):
+        return HttpResponse(status=409)
     return render(
         request,
         "fundingrequests/funders/update_from_ror_modal.html",
@@ -432,6 +460,10 @@ def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpRespons
             "update_url": reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk}),
         },
     )
+
+
+def _has_ror_link(org: FundingOrganization) -> bool:
+    return any(link.type() == "ROR" for link in org.get_links())
 
 
 def _overlap_response(
@@ -458,9 +490,9 @@ def _overlap_response(
     return render(
         request,
         (
-            "fundingrequests/funders/overlap_detection_page.html"
-            if request.headers.get("HX-Request") != "true"
-            else "fundingrequests/funders/overlap_detection_dialog.html"
+            "fundingrequests/funders/overlap_detection_dialog.html"
+            if request.htmx  # type: ignore[attr-defined]
+            else "fundingrequests/funders/overlap_detection_page.html"
         ),
         {
             "source": org,
@@ -474,21 +506,44 @@ def _overlap_response(
 @require_POST
 def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    if not _has_ror_link(org):
+        messages.error(
+            request,
+            "Cannot update from ROR: this organization has no ROR identifier.",
+            extra_tags="ror-update:no-ror-id",
+        )
+        return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
     try:
         ror_client = get_ror_client()
-        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        result = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
         org.refresh_from_db()
-        messages.success(
-            request, f"Funding organization '{org.name}' updated from ROR successfully."
-        )
+        if result is RorUpdateResult.NO_MATCH:
+            messages.warning(
+                request,
+                "No ROR record matched this organization's identifiers. "
+                "Please check that they are correct.",
+                extra_tags="ror-update:no-match",
+            )
+        elif result is RorUpdateResult.UPDATED:
+            messages.success(
+                request,
+                f"Funding organization '{org.name}' updated from ROR successfully.",
+                extra_tags="ror-update:updated",
+            )
+        else:
+            messages.info(
+                request,
+                f"Funding organization '{org.name}' is already up to date with ROR.",
+                extra_tags="ror-update:up-to-date",
+            )
 
         detail_url = reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk})
         response = _overlap_response(request, org, dismiss_url=detail_url)
         if response:
             return response
     except Exception as e:
-        messages.error(request, f"Error updating from ROR: {str(e)}")
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+        messages.error(request, f"Error updating from ROR: {e!s}", extra_tags="ror-update:failed")
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -561,6 +616,6 @@ def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpR
             f"Funding organization '{source.name}' merged into '{target.name}' successfully.",
         )
     except Exception as e:
-        messages.error(request, f"Error merging organizations: {str(e)}")
+        messages.error(request, f"Error merging organizations: {e!s}")
 
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))
+    return HttpResponseClientRedirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))

@@ -3,7 +3,13 @@ import datetime
 
 from coda.apps.exports.services.fundingrequest_csv.mappers import (
     map_funding_request_to_dto,
+    map_funding_request_to_export_dto,
 )
+from coda.apps.invoices import funding_source_repository
+from coda.contexts.finance.services import invoice_service
+from coda.domain.finance.invoice import CreditorId
+from coda.domain.money import Currency
+from coda.domain.publication.publication import PublicationId
 
 from tests import domainfactory, modelfactory
 
@@ -11,6 +17,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import ExternalFunding
 from coda.apps.publications.models import (
+    Concept,
     LinkType,
     Link,
     AttachedContract,
@@ -183,6 +190,29 @@ def test__funding_request_with_one_author_with_affiliation__maps_to_dto__author_
 
 
 @pytest.mark.django_db
+def test__funding_request_with_affiliated_corresponding_author__maps_to_dto__affiliation_internal_id_is_mapped() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution.internal_id = "TU-001"
+    institution.save()
+    author = domainfactory.author(
+        affiliation=InstitutionId(institution.id), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Test Publication", authors=Authors([author])
+    )
+
+    dto = map_funding_request_to_dto(funding_request)
+
+    corresponding = [a for a in dto.publication.authors if a.role.is_corresponding_role()]
+    assert len(corresponding) == 1
+    assert corresponding[0].name == author.name
+    assert corresponding[0].affiliation == institution.name
+    assert corresponding[0].affiliation_internal_id == institution.internal_id
+
+
+@pytest.mark.django_db
 def test__funding_request_with_links__maps_to_dto__links_are_mapped_correctly() -> None:
     funding_request = modelfactory.fundingrequest(title="Test Publication")
 
@@ -250,6 +280,47 @@ def test__funding_request_with_subject_area_and_publication_type__maps_to_dto__a
 
 
 @pytest.mark.django_db
+def test__funding_request_with_concepts_from_vocabulary__maps_to_dto__concept_ids_are_mapped() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Concept Publication")
+
+    vocab = Vocabulary.objects.create(name="Test Vocabulary")
+    subject_area_concept = Concept.objects.create(
+        vocabulary=vocab, concept_id="SA-001", name="Computer Science", hint=""
+    )
+    publication_type_concept = Concept.objects.create(
+        vocabulary=vocab, concept_id="PT-002", name="Research Article", hint=""
+    )
+    funding_request.publication.subject_area = PublicationAttachedConcept.objects.create(
+        name="Computer Science", vocabulary=vocab, entity_id=subject_area_concept.entity_id
+    )
+    funding_request.publication.publication_type = PublicationAttachedConcept.objects.create(
+        name="Research Article", vocabulary=vocab, entity_id=publication_type_concept.entity_id
+    )
+    funding_request.publication.save()
+
+    concept_ids = {
+        subject_area_concept.entity_id: subject_area_concept.concept_id,
+        publication_type_concept.entity_id: publication_type_concept.concept_id,
+    }
+    dto = map_funding_request_to_dto(funding_request, concept_ids=concept_ids)
+
+    assert dto.publication.subject_area.concept_id == "SA-001"
+    assert dto.publication.publication_type.concept_id == "PT-002"
+
+
+@pytest.mark.django_db
+def test__funding_request_without_concept_lookup__maps_to_dto__concept_ids_are_empty() -> None:
+    funding_request = modelfactory.fundingrequest(title="Conceptless Publication")
+
+    dto = map_funding_request_to_dto(funding_request)
+
+    assert dto.publication.subject_area.concept_id == ""
+    assert dto.publication.publication_type.concept_id == ""
+
+
+@pytest.mark.django_db
 def test__funding_request_with_license_and_publishing_state__maps_to_dto__all_fields_are_mapped_correctly() -> (
     None
 ):
@@ -266,3 +337,52 @@ def test__funding_request_with_license_and_publishing_state__maps_to_dto__all_fi
     assert dto.publication.publishing_state.state == "published"
     assert dto.publication.publishing_state.online_date == datetime.date(2024, 6, 15)
     assert dto.publication.publishing_state.print_date == datetime.date(2024, 7, 1)
+
+
+@pytest.mark.django_db
+def test__funding_source_display_names__mapped_to_export_dto__institution_and_budget_names_are_used() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Funding Source Display Publication")
+
+    institution = modelfactory.institution()
+    institution.name = "Test University"
+    institution.save()
+    institution_source = domainfactory.split_source(
+        InstitutionId(institution.pk), "Test University"
+    )
+    budget_source = domainfactory.budget()
+    institution_source.id = funding_source_repository.create(institution_source)
+    budget_source.id = funding_source_repository.create(budget_source)
+
+    budget_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    budget_position.assign_funding(budget_source, budget_position.cost.amount)
+
+    institution_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    institution_position.assign_funding(institution_source, institution_position.cost.amount)
+
+    unfunded_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    unfunded_position.assign_funding(None, unfunded_position.cost.amount)
+
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[budget_position, institution_position, unfunded_position],
+    )
+    invoice.id = invoice_service.save(invoice)
+
+    dto = map_funding_request_to_export_dto(funding_request)
+
+    names = [
+        assignment.name
+        for invoice_dto in dto.invoices
+        for position in invoice_dto.positions
+        for assignment in position.funding_assignments
+    ]
+
+    assert sorted(names) == sorted([budget_source.name, institution.name, ""])

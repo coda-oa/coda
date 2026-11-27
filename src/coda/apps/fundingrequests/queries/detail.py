@@ -6,9 +6,11 @@ Function-based query service following CQRS-lite pattern:
 - Returns FundingRequestDetail view model (no domain objects in template context)
 """
 
+from collections.abc import Iterable
 from typing import Any
 
 from coda.apps.authors.models import Author as AuthorModel
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.mappers import FundingRequestDetailMapper
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -16,6 +18,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.publications.services import publications as publication_service
 from coda.contexts.fundingrequest.services import checks as checks_service
 from coda.domain.author import InstitutionId
+from coda.domain.contract import ContractYear
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.publication import PublicationId
 
@@ -39,8 +42,16 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """
     fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
 
-    affiliation_names = _fetch_affiliation_names(list(fr_model.publication.relevant_authors.all()))
-    payment_status = publication_service.get_payment_status(PublicationId(fr_model.publication_id))
+    affiliation_names = _fetch_affiliation_names(fr_model.publication.relevant_authors.all())
+    # Contracts are already loaded by the mapper prefetch; passing them
+    # avoids a second (cursor-based) fetch in the payment service.
+    prefetched_contracts = [
+        ContractYear(ac.contract_year, ContractDomainMapper.map(ac.contract))
+        for ac in fr_model.publication.attached_contracts.all()
+    ]
+    payment_status = publication_service.get_payment_status(
+        PublicationId(fr_model.publication_id), prefetched_contracts
+    )
     payment_details = PaymentDetailMapper.map(payment_status, fr_model.request_id)
 
     detail = FundingRequestDetailMapper.map(fr_model, affiliation_names, payment_details)
@@ -60,7 +71,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     }
 
 
-def _fetch_affiliation_names(authors: list[AuthorModel]) -> dict[InstitutionId, str]:
+def _fetch_affiliation_names(authors: Iterable[AuthorModel]) -> dict[InstitutionId, str]:
     """Bulk-fetch institution names for a set of authors (single query)."""
     affiliation_ids = {a.affiliation_id for a in authors if a.affiliation_id is not None}
     if not affiliation_ids:

@@ -1,20 +1,51 @@
 #!/bin/bash
-
+set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# shellcheck source-path=SCRIPTDIR
+source "${script_dir}/common.sh"
 
 # Shared state between step functions
 STASH_REF=""
+STASH_MSG="update-coda pre-update"
+ROLLBACK_ON_EXIT=false
+PREV_BRANCH=""
 CODA_STOPPED=false
 CODA_RESTARTED=false
 
+# True only while the slot STASH_REF still holds this run's tagged entry.
+# Guards against another stash landing on top of ours between push and pop.
+_stash_is_mine() {
+  [[ -n "$STASH_REF" ]] && [[ "$(git log -1 --format=%s "$STASH_REF" 2>/dev/null)" == *"$STASH_MSG"* ]]
+}
+
 # Cleanup: restart CODA if it was stopped but not restarted
 cleanup() {
+  local status=$?
+  local current_branch
+  if [[ "$ROLLBACK_ON_EXIT" == true ]]; then
+    # Only restore the branch if we actually switched: a failure before the
+    # checkout (e.g. fetch) must not move the user off their current branch.
+    current_branch="$(git branch --show-current 2>/dev/null || true)"
+    if [[ -n "${PREV_BRANCH:-}" && "$current_branch" != "$PREV_BRANCH" ]]; then
+      echo "Rolling back to branch '$PREV_BRANCH' and restoring stashed changes..." >&2
+      git checkout "$PREV_BRANCH" 2>/dev/null || true
+    else
+      echo "Restoring stashed changes..." >&2
+    fi
+    if [[ -n "$STASH_REF" ]]; then
+      if _stash_is_mine; then
+        git stash pop "$STASH_REF" 2>/dev/null || true
+      else
+        echo "Stash queue changed; your changes remain under '$STASH_MSG' in 'git stash list'." >&2
+      fi
+    fi
+  fi
   if [[ "$CODA_STOPPED" == true && "$CODA_RESTARTED" == false ]]; then
     echo "Warning: CODA was stopped but the update failed. Restarting..." >&2
-    ${script_dir}/start-coda.sh --${CODA_ENV} || true
+    "${script_dir}/start-coda.sh" --"$CODA_ENV" || true
   fi
-
-  return 0
+  return "$status"
 }
 trap cleanup EXIT
 
@@ -22,35 +53,38 @@ trap cleanup EXIT
 show_update_usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
-  echo "Environment Options:"
-  echo "  --local, -l          Use local environment (compose.local.yml)"
-  echo "  --production, -p     Use production environment (compose.production.yml)"
-  echo "  --env ENV            Specify environment explicitly (local|production)"
+  show_environment_options
   echo ""
   echo "Update Options:"
   echo "  --branch BRANCH      Git branch to pull from (default: stable)"
   echo "  --backup             Create backup before updating"
   echo "  --no-backup          Skip backup creation (default)"
-  echo "  --help, -h           Show this help message"
   echo ""
   echo "Examples:"
-  echo "  $0 --production --backup"
+  echo "  $0 --backup"
   echo "  $0 --local --branch develop"
-  echo "  $0 --production --backup --branch stable"
+  echo "  $0 --backup --branch stable"
 
   return 0
+}
+
+# Environment errors raised inside common.sh call show_usage; give them this
+# script's options instead of the generic "[COMMAND_ARGS...]" line.
+show_usage() {
+  show_update_usage
 }
 
 # Parse update-specific arguments
 parse_update_args() {
   BRANCH="stable"
   CREATE_BACKUP=false
+  filtered_args=()
 
   while [[ $# -gt 0 ]]; do
     local arg="$1"
     case "$arg" in
     --branch)
-      local branch_value="$2"
+      local branch_value="${2:-}"
       if [[ -z "$branch_value" || "$branch_value" == --* ]]; then
         echo "Error: --branch requires a value" >&2
         exit 1
@@ -71,7 +105,8 @@ parse_update_args() {
       exit 0
       ;;
     *)
-      # Pass to common.sh for environment parsing
+      # Environment options and anything else are handled by common.sh.
+      filtered_args+=("$arg")
       shift
       ;;
     esac
@@ -80,11 +115,11 @@ parse_update_args() {
   return 0
 }
 
-# Parse arguments before sourcing common.sh
 parse_update_args "$@"
-
-# Source common.sh for environment setup
-source "${script_dir}/common.sh" "$@"
+# Bash < 4.4 aborts on "${arr[@]}" for an empty array under `set -u`;
+# the alternate-value form expands to nothing when no env args remain.
+parse_environment_args ${filtered_args[@]+"${filtered_args[@]}"}
+init_environment
 
 has_uncommitted_changes() {
   if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
@@ -124,8 +159,7 @@ preflight_checks() {
 step_create_backup() {
   if [[ "$CREATE_BACKUP" == true ]]; then
     echo "Step 1/5: Creating backup..."
-    ${script_dir}/backups.sh --${CODA_ENV} create
-    if [[ $? -ne 0 ]]; then
+    if ! "${script_dir}/backups.sh" --"$CODA_ENV" create; then
       echo "Error: Backup failed. Aborting update." >&2
       return 1
     fi
@@ -134,68 +168,75 @@ step_create_backup() {
     echo "Step 1/5: Skipping backup (use --backup to create one)"
     echo ""
   fi
-  return 0
 }
 
 step_stop_coda() {
   echo "Step 2/5: Stopping CODA..."
-  ${script_dir}/stop-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
+  if ! "${script_dir}/stop-coda.sh" --"$CODA_ENV"; then
     echo "Error: Failed to stop CODA. Aborting update." >&2
     return 1
   fi
   CODA_STOPPED=true
   echo ""
-  return 0
 }
 
 step_fetch_and_switch() {
   echo "Step 3/5: Fetching and switching to branch '$BRANCH'..."
+  # From here on the repo is in a half-updated state (stashed changes, about
+  # to switch branches): a failure at ANY later step must restore it, so the
+  # EXIT trap now rolls back branch and stash. Cleared only on success.
+  ROLLBACK_ON_EXIT=true
+  PREV_BRANCH="$(git branch --show-current 2>/dev/null || true)"
   if has_uncommitted_changes; then
     echo "Stashing uncommitted changes..."
-    git stash push --include-untracked
+    git stash push --include-untracked -m "$STASH_MSG"
     STASH_REF="stash@{0}"
   fi
-  git fetch origin "$BRANCH"
-  if ! git checkout "$BRANCH" 2>/dev/null; then
+  if ! git fetch origin "$BRANCH"; then
+    echo "Error: Fetching '$BRANCH' from origin failed. Aborting update." >&2
+    return 1
+  fi
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+  else
     echo "Branch '$BRANCH' not found locally, creating it from remote..."
     git checkout -b "$BRANCH" "origin/$BRANCH"
   fi
   echo ""
-  return 0
 }
 
 step_pull_and_restore() {
   echo "Step 4/5: Pulling latest changes and restoring stashed changes..."
-  git pull origin "$BRANCH"
-  if [[ $? -ne 0 ]]; then
-    echo "Error: Git pull failed. Restoring original branch..." >&2
-    git checkout - 2>/dev/null || true
-    if [[ -n "${STASH_REF:-}" ]]; then
-      git stash pop "$STASH_REF" 2>/dev/null || true
-    fi
+  if ! git pull origin "$BRANCH"; then
+    echo "Error: Git pull failed. Original branch and local changes will be restored." >&2
     return 1
   fi
 
   # Restore stashed changes if we created one in this run
-  if [[ -n "${STASH_REF:-}" ]] && ! git stash pop "$STASH_REF" 2>&1; then
-    echo "Warning: Stash restore had conflicts." >&2
-    echo "Your local changes may need manual conflict resolution." >&2
+  if [[ -n "$STASH_REF" ]]; then
+    if _stash_is_mine; then
+      if ! git stash pop "$STASH_REF" 2>&1; then
+        echo "Warning: Stash restore had conflicts." >&2
+        echo "Your local changes may need manual conflict resolution." >&2
+      else
+        STASH_REF=""
+      fi
+    else
+      echo "Warning: The stash queue changed during the update." >&2
+      echo "Your changes are safe under '$STASH_MSG' — see 'git stash list'." >&2
+    fi
   fi
   echo ""
-  return 0
 }
 
 step_start_coda() {
   echo "Step 5/5: Starting CODA (this will rebuild containers and run migrations)..."
-  ${script_dir}/start-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
+  if ! "${script_dir}/start-coda.sh" --"$CODA_ENV"; then
     echo "Error: Failed to start CODA." >&2
     return 1
   fi
   CODA_RESTARTED=true
   echo ""
-  return 0
 }
 
 update_coda() {
@@ -215,11 +256,12 @@ update_coda() {
   echo "Backup: $([[ "$CREATE_BACKUP" == true ]] && echo "Yes" || echo "No")"
   echo ""
 
-  step_create_backup || exit 1
-  step_stop_coda || exit 1
-  step_fetch_and_switch || exit 1
-  step_pull_and_restore || exit 1
-  step_start_coda || exit 1
+  step_create_backup
+  step_stop_coda
+  step_fetch_and_switch
+  step_pull_and_restore
+  step_start_coda
+  ROLLBACK_ON_EXIT=false
 
   echo "Update completed successfully!"
   echo ""

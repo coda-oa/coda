@@ -1,0 +1,10 @@
+<label class="form-row-item">
+    <input type="checkbox"
+           role="switch"
+           class="filter-switch"
+           name="include_inactive"
+           id="id-include-inactive"
+           aria-checked="{% if request.GET.include_inactive %}true{% else %}false{% endif %}"
+           {% if request.GET.include_inactive %}checked{% endif %}>
+    Include inactive
+</label>

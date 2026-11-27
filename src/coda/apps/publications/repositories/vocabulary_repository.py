@@ -274,12 +274,12 @@ def delete(vocabulary: VocabularyProtocol) -> None:
     if id is None:
         raise ValueError("Cannot delete vocabulary without an ID")
 
-    publications = publication_repository.find_publications_by_vocabulary(id)
+    publication_count = publication_repository.count_publications_by_vocabulary(id)
     limited_vocabularies = find_limited_by_base_vocabulary(id)
-    if publications or limited_vocabularies:
+    if publication_count or limited_vocabularies:
         raise VocabularyInUseError(
             vocabulary=vocabulary,
-            publications=publications,
+            publications=[],
             limited_vocabularies=limited_vocabularies,
         )
 

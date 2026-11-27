@@ -1,30 +1,41 @@
 {% extends "base.html" %}
+{% block page_supertitle %}
+    Journal
+{% endblock page_supertitle %}
+{% block page_title %}
+    {{ journal.title }}
+{% endblock page_title %}
+{% block page_actions %}
+    {% if is_blocked %}
+        <button class="my-0 outline success"
+                type="button"
+                hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}">Unblock</button>
+    {% else %}
+        <button class="my-0 outline danger"
+                type="button"
+                hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
+                hx-target="body"
+                hx-swap="beforeend">Block</button>
+    {% endif %}
+    <a href="{% url "publishing:journals:update" pk=journal.pk %}"
+       class="button secondary">Edit</a>
+{% endblock page_actions %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1 class="my-2">Journal</h1>
-        <div>
-            {% if is_blocked %}
-                <button class="outline success"
-                        hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}"
-                        hx-vals='{"redirect_url": "{% url "publishing:journals:detail" eissn=journal.eissn %}" }'>
-                    Unblock
-                </button>
-            {% else %}
-                <button class="outline danger"
-                        hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
-                        hx-target="body"
-                        hx-swap="beforeend">Block</button>
-            {% endif %}
-            <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
-               role="button"
-               class="secondary">Edit</a>
-        </div>
-    </div>
     <article>
         <header>
-            <h2 class="my-0">{{ journal.title }}</h2>
+            <h2 class="mb-0">Journal Metadata</h2>
         </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
-        <p class="mb-0">Publisher: {{ journal.publisher.name }}</p>
+        <p>
+            Publisher:
+            <a href="{{ journal.publisher.get_absolute_url }}">{{ journal.publisher.name }}</a>
+        </p>
+        {% if is_blocked %}
+            <p class="mb-0">
+                Block reason:
+                <span class="label danger">{{ block_reason_display }}</span>
+            </p>
+        {% endif %}
     </article>
+    {% include "partials/related_funding_requests.html" %}
 {% endblock content %}

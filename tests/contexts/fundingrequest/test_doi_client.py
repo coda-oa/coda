@@ -75,7 +75,7 @@ def real_client() -> DOIMetadataClient:
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_metadata__valid_doi__returns_metadata_with_title_and_authors(
@@ -97,7 +97,7 @@ def test__fetch_metadata__valid_doi__returns_metadata_with_title_and_authors(
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_metadata__nonexistent_doi__raises_doi_not_found_error(
@@ -115,7 +115,7 @@ def test__fetch_metadata__nonexistent_doi__raises_doi_not_found_error(
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_metadata__article_doi__returns_metadata_with_journal_info(
@@ -136,7 +136,7 @@ def test__fetch_metadata__article_doi__returns_metadata_with_journal_info(
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_metadata__preserves_raw_publication_type_from_source(
@@ -162,7 +162,7 @@ def test__fetch_metadata__preserves_raw_publication_type_from_source(
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_publications_batch__two_valid_dois__returns_both(
@@ -176,9 +176,9 @@ def test__fetch_publications_batch__two_valid_dois__returns_both(
 
     assert len(results) == 2
     for doi_str, result in results.items():
-        assert isinstance(
-            result, ExternalPublicationMetadata
-        ), f"Expected metadata for {doi_str}, got {type(result).__name__}: {result}"
+        assert isinstance(result, ExternalPublicationMetadata), (
+            f"Expected metadata for {doi_str}, got {type(result).__name__}: {result}"
+        )
         assert result.title
 
 
@@ -186,7 +186,7 @@ def test__fetch_publications_batch__two_valid_dois__returns_both(
     "client_fixture",
     [
         "fake_client",
-        pytest.param("real_client", marks=pytest.mark.integration),
+        pytest.param("real_client", marks=pytest.mark.external),
     ],
 )
 def test__fetch_publications_batch__mixed_found_and_not_found__returns_both(

@@ -135,4 +135,7 @@ function initializeConceptUI() {
 document.addEventListener("DOMContentLoaded", initializeConceptUI);
 
 
-document.body.addEventListener("htmx:afterSwap", initializeConceptUI);
+// The server emits "concept-ui-init" (HX-Trigger) on responses that swap in
+// concept trees; initializing on every htmx:afterSwap would also re-run this
+// for unrelated swaps.
+document.body.addEventListener("concept-ui-init", initializeConceptUI);

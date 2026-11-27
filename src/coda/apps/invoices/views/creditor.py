@@ -1,46 +1,39 @@
-from typing import Any, cast
+from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
+from django_htmx.http import HttpResponseClientRedirect
 
-from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices import repository, services
-from coda.apps.search import words_icontains
 from coda.apps.invoices.forms import CreditorForm
 from coda.apps.invoices.models import Creditor
 from coda.apps.views import SimpleSearchEntityListView
 from coda.domain.finance.invoice import CreditorId
 
-from coda.apps.breadcrumbs.decorators import breadcrumb
-
 
 @breadcrumb("Creditors", parent_url_name="invoices:finances_home")
-class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor]):
+class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor, Creditor]):
     model = Creditor
     paginate_by = 10
     entity_name = "Creditors"
     entity_create_url = "invoices:creditor_create"
     entity_list_item_template = "invoices/creditors/list.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
-    supports_archiving = True
+    entity_filter_extra_template = "partials/archived_filter_checkbox.html"
 
-    def get_entities(self, request: HttpRequest) -> Any:
-        search_term = request.GET.get("query", "").strip()
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[Creditor]:
         include_archived = request.GET.get("include_archived") == "on"
-
-        queryset = Creditor.all_objects.all() if include_archived else Creditor.objects.all()
-
-        if search_term:
-            queryset = queryset.filter(words_icontains(search_term, "name"))
-
-        return DomainQuerySet(queryset.order_by("name"), lambda x: cast(Creditor, x))
+        if include_archived:
+            return Creditor.all_objects.all()
+        return Creditor.objects.all()
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
@@ -81,12 +74,6 @@ class CreditorUpdateView(LoginRequiredMixin, UpdateView[Creditor, CreditorForm])
         return super().get_context_data(**kwargs) | {"title": "Edit Creditor"}
 
 
-def _htmx_redirect(url: str) -> HttpResponse:
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = url
-    return response
-
-
 @login_required
 @require_GET
 def request_delete_creditor(request: HttpRequest, pk: int) -> HttpResponse:
@@ -113,19 +100,19 @@ def delete_creditor(request: HttpRequest, pk: int) -> HttpResponse:
 
     if creditor.archived_at:
         messages.error(request, "Cannot delete archived creditors.")
-        return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
     can_delete, blocking_reasons = services.can_delete_creditor(creditor)
 
     if not can_delete:
         messages.error(request, f"Cannot delete creditor: {', '.join(blocking_reasons)}")
-        return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+        return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
     creditor_name = creditor.name
     creditor.delete()
     messages.success(request, f"Creditor '{creditor_name}' deleted successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_list"))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_list"))
 
 
 @login_required
@@ -164,7 +151,7 @@ def archive_creditor(request: HttpRequest, pk: int) -> HttpResponse:
     creditor_name = creditor.name
     messages.success(request, f"Creditor '{creditor_name}' archived successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
 
 
 @login_required
@@ -203,4 +190,4 @@ def restore_creditor(request: HttpRequest, pk: int) -> HttpResponse:
     creditor_name = creditor.name
     messages.success(request, f"Creditor '{creditor_name}' restored successfully.")
 
-    return _htmx_redirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))
+    return HttpResponseClientRedirect(reverse("invoices:creditor_detail", kwargs={"pk": pk}))

@@ -1,9 +1,9 @@
 import datetime
 import itertools
+import logging
 import random
 from collections.abc import Iterable
-from dataclasses import dataclass
-from decimal import Decimal
+from dataclasses import dataclass, replace
 from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
@@ -236,11 +236,10 @@ def update_publication_metadata(
     fr = repository.get_by_id(fundingrequest_id)
     publication = fr.publication
 
-    import logging
-
+    logger = logging.getLogger(__name__)
     meta = command.meta
 
-    logging.info(repr(meta))
+    logger.info(repr(meta))
     incoming_publication_type = meta.publication_type.to_concept()
     incoming_subject_area = meta.subject_area.to_concept()
 
@@ -332,6 +331,9 @@ def update_extra_information(
     fr.extra_contact = extra_information.extra_contact.to_contact()
     fr.request_remarks = extra_information.request_remarks
     repository.update(fr)
+    if extra_information.reviewer_remarks is not None:
+        review = repository.get_review(fundingrequest_id)
+        repository.save_review(replace(review, remarks=extra_information.reviewer_remarks))
 
 
 def update_funding(
@@ -356,7 +358,7 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     review_ = Review(
         fundingrequest_id,
         Money(
-            Decimal(review.decided_funding_amount),
+            review.decided_funding_amount,
             Currency.from_code(review.decided_funding_currency),
         ),
         remarks=review.reviewer_remarks,

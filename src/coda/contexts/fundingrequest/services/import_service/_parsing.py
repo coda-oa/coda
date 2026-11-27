@@ -230,7 +230,7 @@ def parse_concept(import_dto: ConceptImportDto, lookups: ImportLookups) -> Conce
 def parse_cost_estimate(import_dto: CostEstimateImportDto) -> PaymentDto:
     """Parse cost estimate to payment DTO."""
     return PaymentDto(
-        amount=float(import_dto.amount),
+        amount=import_dto.amount,
         currency=import_dto.currency,
         method=import_dto.payment_method.value,
     )
@@ -261,8 +261,8 @@ def parse_extra_information(import_dto: FundingRequestImportDto) -> ExtraInforma
     return ExtraInformationDto(
         request_remarks=import_dto.request_remarks,
         extra_contact=ExtraContactDto(
-            name=import_dto.seperate_contact.name,
-            email=import_dto.seperate_contact.email,
+            name=import_dto.separate_contact.name,
+            email=import_dto.separate_contact.email,
         ),
     )
 
@@ -270,7 +270,7 @@ def parse_extra_information(import_dto: FundingRequestImportDto) -> ExtraInforma
 def parse_review(import_dto: ReviewImportDto) -> CreateReviewDto:
     """Parse review DTO from import data."""
     return CreateReviewDto(
-        decided_funding_amount=float(import_dto.funding.amount),
+        decided_funding_amount=import_dto.funding.amount,
         decided_funding_currency=import_dto.funding.currency,
         reviewer_remarks=import_dto.remarks,
         result=import_dto.result.value,

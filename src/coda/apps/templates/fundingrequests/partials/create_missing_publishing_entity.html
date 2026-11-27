@@ -1,0 +1,16 @@
+{% if search_term or results %}
+    <div class="flex justify-between align-center">
+        {% if results %}
+            <p>Couldn't find the right {{ entity_name }}?</p>
+        {% else %}
+            <p>No results for "{{ search_term }}".</p>
+        {% endif %}
+    </div>
+{% endif %}
+<div class="flex justify-between align-center mt-2">
+    <button type="button"
+            hx-get="{% url entity_create_url %}"
+            hx-target="#entity-creation-modal-wrapper"
+            class="secondary">New {{ entity_name }}</button>
+</div>
+<div id="entity-creation-modal-wrapper"></div>

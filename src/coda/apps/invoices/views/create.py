@@ -4,10 +4,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.invoices.forms import InvoiceForm, CreditorForm
+from coda.apps.invoices.forms import CreditorForm, InvoiceForm
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
 from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
@@ -16,10 +17,10 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import Invoice, UnassignedCosts
 from coda.domain.money import Currency
-from django.views.decorators.http import require_GET, require_POST
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb("Create Invoice", parent_url_name="invoices:list", preserve_filters=True)
 def create_invoice(request: HttpRequest) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
@@ -38,6 +39,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         invoice, errors = try_parse_invoice(request, position_list, conversions=conversion)
         if invoice:
             new_id = invoice_service.save(invoice)
+            messages.success(request, "Invoice created successfully.")
             return redirect("invoices:detail", pk=new_id)
 
         if errors:

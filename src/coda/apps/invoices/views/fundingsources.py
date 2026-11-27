@@ -1,17 +1,16 @@
-from collections.abc import Sequence
 from typing import Any
+
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import FundingSourceForm
-from coda.apps.search import words_icontains
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @breadcrumb("Create Funding Source", parent_url_name="invoices:fundingsource_list")
@@ -23,6 +22,13 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Funding Source"}
+
+    def form_valid(self, form: FundingSourceForm) -> HttpResponse:
+        messages.success(
+            self.request,
+            f"Funding source '{form.cleaned_data['name']}' created successfully.",
+        )
+        return super().form_valid(form)
 
 
 fundingsource_createview = CreateFundingSourceView.as_view()
@@ -38,26 +44,30 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Update Funding Source"}
 
+    def form_valid(self, form: FundingSourceForm) -> HttpResponse:
+        messages.success(
+            self.request,
+            f"Funding source '{form.cleaned_data['name']}' updated successfully.",
+        )
+        return super().form_valid(form)
+
 
 fundingsource_updateview = UpdateFundingSourceView.as_view()
 
 
 @breadcrumb("Funding Sources", parent_url_name="invoices:finances_home")
-class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingSource]):
+class FundingSourceListView(
+    LoginRequiredMixin, SimpleSearchEntityListView[FundingSource, FundingSource]
+):
     model = FundingSource
     entity_name = "Funding Sources"
     entity_create_url = "invoices:fundingsource_create"
     entity_list_item_template = "invoices/fundingsources/list.html"
-    entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
+    ordering = ["name"]
 
-    def get_entities(self, request: HttpRequest) -> Sequence[FundingSource]:
-        search_term = request.GET.get("query", "").strip()
-        fs = FundingSource.objects.filter(type="budget")
-        if search_term:
-            fs = fs.filter(words_icontains(search_term, "name"))
-
-        return DomainQuerySet(fs, lambda fs: fs)
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[FundingSource]:
+        return FundingSource.objects.filter(type="budget")
 
 
 fundingsource_listview = FundingSourceListView.as_view()

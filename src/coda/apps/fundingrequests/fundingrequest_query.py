@@ -1,18 +1,26 @@
+import copy
 import enum
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from django.db.models import F, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.search import words_icontains
-
+from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.search import (
+    ScopedAlias,
+    SearchFieldAliases,
+    alias_field_paths,
+    build_search_filter,
+)
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.issn import parse_issn
+from coda.domain.publication.links import normalize_doi, parse_doi
 from coda.domain.publication.publication import OpenAccessType
 
 type LabelId = int
@@ -96,16 +104,6 @@ class SortOrder(enum.StrEnum):
     def default() -> "SortOrder":
         return SortOrder.date_desc
 
-    @staticmethod
-    def try_parse(value: str | None) -> "SortOrder":
-        if not value:
-            return SortOrder.default()
-
-        try:
-            return SortOrder[value]
-        except KeyError:
-            return SortOrder.default()
-
 
 @dataclass
 class ReviewResultCriteria:
@@ -142,6 +140,52 @@ class PublicationStateCriteria:
         return Q(publication__publication_state__in=self.publication_states)
 
 
+_AUTHOR_NAME_FIELD = "name"
+_AUTHOR_SEARCH_FIELD = f"publication__relevant_authors__{_AUTHOR_NAME_FIELD}"
+
+
+def _author_matches(name: str) -> Q:
+    """Match a funding request when any of its publication's authors matches name.
+
+    An independent EXISTS per term lets repeated ``author:`` terms match different
+    author rows; a single filter join would require one row to satisfy every term.
+    """
+    return Q(
+        Exists(
+            Author.objects.filter(
+                publication_id=OuterRef("publication_id"),
+                **{f"{_AUTHOR_NAME_FIELD}__icontains": name},
+            )
+        )
+    )
+
+
+SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "author": ScopedAlias(
+        _AUTHOR_SEARCH_FIELD,
+        Q(),
+        term_query=_author_matches,
+    ),
+    "title": "publication__title",
+    "journal": "publication__article_journal__title",
+    "publisher": [
+        "publication__article_journal__publisher__name",
+        "publication__monograph_publisher__name",
+    ],
+    "doi": ScopedAlias(
+        "publication__links__value",
+        Q(publication__links__type__name="DOI"),
+        normalize=normalize_doi,
+        detect=parse_doi,
+    ),
+    "eissn": ScopedAlias(
+        "publication__article_journal__eissn",
+        Q(),
+        detect=parse_issn,
+    ),
+}
+
+
 @dataclass
 class GenericSearchCriteria:
     search_term: str = ""
@@ -150,14 +194,11 @@ class GenericSearchCriteria:
         if not self.search_term.strip():
             return Q()
 
-        return words_icontains(
+        return build_search_filter(
             self.search_term,
-            "publication__title",
-            "publication__relevant_authors__name",
-            "publication__article_journal__title",
-            "publication__article_journal__publisher__name",
-            "publication__monograph_publisher__name",
+            *alias_field_paths(SEARCH_FIELD_ALIASES),
             "request_id",
+            field_aliases=SEARCH_FIELD_ALIASES,
         )
 
 
@@ -295,22 +336,12 @@ class FundingRequestSearchParams:
     funding_source: FundingSourceId | None = None
 
     def without_date_range(self) -> "FundingRequestSearchParams":
-        return FundingRequestSearchParams(
-            date_range=None,
-            review_results=self.review_results,
-            payment_statuses=self.payment_statuses,
-            labels=self.labels,
-            exclude_labels=self.exclude_labels,
-            payment_methods=self.payment_methods,
-            open_access_types=self.open_access_types,
-            publication_states=self.publication_states,
-            entity_type=self.entity_type,
-            search_term=self.search_term,
-            contract_id=self.contract_id,
-            contract_year=self.contract_year,
-            show_invalid_contract_years=self.show_invalid_contract_years,
-            funding_source=self.funding_source,
-        )
+        # return a new instance with the date_range set to None, keeping all other attributes the same
+        new_instance = copy.copy(
+            self
+        )  # shallow copy is sufficient since all attributes are immutable or primitive
+        new_instance.date_range = None
+        return new_instance
 
 
 def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:

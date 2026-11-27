@@ -1,8 +1,8 @@
-exclude: '^docs/|/migrations/|devcontainer.json'
+exclude: '^docs/|/migrations/|devcontainer.json|^tests/database/opencost/backfill_goldens/'
 default_stages: [pre-commit]
 
 default_language_version:
-  python: python3.13
+  python: python3.15
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -27,13 +27,13 @@ repos:
         args: ['--target-version', '6.0']
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
         args: [--py313-plus]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.19.1'
+    rev: 'v2.4.1'
     hooks:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
@@ -43,10 +43,12 @@ repos:
             'django-test-migrations',
             'django-stubs[compatible-mypy]',
             'django-environ',
+            'django-htmx',
             'django-silk',
             'faker',
             'httpx',
             'psycopg',
+            'opencost>=0.1.1',
             'pytest',
             'pytest-django',
             'polars',
@@ -55,15 +57,11 @@ repos:
             'pytest-playwright',
           ]
 
-  - repo: https://github.com/psf/black
-    rev: 26.3.1
-    hooks:
-      - id: black
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.7
+    rev: v0.17.4
     hooks:
       - id: ruff
+      - id: ruff-format
 
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.4

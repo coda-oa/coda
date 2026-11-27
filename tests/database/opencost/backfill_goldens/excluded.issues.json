@@ -1,0 +1,10 @@
+[
+  {
+    "level": "error",
+    "message": "Excluded entirely: it has no institution name or identifier.",
+    "entity_type": "global",
+    "entity_id": 2,
+    "entity_name": "Orphan Publication Beta",
+    "fix_url": "/preferences/"
+  }
+]

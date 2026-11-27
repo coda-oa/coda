@@ -1,17 +1,18 @@
 import json
+
 import httpx
 import pytest
+
 from coda.apps.fundingrequests.services.funder_services import update_funder_from_ror
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
     HttpGetClient,
+    RORClient,
 )
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId, Link
 from tests import modelfactory
 from tests.contexts.fundingrequest.services.test_ror_client import FakeHttpGet
-
-from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
-from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
-from coda.domain.institution.links import Ror
 from tests.fundingorganizations.conftest import BMFTR_NAME, BMFTR_RESPONSE_FULL
 
 ALL_LINKS = [Ror("https://ror.org/04pz7b180"), CrossrefId("501100002347")]
@@ -20,7 +21,11 @@ ALL_LINKS = [Ror("https://ror.org/04pz7b180"), CrossrefId("501100002347")]
 @pytest.mark.django_db
 @pytest.mark.parametrize("given_link", ALL_LINKS)
 @pytest.mark.parametrize(
-    "http_client", [FakeHttpGet(json_data=json.loads(BMFTR_RESPONSE_FULL)), httpx]
+    "http_client",
+    [
+        FakeHttpGet(json_data=json.loads(BMFTR_RESPONSE_FULL)),
+        pytest.param(httpx, marks=pytest.mark.external),
+    ],
 )
 def test__given_outdated_funding_organization_with_link__request_ror_update__updates_organization_information_via_ror_api(
     given_link: Link, http_client: HttpGetClient

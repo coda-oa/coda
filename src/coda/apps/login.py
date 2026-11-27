@@ -5,3 +5,4 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 @breadcrumb("Login")
 class CustomLoginView(DjangoLoginView):
     template_name = "pages/login.html"
+    redirect_authenticated_user = True

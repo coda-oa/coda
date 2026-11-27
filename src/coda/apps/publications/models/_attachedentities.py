@@ -27,3 +27,6 @@ class AttachedContract(models.Model):
     publication = models.ForeignKey(
         "Publication", on_delete=models.CASCADE, related_name="attached_contracts"
     )
+
+    class Meta:
+        ordering = ("id",)

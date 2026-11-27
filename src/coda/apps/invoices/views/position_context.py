@@ -14,6 +14,22 @@ _PublicationCostTypes = [ct.value for ct in PublicationCostType]
 _ContractCostTypes = [ct.value for ct in ContractCostType]
 
 
+def funding_source_options_context() -> dict[str, Any]:
+    """Build context with budget funding-source choices and their default type."""
+    return {
+        "funding_sources": FundingSource.objects.filter(type="budget"),
+        "default_funding_source_type": "budget",
+    }
+
+
+def institutions_context(for_positions: list[PositionDto] | None = None) -> dict[str, Any]:
+    """Build context with institutions allowed as funding sources.
+
+    Archived institutions used in the optional positions will be included.
+    """
+    return {"institutions": get_institutions_allowed_as_funding_source(for_positions or [])}
+
+
 def funding_sources_context(for_positions: list[PositionDto] | None = None) -> dict[str, Any]:
     """Build context with funding sources and institutions.
 
@@ -26,11 +42,7 @@ def funding_sources_context(for_positions: list[PositionDto] | None = None) -> d
     - institutions: Institution iterable (includes used archived institutions)
     - default_funding_source_type: Default type ("budget")
     """
-    return {
-        "funding_sources": FundingSource.objects.filter(type="budget"),
-        "institutions": get_institutions_allowed_as_funding_source(for_positions or []),
-        "default_funding_source_type": "budget",
-    }
+    return funding_source_options_context() | institutions_context(for_positions)
 
 
 DefaultContext: dict[str, Any] = {

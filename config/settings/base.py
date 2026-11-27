@@ -25,6 +25,9 @@ if READ_DOT_ENV_FILE:
 # Demo mode displays a warning message on the home page.
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
 CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
+# The update check performs an outbound GitHub request. Turning it off keeps
+# coda.apps.version from touching the cache or the network at all.
+CODA_UPDATE_CHECK = env.bool("CODA_UPDATE_CHECK", True)
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -66,6 +69,18 @@ DATABASES = {"default": env.db("DATABASE_URL", default="")}
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 
+# CACHES
+# ------------------------------------------------------------------------------
+# Explicit, rather than relying on the implicit default. LocMemCache is
+# process-local, so cached values are per gunicorn worker
+# https://docs.djangoproject.com/en/dev/ref/settings/#caches
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "coda",
+    }
+}
+
 # URLS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#root-urlconf
@@ -87,9 +102,10 @@ DJANGO_APPS = [
     "django.forms",
 ]
 
-THIRD_PARTY_APPS: list[str] = []
+THIRD_PARTY_APPS: list[str] = ["django_htmx"]
 
 LOCAL_APPS = [
+    "coda.apps.common",
     "coda.apps.users",
     "coda.apps.authors",
     "coda.apps.institutions",
@@ -152,6 +168,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -206,12 +223,6 @@ TEMPLATES = [
                 "coda.apps.context_processors.version_context",
                 "coda.apps.context_processors.demo_context",
             ],
-            "libraries": {
-                "getitem": "coda.apps.templatetags.getitem",
-                "getlist": "coda.apps.templatetags.getlist",
-                "param_replace": "coda.apps.templatetags.param_replace",
-                "formset_tags": "coda.apps.templatetags.formset_tags",
-            },
         },
     }
 ]
@@ -236,13 +247,15 @@ X_FRAME_OPTIONS = "DENY"
 
 # EMAIL
 # ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-EMAIL_BACKEND = env(
-    "DJANGO_EMAIL_BACKEND",
-    default="django.core.mail.backends.smtp.EmailBackend",
-)
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
-EMAIL_TIMEOUT = 5
+# https://docs.djangoproject.com/en/dev/ref/settings/#mailers
+MAILERS = {
+    "default": {
+        "BACKEND": env(
+            "DJANGO_EMAIL_BACKEND",
+            default="django.core.mail.backends.smtp.EmailBackend",
+        ),
+    },
+}
 
 # ADMIN
 # ------------------------------------------------------------------------------

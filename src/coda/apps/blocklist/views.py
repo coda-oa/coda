@@ -6,6 +6,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect, HttpResponseClientRefresh
 
 from coda.apps.blocklist.models import (
     BlockedJournal,
@@ -13,9 +14,10 @@ from coda.apps.blocklist.models import (
     BlockList,
     JournalBlockReason,
 )
+from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.htmx_components.request import HtmxHttpRequest
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
@@ -56,18 +58,14 @@ def request_block_journal(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
+def block_journal(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     reason = request.POST.get("reason", "PREDATORY")
     journal = get_object_or_404(Journal, pk=pk)
 
     blocklist = BlockList.objects.get()
     blocklist.block_journal(journal, reason)
 
-    return HttpResponse(
-        headers={
-            "HX-Redirect": reverse("publishing:journals:detail", kwargs={"eissn": journal.eissn})
-        }
-    )
+    return maybe_redirect(request, default_url=journal.get_absolute_url())
 
 
 @login_required
@@ -78,7 +76,7 @@ def unblock_journal(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_journal(journal)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
 @login_required
@@ -109,13 +107,15 @@ def request_block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_POST
-def block_publisher(request: HttpRequest, pk: int) -> HttpResponse:
+def block_publisher(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     publisher = Publisher.objects.get(pk=pk)
 
     blocklist = BlockList.objects.get()
     blocklist.block_publisher(publisher)
 
-    return HttpResponse(headers={"HX-Redirect": reverse("publishing:publishers:list")})
+    return maybe_redirect(
+        request, default_url=reverse("publishing:publishers:detail", kwargs={"pk": publisher.pk})
+    )
 
 
 @login_required
@@ -126,12 +126,21 @@ def unblock_publisher(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist = BlockList.objects.get()
     blocklist.unblock_publisher(publisher)
 
-    return maybe_redirect(request)
+    return HttpResponseClientRefresh()
 
 
-def maybe_redirect(request: HttpRequest) -> HttpResponse:
-    redirect_url = request.POST.get("redirect_url", "")
+def maybe_redirect(request: HtmxHttpRequest, default_url: str = "") -> HttpResponse:
+    """Redirect the HTMX caller back to where the request came from.
+
+    Resolution order: an explicitly posted ``redirect_url`` (rarely needed),
+    the page the request was triggered from (htmx's ``HX-Current-URL``,
+    validated against this request's scheme and host), then the
+    caller-supplied default.
+    """
+    redirect_url = (
+        request.POST.get("redirect_url") or request.htmx.current_url_abs_path or default_url
+    )
     if redirect_url:
-        return HttpResponse(headers={"HX-Redirect": redirect_url})
+        return HttpResponseClientRedirect(redirect_url)
 
     return HttpResponse()

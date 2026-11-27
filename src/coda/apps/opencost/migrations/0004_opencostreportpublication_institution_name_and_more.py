@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
                 (
                     "identifier_type",
                     models.CharField(
-                        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
+                        help_text="Type of identifier: ror, isni, or ringgold (snapshot)",
                         max_length=50,
                     ),
                 ),

@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import cast
 
 from coda.apps.publications.repositories import payment_repository, publication_repository
@@ -6,9 +6,9 @@ from coda.domain.contract import ContractId, ContractYear
 from coda.domain.finance.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    PublicationPayments,
     PaymentEvent,
     PublicationCoveredByContract,
+    PublicationPayments,
     PublicationPaymentStatus,
 )
 
@@ -33,8 +33,20 @@ def _determine_payment_status(
     return payments
 
 
-def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
-    contracts = publication_repository.get_contracts_for_publication(publication)
+def get_payment_status(
+    publication: PublicationId,
+    contracts: Sequence[ContractYear] | None = None,
+) -> PublicationPaymentStatus:
+    """Determine the payment status for one publication.
+
+    Callers that already hold the publication's attached contracts
+    (e.g. the funding-request detail page, whose mapper prefetch loads
+    them) should pass them here — the default re-fetches from the
+    repository, paying a second read for data the caller may already
+    have.
+    """
+    if contracts is None:
+        contracts = publication_repository.get_contracts_for_publication(publication)
     return _determine_payment_status(
         publication,
         payment_repository.find_payment(publication),

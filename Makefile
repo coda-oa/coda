@@ -8,7 +8,7 @@ down:
 	docker compose -f compose.${ENV}.yml --env-file .envs/.${ENV}/coda.env down ${SERVICE}
 
 superuser:
-	docker compose -f compose.${ENV}.yml --env-file .envs/.${ENV}/coda.env exec django pdm run manage.py createsuperuser
+	docker compose -f compose.${ENV}.yml --env-file .envs/.${ENV}/coda.env exec django uv run manage.py createsuperuser
 
 backup:
 	docker compose -f compose.${ENV}.yml --env-file .envs/.${ENV}/coda.env exec postgres backup

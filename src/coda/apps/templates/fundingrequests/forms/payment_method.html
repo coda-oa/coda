@@ -1,16 +1,11 @@
 {% load getlist %}
-<details class="dropdown">
-    <summary>Payment Method</summary>
-    <ul class="undecorated">
-        {% for value, label in payment_methods %}
-            <li>
-                <input type="checkbox"
-                       id="payment-method-{{ value }}"
-                       name="payment_methods"
-                       value="{{ value }}"
-                       {% if value in request.GET|getlist:"payment_methods" %}checked{% endif %}>
-                <label for="payment-method-{{ value }}">{{ label }}</label>
-            </li>
-        {% endfor %}
-    </ul>
-</details>
+<div class="form-row">
+    <label for="id_payment_methods">Payment Method</label>
+    <search-select-multi name="payment_methods" class="w-100" id="id_payment_methods">
+    {% for value, label in payment_methods %}
+        <option slot="options"
+                value="{{ value }}"
+                {% if value in request.GET|getlist:"payment_methods" %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>

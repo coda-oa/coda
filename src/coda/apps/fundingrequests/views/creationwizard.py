@@ -54,5 +54,4 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
         return ExtraContactDto(**store.get("contact", {}))
 
     @abc.abstractmethod
-    def parse_publication(self, store: Store) -> TPublicationDto:
-        ...
+    def parse_publication(self, store: Store) -> TPublicationDto: ...

@@ -80,6 +80,9 @@ class Position(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="positions")
     external_position_id = models.CharField(max_length=255, blank=True)
 
+    class Meta:
+        ordering = ("id",)
+
 
 class FundingAssignment(models.Model):
     position = models.ForeignKey(
@@ -94,6 +97,9 @@ class FundingAssignment(models.Model):
         null=True,
     )
     amount = models.DecimalField(max_digits=20, decimal_places=4)
+
+    class Meta:
+        ordering = ("id",)
 
 
 class CurrencyConversion(models.Model):

@@ -54,7 +54,7 @@ class InvoiceDomainMapper:
             creditor=CreditorId(model.creditor.pk),
             status=PaymentStatus(model.status),
             positions=LazyCachedIterable(
-                PositionDomainMapper.map(position) for position in model.positions.order_by("id")
+                lambda: (PositionDomainMapper.map(position) for position in model.positions.all())
             ),
             comment=model.comment,
             external_invoice_id=model.external_invoice_id,

@@ -3,7 +3,7 @@ import logging
 from django.db.models import QuerySet
 
 from coda.apps.publishers.models import Publisher
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.domain.contract import PublisherId
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def find_by_name_contains(name: str) -> "QuerySet[Publisher]":
     Returns:
         QuerySet of Publisher instances ordered by name
     """
-    return Publisher.objects.filter(words_icontains(name, "name")).order_by("name")
+    return Publisher.objects.filter(build_search_filter(name, "name")).order_by("name")
 
 
 def get_by_pk(pk: int) -> Publisher:

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, Self
 
 from coda.domain import errors
 from coda.domain.contract import ContractYear
@@ -45,31 +45,28 @@ type PositionItemType = PublicationItem | ContractItem | FreeItem
 
 class CostCalculation(Protocol):
     @property
-    def cost(self) -> Money:
-        ...
+    def cost(self) -> Money: ...
 
-    def tax_rate(self) -> TaxRate:
-        ...
+    def tax_rate(self) -> TaxRate: ...
 
-    def net(self) -> Money:
-        ...
+    def net(self) -> Money: ...
 
-    def tax(self) -> Money:
-        ...
+    def tax(self) -> Money: ...
 
-    def total(self) -> Money:
-        ...
+    def total(self) -> Money: ...
 
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
-        ...
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation": ...
 
-    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
-        ...
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money: ...
 
 
 @dataclass(slots=True, frozen=True)
 class RegularCostCalculation:
     net_cost: NetMoney
+
+    @classmethod
+    def from_money(cls, cost: Money, tax_rate: TaxRate) -> Self:
+        return cls(NetMoney.from_money(cost, tax_rate))
 
     @property
     def cost(self) -> Money:
@@ -257,12 +254,12 @@ class Position:
 
     def __repr__(self) -> str:
         return f"""
-        CommonPosition(
-            item={repr(self.item)},
+        Position(
+            item={self.item!r},
             cost={self.cost},
             tax_rate={self.tax_rate},
             external_position_id={self.external_position_id},
-            funding_assignments={repr(self.funding_assignments())},
+            funding_assignments={self.funding_assignments()!r},
         )
         """
 
@@ -276,18 +273,19 @@ def create(
     if item.cost_type.is_vat():
         return vat(item, cost, external_position_id)
 
-    return regular(item, NetMoney.from_money(cost, tax_rate), external_position_id)
+    return regular(item, cost, tax_rate, external_position_id)
 
 
 def regular(
     item: PositionItemType,
-    cost: NetMoney,
+    cost: Money,
+    tax_rate: TaxRate,
     external_position_id: str = "",
 ) -> "Position":
     return Position(
         item=item,
         external_position_id=external_position_id,
-        cost_calculation=RegularCostCalculation(cost),
+        cost_calculation=RegularCostCalculation.from_money(cost, tax_rate),
     )
 
 

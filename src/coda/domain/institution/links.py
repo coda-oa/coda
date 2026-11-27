@@ -35,27 +35,49 @@ class InvalidRinggold(DomainError):
         super().__init__(message, *args)
 
 
+_ROR_ID_RE = re.compile(r"^0[a-hj-km-np-tv-z\d]{6}\d{2}$", re.IGNORECASE)
+_ROR_URL_PREFIX = "https://ror.org/"
+_ROR_URL_INPUT_RE = re.compile(r"^(?:https?://)?ror\.org/(?P<ror_id>[^/\s]+)/?$", re.IGNORECASE)
+
+
+def _ror_url_id(value: str) -> str | None:
+    """Bare ROR ID from a URL with any accepted scheme."""
+    match = _ROR_URL_INPUT_RE.fullmatch(value.strip())
+    return match.group("ror_id").lower() if match else None
+
+
+def _ror_id(value: str) -> str | None:
+    """Bare ROR ID from a bare ID or a URL with any accepted scheme."""
+    if ror_id := _ror_url_id(value):
+        return ror_id
+    candidate = value.strip().rstrip("/")
+    if _ROR_ID_RE.fullmatch(candidate):
+        return candidate.lower()
+    return None
+
+
 class Ror:
     __match_args__ = ("_ror",)
 
     def __init__(self, ror: str) -> None:
-        self._ror = NonEmptyStr(ror).strip()
-        error_message = self._validate()
+        value = NonEmptyStr(ror).strip()
+        ror_id = _ror_url_id(value)
+        if ror_id is None:
+            raise InvalidRor(
+                "Invalid ROR format: expected 'https://ror.org/<id>', "
+                "'http://ror.org/<id>' or 'ror.org/<id>'"
+            )
+        error_message = self._validate_id(ror_id)
         if error_message:
             raise InvalidRor(error_message)
+        self._ror = f"{_ROR_URL_PREFIX}{ror_id}"
 
     @staticmethod
     def type() -> str:
         return "ROR"
 
-    def _validate(self) -> str | None:
-        if not self._ror.startswith("https://ror.org/"):
-            return "Invalid ROR format: must start with 'https://ror.org/'"
-
-        ror_id = self._ror.split("/")[-1]
-
-        pattern = r"^0[a-hj-km-np-tv-z\d]{6}\d{2}$"
-        if not re.match(pattern, ror_id, re.IGNORECASE):
+    def _validate_id(self, ror_id: str) -> str | None:
+        if not _ROR_ID_RE.fullmatch(ror_id):
             return "Invalid ROR format: ID must be 0 + 6 base32 characters + 2 checksum digits"
 
         base32_part = ror_id[1:7]  # Skip the leading '0', take next 6 chars
@@ -87,6 +109,39 @@ class Ror:
 
     def __hash__(self) -> int:
         return hash((self._ror,))
+
+
+def parse_ror(value: str) -> str | None:
+    """Canonical ROR URL for a URL with any accepted scheme or a bare ID."""
+    ror_id = _ror_id(value)
+    if ror_id is None:
+        return None
+
+    canonical = f"{_ROR_URL_PREFIX}{ror_id}"
+    try:
+        return Ror(canonical).url()
+    except ValueError:
+        return None
+
+
+def detect_ror(value: str) -> str | None:
+    """ROR URL for unambiguous identifier-shaped input.
+
+    Bare all-numeric IDs are left undetected because they are indistinguishable from
+    numeric Crossref IDs. A ROR URL is unambiguous even when its ID is numeric,
+    whether it is written with https, http, or no scheme.
+    """
+    canonical = parse_ror(value)
+    if canonical is None:
+        return None
+
+    if _ROR_URL_INPUT_RE.fullmatch(value.strip()):
+        return canonical
+
+    if canonical.rsplit("/", 1)[-1].isdigit():
+        return None
+
+    return canonical
 
 
 class Isni:
@@ -150,7 +205,7 @@ class Ringgold:
         return self._ringgold
 
     def url(self) -> str:
-        return f"https://isni.org/isni/{self.value()}"
+        return f"https://ido.ringgold.com/search/results?simple={self.value()}"
 
     def __str__(self) -> str:
         return self._ringgold

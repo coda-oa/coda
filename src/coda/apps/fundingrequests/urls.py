@@ -18,12 +18,6 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_reset_funding,
     doi_preview_reset_type,
 )
-from coda.apps.fundingrequests.views.mass_doi_import import (
-    MassDOIImportInputView,
-    MassDOIImportResultView,
-    MassDOIPreviewSaveView,
-    MassDOIPreviewView,
-)
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
     archive_funder,
@@ -45,6 +39,10 @@ from coda.apps.fundingrequests.views.funders import (
     update_from_ror_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
+from coda.apps.fundingrequests.views.importschema import (
+    import_schema_download,
+    import_schema_fragment,
+)
 from coda.apps.fundingrequests.views.labels import (
     attach_label,
     detach_label,
@@ -53,19 +51,23 @@ from coda.apps.fundingrequests.views.labels import (
     label_list_view,
     label_update_view,
 )
-from coda.apps.fundingrequests.views.listview import fundingrequest_list
+from coda.apps.fundingrequests.views.listview import (
+    fundingrequest_list,
+    fundingrequest_list_region,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
+)
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
-from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
-    clear_journal_error,
-    find_journal,
-)
+from coda.apps.fundingrequests.views.wizard.steps._search_views import clear_validation_error
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import find_journal
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
-from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
-    clear_publisher_error,
-    find_publisher,
-)
+from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
     UpdateFundingView,
@@ -81,7 +83,10 @@ funding_formset = ExternalFundingFormset.get_management_view()
 urlpatterns = [
     path("", fundingrequest_home, name="home"),
     path("list/", fundingrequest_list, name="list"),
+    path("list/region/", fundingrequest_list_region, name="list_region"),
     path("import/", import_fundingrequests, name="import"),
+    path("import/schema/", import_schema_fragment, name="import_schema"),
+    path("import/schema/download/", import_schema_download, name="import_schema_download"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
     path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
     path(
@@ -136,8 +141,7 @@ urlpatterns = [
         name="doi_preview_reset_type",
     ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
-    path("review/<int:pk>/", review.review_page, name="review"),
-    path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
+    path("review/<int:pk>/", review.review_view, name="review"),
     path("create/wizard/", ArticleRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),
     path(
@@ -226,6 +230,5 @@ urlpatterns = [
     path("partial/search-publisher/", find_publisher, name="wizard_find_publisher"),
     path("partial/search-journal/", find_journal, name="wizard_find_journal"),
     path("contract/inactive", include_inactive_contracts, name="include_inactive_contracts"),
-    path("clear-journal-error/", clear_journal_error, name="clear_journal_error"),
-    path("clear-publisher-error/", clear_publisher_error, name="clear_publisher_error"),
+    path("clear-validation-error/", clear_validation_error, name="clear_validation_error"),
 ]

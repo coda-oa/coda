@@ -8,6 +8,16 @@ You can access invoices from the **Finances** section in the navigation menu. Th
 
 You can search and filter invoices to find specific transactions quickly. An advanced search can be toggled to filter invoices by various criteria.
 
+### Search
+
+The search box matches all entered words against the invoice number, the creditor name, the external invoice ID, and the funding request IDs of the invoice's positions. Every word must occur in at least one of these fields, so results get more specific with each added word.
+
+Wrap a term in double quotes to search for an exact phrase: `"alpha beta"` matches the phrase as a whole, not the two words separately. Quoted phrases are matched spelled exactly as typed.
+
+The words `and` and `&` are ignored in unquoted search - they carry no search weight. Inside quotes they are searched literally.
+
+When adding positions, the publication and contract search boxes support field prefixes: `title:`, `doi:` and `request:` for publications, `name:`, `esac:`, `oai:` and `ezb:` for contracts (e.g. `doi:10.1234/abc`). An unprefixed contract term matches the name and all link values regardless of type. The `doi:` prefix also accepts a `https://doi.org/` resolver URL such as `doi:https://doi.org/10.1234/abc`, and a bare DOI is detected automatically. The publication picker shows at most 50 matches and indicates when more publications match; refine the search to narrow the results.
+
 ![](/_static/img/invoices_list.png)
 
 ## Understanding Invoice Structure
@@ -280,7 +290,7 @@ Invoices are imported using JSON files that follow a specific schema. The import
           "tax_rate": 19.00,
           "cost_type": "gold-oa",
           "external_id": "POS-001",
-          "request_id": "20241215-ABCD1234",
+          "request_id": "coda-20241215-284_GWAxYGU9",
           "funding_assignments": [
             {
               "type": "budget",
@@ -324,7 +334,7 @@ Invoices are imported using JSON files that follow a specific schema. The import
 
 ### Import Schema Reference
 
-The complete JSON schema is available for download [here](/_static/downloads/invoice_import_schema.json). Key fields include:
+The complete JSON schema is generated from the current data model and shown on the **Import** page (Finances → Invoices → Import), where it can also be downloaded as a JSON file. Key fields include:
 
 **Invoice Level:**
 - `number` (required): Invoice number as string
@@ -343,19 +353,19 @@ All positions share these common fields:
 - `type` (required): "publication", "contract", or "free"
 - `amount` (required): Cost amount (can be negative for credits)
 - `tax_rate`: Tax rate percentage (default: 19.00)
-- `funding_source`: Single funding source name (for backwards compatibility)
-- `funding_assignments`: Array of funding assignments for cost splitting
+- `funding_source`: Single budget name (backwards compatibility); use either this or `funding_assignments`
+- `funding_assignments`: Array of funding assignments for cost splitting; use either this or `funding_source`
 - `external_id`: External system position reference
 
 **Publication Position:**
-- `request_id`: CODA funding request ID (e.g., "20241215-ABCD1234")
+- `request_id`: CODA public funding request ID (format "coda-YYYYMMDD-XXXXXXXXXXXX")
 - `legacy_request_id`: Legacy system request ID
-- `cost_type`: "gold-oa", "hybrid-oa", "publication charge", "colour charge", "page charge", "permission", "reprint", "submission fee", "payment fee", "vat", or "other" (default: "publication charge")
+- `cost_type`: "gold-oa", "hybrid-oa", "vat", "cover charge", "colour charge", "page charge", "permission", "publication charge", "reprint", "submission fee", "payment fee", or "other" (default: "publication charge")
 
 **Contract Position:**
 - `contract_name` (required): Name of the contract
 - `contract_year` (required): Year as integer
-- `cost_type`: "publish", "read", or "vat"
+- `cost_type`: "publish", "read", "publish and read", "service fee", or "vat"
 
 **Free Position:**
 - `description`: Descriptive text for the line item
@@ -470,10 +480,10 @@ For system administrators, CODA provides a command-line import tool:
 
 ```bash
 # Using the shell script
-./commands/import_invoices.sh --production /path/to/invoices.json
+./commands/import.sh import_invoices /path/to/invoices.json
 
 # Or for local environment
-./commands/import_invoices.sh --local /path/to/invoices.json
+./commands/import.sh --local import_invoices /path/to/invoices.json
 ```
 
 This is useful for:

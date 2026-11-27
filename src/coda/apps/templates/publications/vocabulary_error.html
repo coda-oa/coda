@@ -1,0 +1,12 @@
+{% comment %}
+Error fragment for HTMX-swapped vocabulary endpoints. The response swaps into
+#vocabulary-status (above the table) so the concept trees and checkboxes stay
+untouched while the error is shown.
+{% endcomment %}
+<div class="voc-error" role="alert">
+    <p><strong>The vocabulary could not be updated.</strong></p>
+    <ul>
+        {% for error in form_errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+    <p>Reload the page and try again.</p>
+</div>

@@ -1,5 +1,7 @@
 <article id="positions">
-    <h2>Invoice Positions</h2>
+    <header>
+        <h2 class="my-0">Invoice Positions</h2>
+    </header>
     {% if position_list %}
         <input type="hidden"
                name="#-positions"
@@ -17,12 +19,13 @@
                     {% include "invoices/position_free.html" with counter=forloop.counter %}
                 {% endif %}
             </section>
-            <hr>
         {% empty %}
             <p class="my-2 text-center">
                 <b>No positions</b>
             </p>
         {% endfor %}
     </section>
-    {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
+    <footer>
+        {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
+    </footer>
 </article>

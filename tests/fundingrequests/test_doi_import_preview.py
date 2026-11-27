@@ -221,6 +221,51 @@ def test_saving_preview_cleans_up_session(client: Client, scenario: ArticleScena
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__htmx_request__missing_session__redirects_to_doi_import(
+    client: Client,
+) -> None:
+    """htmx actions on a stale preview page redirect to the DOI import form.
+
+    htmx 2 does not swap 4xx responses, so a 404 would leave the action dead.
+    """
+    htmx_headers = {"HX-Request": "true"}
+
+    get_response = client.get(
+        reverse(
+            "fundingrequests:doi_preview_load_type_form",
+            kwargs={"session_key": "missing"},
+        ),
+        headers=htmx_headers,
+    )
+    assert get_response.status_code == 200
+    assert get_response.headers["HX-Redirect"] == reverse("fundingrequests:doi_import_input")
+
+    post_response = client.post(
+        reverse(
+            "fundingrequests:doi_preview_add_funding",
+            kwargs={"session_key": "missing"},
+        ),
+        headers=htmx_headers,
+    )
+    assert post_response.status_code == 200
+    assert post_response.headers["HX-Redirect"] == reverse("fundingrequests:doi_import_input")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__non_htmx_request__missing_session__stays_404(client: Client) -> None:
+    """Plain navigation to an expired preview URL keeps the 404."""
+    response = client.get(
+        reverse(
+            "fundingrequests:doi_preview_load_type_form",
+            kwargs={"session_key": "missing"},
+        )
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_doi_input_stores_original_metadata_and_publication_type(
     client: Client, scenario: ArticleScenario
 ) -> None:
@@ -236,7 +281,7 @@ def test_doi_input_stores_original_metadata_and_publication_type(
 
 
 def load_type_form(
-    client: Client, session_key: str, pub_type: "Literal['article', 'monograph']"
+    client: Client, session_key: str, pub_type: Literal["article", "monograph"]
 ) -> HttpResponse:
     """Helper to load HTMX type change form."""
     return cast(
@@ -254,7 +299,7 @@ def load_type_form(
 def submit_type_change(
     client: Client,
     session_key: str,
-    pub_type: "Literal['article', 'monograph']",
+    pub_type: Literal["article", "monograph"],
     **kwargs: Any,
 ) -> HttpResponse:
     """Helper to submit type change form."""
@@ -392,12 +437,13 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    change_response = submit_type_change(client, session_key, "article")
+    change_response = submit_type_change(client, session_key, "article", journal_title="Nature")
 
     assert change_response.status_code == 200
     assert "HX-Redirect" not in change_response
     content = change_response.content.decode()
     assert "Please select a journal before applying." in content
+    assert 'value="Nature"' in content
     session_data = client.session[session_key]
     assert "journal_id" not in session_data
 

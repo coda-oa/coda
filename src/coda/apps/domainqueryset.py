@@ -66,12 +66,10 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
         return item.id
 
     @overload
-    def __getitem__(self, index: int) -> DomainModel:
-        ...
+    def __getitem__(self, index: int) -> DomainModel: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[DomainModel]:
-        ...
+    def __getitem__(self, index: slice) -> list[DomainModel]: ...
 
     def __getitem__(self, index: int | slice) -> DomainModel | list[DomainModel]:
         if isinstance(index, slice):
@@ -138,12 +136,10 @@ class LazyBulkQuerySet(Generic[DjangoModel, ResultType], Sequence[ResultType]):
         return self._queryset.count()
 
     @overload
-    def __getitem__(self, index: int) -> ResultType:
-        ...
+    def __getitem__(self, index: int) -> ResultType: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[ResultType]:
-        ...
+    def __getitem__(self, index: slice) -> list[ResultType]: ...
 
     def __getitem__(self, index: int | slice) -> ResultType | list[ResultType]:
         """

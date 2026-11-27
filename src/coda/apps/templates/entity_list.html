@@ -3,6 +3,15 @@
         <li>{% include list_item_template %}</li>
     {% endfor %}
 </ul>
-{% if entities|length == 0 and not request.GET.query and not request.GET.search_term %}
-    <p class="my-2">No items to display.</p>
+{% if entities|length == 0 %}
+    <p class="my-2">
+        {% if no_results_message %}
+            {{ no_results_message }}
+            {% if no_results_clear_url %}<a href="{{ no_results_clear_url }}">Clear all filters</a>{% endif %}
+        {% elif query %}
+            No results found for "{{ query }}".
+        {% else %}
+            No items to display.
+        {% endif %}
+    </p>
 {% endif %}

@@ -63,7 +63,17 @@ class Invoice:
         self.external_invoice_id = external_invoice_id
         self._conversions: dict[Currency, Decimal] = {}
 
-        if self.is_paid() and not self._all_costs_assigned(positions):
+        self.ensure_all_costs_assigned(self.status, positions)
+
+    @classmethod
+    def ensure_all_costs_assigned(cls, status: PaymentStatus, positions: Positions) -> None:
+        if status is not PaymentStatus.Paid:
+            return
+
+        positions_tuple = tuple(positions)
+        first = next(iter(positions_tuple), None)
+        currency = first.cost.currency if first else Currency.EUR
+        if not all(p.unassigned_costs() == Money(0, currency) for p in positions_tuple):
             raise UnassignedCosts()
 
     @classmethod
@@ -85,13 +95,8 @@ class Invoice:
 
     @positions.setter
     def positions(self, value: Positions) -> None:
-        if self.is_paid() and not self._all_costs_assigned(value):
-            raise UnassignedCosts()
-
+        self.ensure_all_costs_assigned(self.status, value)
         self._positions = tuple(value)
-
-    def _all_costs_assigned(self, positions: Positions) -> bool:
-        return all(p.unassigned_costs() == Money(0, self.currency()) for p in positions)
 
     def currency(self) -> Currency:
         if not self.positions:
@@ -115,9 +120,7 @@ class Invoice:
         return self.status == PaymentStatus.Paid
 
     def pay(self) -> None:
-        if not self._all_costs_assigned(self.positions):
-            raise UnassignedCosts()
-
+        self.ensure_all_costs_assigned(PaymentStatus.Paid, self.positions)
         self.status = PaymentStatus.Paid
 
     def reject(self) -> None:
@@ -152,7 +155,7 @@ class Invoice:
     def clear_conversions(self) -> None:
         self._conversions.clear()
 
-    def convert(self, to: Currency) -> "Invoice":
+    def convert(self, to: Currency) -> Invoice:
         """
         Returns a new Invoice with all positions converted to the specified currency.
         """
@@ -178,7 +181,7 @@ class Invoice:
 
         return reverse_self_conversion | converted_exchange_rates
 
-    def _replace_positions(self, converted_positions: Positions) -> "Invoice":
+    def _replace_positions(self, converted_positions: Positions) -> Invoice:
         return Invoice(
             self.id,
             self.number,

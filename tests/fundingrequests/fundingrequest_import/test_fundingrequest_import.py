@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 from typing import cast
 
+import pydantic
 import pytest
 
 from coda.apps.contracts import repository as contract_repository
@@ -223,6 +224,14 @@ def test__given_invalid_publication_title__import__returns_errors() -> None:
     assert request.legacy_request_id in report.errors
 
 
+def test__article_publication_without_eissn__import__reports_validation_error() -> None:
+    requests = minimalrequest.minimal_article_request_import()
+    requests.requests[0].publication.eissn = ""
+
+    with pytest.raises(pydantic.ValidationError, match="EISSN must be provided for articles"):
+        import_fundingrequests(StringIO(requests.model_dump_json()))
+
+
 @pytest.mark.django_db
 def test__given_invalid_contract_year__import__returns_errors() -> None:
     contract = Contract.new(
@@ -316,7 +325,6 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     _ = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
 
     label = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
-    _ = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
 
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)

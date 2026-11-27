@@ -1,6 +1,7 @@
 import pytest
 from django.test import Client
 from django.urls import reverse
+
 from tests import modelfactory
 
 
@@ -18,6 +19,7 @@ def test__find_publisher__returns_publisher_name_in_row(client: Client) -> None:
     content = response.content.decode()
     assert "Springer Nature" in content
     assert 'name="publisher"' in content
+    assert reverse("fundingrequests:clear_validation_error") not in content
 
 
 @pytest.mark.django_db
@@ -53,7 +55,7 @@ def test__find_publisher__no_results__shows_no_results_message(client: Client) -
     )
 
     assert response.status_code == 200
-    assert "No results" in response.content.decode()
+    assert 'No results for "nonexistent"' in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -87,6 +89,7 @@ def test__find_journal__returns_journal_title_in_row(client: Client) -> None:
     assert "Nature" in content
     assert "Springer" in content
     assert 'name="journal"' in content
+    assert reverse("fundingrequests:clear_validation_error") not in content
 
 
 @pytest.mark.django_db
@@ -98,7 +101,7 @@ def test__find_journal__no_results__shows_no_results_message(client: Client) -> 
     )
 
     assert response.status_code == 200
-    assert "No results" in response.content.decode()
+    assert 'No results for "nonexistent"' in response.content.decode()
 
 
 @pytest.mark.django_db

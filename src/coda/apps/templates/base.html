@@ -2,15 +2,14 @@
 {# djlint:off H030,H031 #}
 <html lang="en">
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{{ title }}</title>
-        <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-              crossorigin="anonymous" />
-        <script src="https://unpkg.com/htmx.org@2.0.0"
-                integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
-                crossorigin="anonymous"></script>
         {% load static %}
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}{% if title %}{{ title }}{% endif %}{% if page_supertitle %} - {{ page_supertitle }}{% endif %}{% if title or page_supertitle %} - CODA{% endif %}{% endblock title %}</title>
+        <link rel="stylesheet"
+              href="{% static 'css/pico.min.css' %}"
+              crossorigin="anonymous" />
+        {% load static django_htmx %}
+        {% htmx_script %}
         <script>
                   const root = document.documentElement;
                   const theme = localStorage.getItem('theme');
@@ -20,31 +19,24 @@
                 type="module"
                 crossorigin="anonymous"></script>
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/vars.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/text.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/flex.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/components.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/article.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/button.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/forms.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -54,11 +46,9 @@
               href="{% static 'css/status.css' %}"
               crossorigin="anonymous">
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/layout.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
-              type="text/css"
               href="{% static 'css/spacing.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -68,7 +58,9 @@
               href="{% static 'css/nav.css' %}"
               crossorigin="anonymous">
         <link rel="stylesheet"
-              type="text/css"
+              href="{% static 'css/filter-sidebar.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
               href="{% static 'css/fundingrequests.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
@@ -84,6 +76,9 @@
                 type="module"
                 crossorigin="anonymous"></script>
         <script src="{% static 'js/search-select-multi.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+        <script src="{% static 'js/filter-drawer.js' %}"
                 type="module"
                 crossorigin="anonymous"></script>
         <script src="{% static 'js/vocabularies.js' %}"
@@ -108,6 +103,19 @@
                     </ul>
                 {% endfor %}
             {% endif %}
+            {% block page_header %}
+                <div class="flex justify-between align-center my-2">
+                    <hgroup class="mb-0">
+                        <p class="supertitle">{% block page_supertitle %}{% if page_supertitle %}{{ page_supertitle }}{% endif %}{% endblock page_supertitle %}</p>
+                        <h1>{% block page_title %}{{ page_title }}{% endblock page_title %}</h1>
+                        <p class="subtitle">{% block page_subtitle %}{% if page_subtitle %}{{ page_subtitle }}{% endif %}{% endblock page_subtitle %}</p>
+                    </hgroup>
+                    <div class="flex align-center">
+                        {% block page_actions %}
+                        {% endblock page_actions %}
+                    </div>
+                </div>
+            {% endblock page_header %}
             {% block content %}
             {% endblock content %}
         </main>

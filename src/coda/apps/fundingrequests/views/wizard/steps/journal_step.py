@@ -1,10 +1,8 @@
 import logging
 from typing import Any
 
-from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
-from django.shortcuts import render
 
 from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.fundingrequests.views.wizard.steps._search_views import make_search_view
@@ -13,8 +11,6 @@ from coda.apps.fundingrequests.views.wizard.steps.contract_step import ContractS
 from coda.apps.journals.models import Journal
 from coda.apps.journals import services as journal_services
 from coda.apps.wizard import Store, TemplateStep
-
-from django.views.decorators.http import require_POST
 
 
 class JournalContractStep(ComposedStep):
@@ -63,21 +59,9 @@ class JournalStep(TemplateStep):
         logging.info(f"Journal step done. Journal: {store['journal']}")
 
 
-@login_required
-@require_POST
-def clear_journal_error(request: HttpRequest) -> HttpResponse:
-    journal_title = request.POST.get("journal_title", "")
-    return render(
-        request,
-        "fundingrequests/partials/clear_journal_error.html",
-        {"journal_title": journal_title},
-    )
-
-
 find_journal = make_search_view(
     param_name="journal_title",
     search_fn=journal_services.find_by_title,
     results_key="journals",
     results_template="fundingrequests/partials/journal_search_results.html",
-    default_row_template="fundingrequests/partials/journal_row.html",
 )

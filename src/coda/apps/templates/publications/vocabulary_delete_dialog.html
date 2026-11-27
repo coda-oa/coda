@@ -1,8 +1,10 @@
 <dialog open>
     <article>
-        <p>
-            The vocabulary <i>{{ vocabulary.name }}</i> is in use by publications. The publications will be migrated to the base vocabulary.
-        </p>
+        {% if usage.publication_count %}
+            <p>
+                The vocabulary <i>{{ vocabulary.name }}</i> is in use by {{ usage.publication_count }} publication{{ usage.publication_count|pluralize }}. The publications will be migrated to the base vocabulary.
+            </p>
+        {% endif %}
         <p>
             <strong>Are you sure you want to delete the vocabulary?</strong>
         </p>

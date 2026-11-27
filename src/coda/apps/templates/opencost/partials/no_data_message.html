@@ -1,0 +1,8 @@
+{% if excluded %}
+    No file was downloaded: nothing in this report could be transformed into openCost XML.
+    Reasons:{% for warning in excluded|slice:":5" %}{{ warning.entity_name }}:
+    {{ warning.message }}{% if not forloop.last %}; {% endif %}{% endfor %}{% if excluded|length > 5 %} (and
+    {{ excluded|length|add:"-5" }} more){% endif %}
+{% else %}
+No data to export — the report has no publications or contracts to transform.
+{% endif %}

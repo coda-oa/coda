@@ -25,36 +25,43 @@ def validate_invoices(
     Returns:
         Tuple of (valid_invoice_dtos, validation_errors_by_invoice_number)
     """
-    invoice_numbers = _extract_invoice_numbers(raw_invoices)
-
     with errors.capture(InvoiceProcessingError) as capture:
         parsed = errors.results(
-            capture(_validate_invoice, invoice_numbers[i], raw_invoice)
-            for i, raw_invoice in enumerate(raw_invoices)
+            capture(_validate_invoice, i, raw_invoice) for i, raw_invoice in enumerate(raw_invoices)
         )
 
     invoice_dtos, errors_ = parsed.split()
     return invoice_dtos, errors_
 
 
-def _validate_invoice(invoice_number: str, raw_invoice: dict[str, Any]) -> InvoiceImportDto:
+def _validate_invoice(i: int, raw_invoice: dict[str, Any]) -> InvoiceImportDto:
+    invoice_number = _extract_invoice_number(i, raw_invoice)
     try:
         return InvoiceImportDto.model_validate(raw_invoice)
     except (ValueError, AttributeError) as e:
         raise InvoiceProcessingError(invoice_number, _format_validation_error(e))
 
 
-def _extract_invoice_numbers(raw_invoices: list[dict[str, Any]]) -> list[str]:
+def _extract_invoice_number(i: int, raw_invoice: dict[str, Any]) -> str:
     """Extract invoice numbers from raw JSON data, providing fallbacks for missing numbers."""
-    return [
-        raw_invoice.get("number", f"<unknown-{i}>") for i, raw_invoice in enumerate(raw_invoices)
-    ]
+    fallback = f"<unknown-{i}>"
+    if not isinstance(raw_invoice, dict):
+        raise InvoiceProcessingError(
+            invoice_number=fallback, reasons=["invoice is not a json object"]
+        )
+
+    return str(raw_invoice.get("number", fallback))
 
 
 def _format_validation_error(error: Exception) -> list[str]:
     """Format validation errors into a consistent list of string messages."""
     if isinstance(error, pydantic.ValidationError):
-        return [str(err) for err in error.errors()]
+        messages = []
+        for err in error.errors():
+            location = ".".join(str(part) for part in err["loc"])
+            message = err["msg"]
+            messages.append(f"{location}: {message}" if location else message)
+        return messages
     else:
         # Handle other validation-related exceptions
         return [str(error)]

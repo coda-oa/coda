@@ -1,10 +1,5 @@
 <div>
-    <div class="flex justify-between align-center">
-        <h2 class="my-2">Journals</h2>
-        <a href="{% url "publishing:journals:list" %}"
-           role="button"
-           class="secondary">Block Journals</a>
-    </div>
+    {% include "blocklist/blocklist_section_header.html" with section_title="Journals" section_block_url="publishing:journals:list" section_block_label="Block Journals" %}
     {% for blocked_journal in journals %}
         {% include "blocklist/blocklist_journal_entry.html" %}
     {% endfor %}

@@ -182,6 +182,9 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(
 
     actual = repository.get_by_id(invoice.id)
     assert_invoice_eq(expected, actual)
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Invoice '456' updated successfully."
+    ]
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": invoice.id}))
 
 
@@ -287,6 +290,29 @@ def test__given_position_with_invalid_contract_year__update__returns_error(
         response.context["position_list"].positions[0].error
         == f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}"
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_position__goto_update_view__links_contract_detail(client: Client) -> None:
+    contract = domainfactory.contract()
+    contract.id = contract_services.create(contract)
+    position = domainfactory.contract_position(domainfactory.contract_year(contract))
+    creditor = modelfactory.creditor()
+
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(creditor.pk),
+        date=datetime.date.today(),
+        positions=[position],
+    )
+    invoice.id = repository.create(invoice)
+
+    response = goto_update_view(client, invoice.id)
+
+    assert response.context["position_list"].positions[0].type == "contract"
+    contract_url = reverse("contracts:detail", kwargs={"pk": contract.id})
+    assert f'href="{contract_url}"' in response.content.decode()
 
 
 @pytest.mark.django_db

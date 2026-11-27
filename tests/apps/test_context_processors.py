@@ -4,9 +4,9 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory, override_settings
 
+from coda.apps import version as version_module
 from coda.apps.context_processors import demo_context, version_context
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from tests.apps._doubles import InMemoryVersionInfoProvider
 from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     InMemoryDOIMetadataClient,
     crossref,
@@ -73,10 +73,18 @@ def test__demo_context__when_demo_mode_true_but_crossref_client__returns_empty_d
 def test__version_context__includes_version_info(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider = InMemoryVersionInfoProvider()
-    provider.branch = "develop"
-    provider.version = "abc123"
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(
+        version_module,
+        "_git",
+        lambda args: (
+            "develop"
+            if args == ("rev-parse", "--abbrev-ref", "HEAD")
+            else "abc123"
+            if args == ("rev-parse", "--short", "HEAD")
+            else None
+        ),
+    )
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -89,8 +97,8 @@ def test__version_context__includes_version_info(
 def test__version_context__update_available_is_false_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider = InMemoryVersionInfoProvider()
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(version_module, "_git", lambda args: None)
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -101,12 +109,10 @@ def test__version_context__update_available_is_false_by_default(
 def test__version_context__with_tag__uses_release_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider = InMemoryVersionInfoProvider()
-    provider.branch = "stable"
-    provider.version = "2026.01"
-    provider.version_tag = "2026.01"
-    provider.update_info = {"update_available": True}
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(
+        version_module, "_git", lambda args: "2026.01" if args[0] == "describe" else None
+    )
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -117,12 +123,12 @@ def test__version_context__with_tag__uses_release_url(
 def test__version_context__without_tag__uses_branch_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider = InMemoryVersionInfoProvider()
-    provider.branch = "develop"
-    provider.version = "abc1234"
-    provider.version_tag = None
-    provider.update_info = {"update_available": True}
-    monkeypatch.setattr("coda.apps.version._provider", provider)
+    monkeypatch.setattr(
+        version_module,
+        "_git",
+        lambda args: "develop" if args == ("rev-parse", "--abbrev-ref", "HEAD") else None,
+    )
+    monkeypatch.setattr(version_module, "_baked_file", lambda name: None)
 
     request = HttpRequest()
     ctx = version_context(request)

@@ -14,8 +14,10 @@
                                 {% for link in org.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
                             </ul>
                         {% endif %}
+                        {# djlint:off H037 #}
                         <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
                            class="button outline">Merge</a>
+                        {# djlint:on H037 #}
                     </div>
                 </li>
             {% endfor %}

@@ -13,12 +13,14 @@ Example:
 
 from ._service import import_invoices
 from .types import (
+    InvoiceImportDataError,
     InvoiceImportReport,
     InvoiceProcessingError,
 )
 
 __all__ = [
-    "import_invoices",  # Main public API function
-    "InvoiceImportReport",  # Return type
-    "InvoiceProcessingError",  # Error type
+    "InvoiceImportDataError",
+    "InvoiceImportReport",
+    "InvoiceProcessingError",
+    "import_invoices",
 ]

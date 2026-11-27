@@ -17,8 +17,7 @@ RatesLookup: TypeAlias = dict[Currency, RatesSnapshot]
 
 
 class ExchangeProvider(Protocol):
-    def __call__(self, currency: Currency) -> Rates:
-        ...
+    def __call__(self, currency: Currency) -> Rates: ...
 
 
 Calendar: TypeAlias = Callable[[], datetime]

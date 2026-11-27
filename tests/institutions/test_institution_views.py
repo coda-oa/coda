@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -42,7 +43,7 @@ def test__institution_detail_view__shows_archived_status(client: Client) -> None
 
     assert response.status_code == 200
     content = response.content.decode()
-    assert '<span class="pill danger">Archived</span>' in content
+    assert '<span class="status-pill archived">Archived</span>' in content
 
 
 @pytest.mark.django_db
@@ -53,7 +54,7 @@ def test__institution_edit_view__shows_archived_status(client: Client) -> None:
     response = client.get(reverse("institutions:edit", kwargs={"pk": archived.pk}))
 
     content = response.content.decode()
-    assert '<span class="pill danger">Archived</span>' in content
+    assert '<span class="status-pill archived">Archived</span>' in content
 
 
 @pytest.mark.django_db
@@ -204,6 +205,19 @@ def test__list_view__includes_archived_when_requested(client: Client) -> None:
 
     content = response.content.decode()
     assert_content_contains(content, active.name, archived.name)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__archived_checkbox_rendered_and_checked(client: Client) -> None:
+    create_institution_scenario()
+
+    response = client.get(reverse("institutions:list"), {"include_archived": "on"})
+
+    content = response.content.decode()
+    assert "Include archived" in content
+    assert 'class="filter-switch"' in content
+    assert 'aria-checked="true"' in content
 
 
 @pytest.mark.django_db
@@ -378,3 +392,38 @@ def test__archive_with_no_successor_selected__shows_inline_error_in_modal(client
     assert 'aria-invalid="true"' in html
     assert "Please select a successor institution" in html
     assert "<dialog open>" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__create_institution__redirects_to_detail_and_flashes_success(client: Client) -> None:
+    response = client.post(
+        reverse("institutions:create"),
+        {"name": "New University", "parent": "", "internal_id": ""},
+    )
+
+    institution = Institution.objects.get(name="New University")
+    assert response.status_code == 302
+    assert response["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Institution created successfully"
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_institution__redirects_to_detail_and_flashes_named_success(
+    client: Client,
+) -> None:
+    institution = Institution.objects.create(name="Old University")
+
+    response = client.post(
+        reverse("institutions:edit", kwargs={"pk": institution.pk}),
+        {"name": "New University", "parent": "", "internal_id": institution.internal_id or ""},
+    )
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("institutions:detail", kwargs={"pk": institution.pk})
+    assert [str(m) for m in get_messages(response.wsgi_request)] == [
+        "Institution 'New University' updated successfully."
+    ]

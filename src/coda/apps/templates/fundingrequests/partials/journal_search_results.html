@@ -1,36 +1,22 @@
-<div id="journal-search-results" class="scroll-container max-h-30">
+{# Context: journals, search_term #}
+<div id="journal-search-results">
     {% if journals %}
-        <table class="my-2">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Publisher</th>
-                    <th>Select</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for journal in journals %}
-                    {% include row_template|default:"fundingrequests/partials/journal_row.html" %}
-                {% endfor %}
-            </tbody>
-        </table>
-        <div class="flex justify-between align-center my-2">
-            <p>Couldn't find the right journal?</p>
-            <button type="button"
-                    class="secondary"
-                    hx-get="{% url 'publishing:journals:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    hx-swap="innerHTML">New Journal</button>
-        </div>
-    {% elif search_term %}
-        <div class="flex justify-between align-center my-2">
-            <p>No results for "{{ search_term }}".</p>
-            <button type="button"
-                    class="secondary"
-                    hx-get="{% url 'publishing:journals:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    hx-swap="innerHTML">New Journal</button>
+        <div class="my-2 scroll-container max-h-30">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Publisher</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for journal in journals %}
+                        {% include "fundingrequests/partials/journal_row.html" %}
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     {% endif %}
-    <div id="entity-creation-modal-wrapper"></div>
+    {% include "fundingrequests/partials/create_missing_publishing_entity.html" with search_term=search_term results=journals entity_name="journal" entity_create_url="publishing:journals:create_modal" %}
 </div>

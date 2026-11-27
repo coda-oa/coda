@@ -11,6 +11,7 @@
         <button hx-post="{% url "publications:vocabulary_request_delete" pk=entity.id %}"
                 hx-target="body"
                 hx-swap="beforeend"
+                hx-push-url="false"
                 class="danger">Delete</button>
     </div>
 </article>

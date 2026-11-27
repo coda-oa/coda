@@ -1,3 +1,4 @@
+from coda.domain.finance.invoice import PaymentStatus
 from decimal import Decimal
 
 import pytest
@@ -24,7 +25,7 @@ class TestRemovePositionFundingSourceReverse(MigratorTestCase):
             number="INV-001",
             date="2025-01-01",
             creditor=creditor,
-            status="Unpaid",
+            status=PaymentStatus.Unpaid.value,
         )
 
         budget_a = FundingSource.objects.create(name="Budget A", type="budget")

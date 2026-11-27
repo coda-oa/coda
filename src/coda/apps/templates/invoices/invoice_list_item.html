@@ -16,11 +16,11 @@
         <div>
             <div>
                 {% if entity.status.name == "Unpaid" %}
-                    <span class="pill status-label open">Open</span>
+                    {% include "partials/status_pill.html" with pill_text="Open" pill_tone="open" %}
                 {% elif entity.status.name == "Paid" %}
-                    <span class="pill status-label approved">Paid</span>
+                    {% include "partials/status_pill.html" with pill_text="Paid" pill_tone="approved" %}
                 {% elif entity.status.name == "Rejected" %}
-                    <span class="pill status-label rejected">Rejected</span>
+                    {% include "partials/status_pill.html" with pill_text="Rejected" pill_tone="rejected" %}
                 {% endif %}
             </div>
         </div>

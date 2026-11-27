@@ -20,16 +20,37 @@ def test__issn_checksum(partial_issn: str, expected: str) -> None:
     assert issn.checksum(partial_issn) == expected
 
 
-def test__issn__must_have_length_9() -> None:
-    valid_issn = issn.Issn("2434-561X")  # noqa: F841
-
+@pytest.mark.parametrize(
+    "value",
+    [
+        "123456789",  # nine digits, the old validator accepted this shape
+        "2434-561XX",
+        "2434-561",
+    ],
+)
+def test__issn__rejects_non_canonical_length(value: str) -> None:
     with pytest.raises(ValueError):
-        too_long = issn.Issn("2434-561XX")  # noqa: F841
+        issn.Issn(value)
 
-    with pytest.raises(ValueError):
-        too_short = issn.Issn("2434-561")  # noqa: F841
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2434-561X", "2434-561X"),
+        ("2434561X", "2434-561X"),
+        ("2434-561x", "2434-561X"),
+        ("123-45679", "1234-5679"),
+        ("00280836", "0028-0836"),
+        (" 0028-0836 ", "0028-0836"),
+    ],
+)
+def test__issn__is_normalised_to_canonical_form(value: str, expected: str) -> None:
+    assert issn.Issn(value) == expected
 
 
 def test__issn__must_have_correct_checksum() -> None:
     with pytest.raises(ValueError):
         invalid_checksum = issn.Issn("2434-561A")  # noqa: F841
+
+    with pytest.raises(ValueError):
+        issn.Issn("24345618")

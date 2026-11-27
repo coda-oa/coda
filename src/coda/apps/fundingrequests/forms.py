@@ -1,6 +1,7 @@
 import datetime
-from collections.abc import Mapping
-from typing import Any, cast
+from collections.abc import Iterable, Mapping
+from decimal import Decimal
+from typing import Any, ClassVar, cast
 
 from django import forms
 from django.contrib.auth.decorators import login_required
@@ -8,11 +9,14 @@ from django.db import models
 from django.forms import ModelChoiceField
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from coda.apps import fields
 from coda.apps.contracts import repository
+from coda.apps.contracts.models import Contract
 from coda.apps.formbase import CodaFormBase
+from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
     FundingRequest,
@@ -20,11 +24,31 @@ from coda.apps.fundingrequests.models import (
 )
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+from coda.apps.listfilters import (
+    DateRangeField,
+    ListSortOrder,
+    named_model_choices,
+    valid_fields,
+)
 from coda.apps.publications.dto import ContractYearDto
-from coda.apps.widgets import SearchSelectWidget
-from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
+from coda.apps.widgets import (
+    PublicationTypeRadioSelect,
+    SearchSelectMultiWidget,
+    SearchSelectWidget,
+    SwitchInput,
+)
+from coda.contexts.fundingrequest.dto.commands import (
+    ExternalFundingDto,
+    PaymentDto,
+    UpdateReviewDto,
+)
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency
+from coda.domain.publication import OpenAccessType
+from coda.domain.publication.publication import UnpublishedState
 
 
 class ExtraContactForm(CodaFormBase):
@@ -55,7 +79,7 @@ class ContractForm(CodaFormBase):
 
         contract_id = int(self.data[f"{prefix}contract"])
         contract = repository.get_by_id(ContractId(contract_id))
-        return not contract.is_active(datetime.date.today())
+        return not contract.is_active(timezone.now().astimezone(datetime.UTC).date())
 
     def include_inactive_contracts(self) -> None:
         self.fields["contract"].widget.choices = (
@@ -121,7 +145,10 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
 
 class PaymentForm(CodaFormBase):
     use_required_attribute = False
-    amount = forms.DecimalField(max_digits=10, decimal_places=2, initial=0, label="Estimated cost")
+    # Matches the model's precision; the accepted number of decimal places is
+    # narrowed per currency in clean(), since Money quantizes to the
+    # currency's minor units.
+    amount = forms.DecimalField(max_digits=10, decimal_places=4, initial=0, label="Estimated cost")
     currency = fields.currency_field(label="Currency")
     method = forms.ChoiceField(
         choices=FundingRequest.PAYMENT_METHOD_CHOICES, label="Payment method"
@@ -132,9 +159,14 @@ class PaymentForm(CodaFormBase):
         label="External cost splitting",
     )
 
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        _add_currency_scale_error(self, "amount", cleaned.get("currency"), cleaned.get("amount"))
+        return cleaned
+
     def to_dto(self) -> PaymentDto:
         return PaymentDto(
-            amount=float(self.cleaned_data["amount"]),
+            amount=self.cleaned_data["amount"],
             currency=self.cleaned_data["currency"],
             method=self.cleaned_data["method"],
             external_costsplitting=self.cleaned_data["external_costsplitting"],
@@ -157,9 +189,9 @@ class ExternalFundingForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         if organization_queryset is not None:
-            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
-                organization_queryset
-            )
+            cast(
+                ModelChoiceField[FundingOrganization], self.fields["organization"]
+            ).queryset = organization_queryset
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -253,20 +285,76 @@ class LabelForm(forms.ModelForm[Label]):
     class Meta:
         model = Label
         fields = "__all__"
-        widgets = {"hexcolor": forms.TextInput(attrs={"type": "color"})}
-        labels = {"hexcolor": "Color"}
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "name": forms.TextInput(attrs={"autofocus": True}),
+            "hexcolor": forms.ColorInput(),
+        }
+        labels: ClassVar[dict[str, str]] = {"hexcolor": "Color"}
 
 
 class ChooseLabelForm(forms.Form):
     label = forms.ModelChoiceField[Label](queryset=Label.objects.all(), label="")
 
 
+def _add_currency_scale_error(
+    form: forms.Form, amount_field: str, currency_code: str | None, amount: Decimal | None
+) -> None:
+    """Reject amounts with more decimals than the currency's minor units allow.
+
+    Money quantizes every amount to its currency's minor units, so an amount
+    carrying more decimals than that can never come from the domain.
+    """
+    if amount is None or currency_code is None:
+        return
+
+    currency = Currency[currency_code]
+    exponent = amount.as_tuple().exponent
+    if isinstance(exponent, int) and exponent < -currency.minor_units:
+        form.add_error(
+            amount_field,
+            f"Ensure that there are no more than {currency.minor_units} decimal places.",
+        )
+
+
 class ReviewForm(forms.Form):
-    funding_sum = forms.DecimalField(
-        max_digits=10, decimal_places=2, initial=0, label="Funding sum"
+    ACTION_RETURN = "return"
+
+    action = forms.ChoiceField(
+        choices=[(result.value, result.value) for result in ReviewResult]
+        + [(ACTION_RETURN, ACTION_RETURN)],
     )
-    funding_currency = fields.currency_field(label="Currency")
-    reviewer_comments = forms.CharField(widget=forms.Textarea, required=False)
+    decided_funding_amount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        min_value=0,
+        label="Decided funding amount",
+        # step="any": the accepted scale depends on the chosen currency and
+        # is enforced server-side in clean().
+        widget=forms.TextInput(attrs={"type": "number", "min": "0", "step": "any"}),
+    )
+    decided_funding_currency = fields.currency_field(label="Currency")
+    reviewer_remarks = forms.CharField(widget=forms.Textarea, required=False)
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        _add_currency_scale_error(
+            self,
+            "decided_funding_amount",
+            cleaned.get("decided_funding_currency"),
+            cleaned.get("decided_funding_amount"),
+        )
+        return cleaned
+
+    def to_dto(self) -> UpdateReviewDto:
+        result = (
+            "" if self.cleaned_data["action"] == self.ACTION_RETURN else self.cleaned_data["action"]
+        )
+        return UpdateReviewDto(
+            decided_funding_amount=self.cleaned_data["decided_funding_amount"],
+            decided_funding_currency=self.cleaned_data["decided_funding_currency"],
+            reviewer_remarks=self.cleaned_data["reviewer_remarks"],
+            result=result,
+        )
 
 
 class FundingOrganizationLinkForm(forms.Form):
@@ -319,3 +407,200 @@ def include_inactive_contracts(request: HttpRequest) -> HttpResponse:
             "contract_formset": contract_formset,
         },
     )
+
+
+payment_status_choices = [
+    (status.value, status.value.replace("_", " ").title()) for status in fq.PaymentStatus
+]
+
+publication_state_choices = [
+    ("Published", "Published"),
+    *((state.name, state.value) for state in UnpublishedState),
+]
+processing_status_choices = [(result.value, result.value) for result in ReviewResult]
+payment_method_choices = [(method.value, method.value) for method in PaymentMethod]
+open_access_type_choices = [
+    (access_type.value, access_type.value) for access_type in OpenAccessType
+]
+publication_type_choices = [
+    (entity.value, entity.value.title()) for entity in fq.PublicationEntityType
+]
+
+
+def parse_label_ids(values: Iterable[str]) -> set[int]:
+    """Parse label ids from query values, ignoring non-integer values."""
+    ids = set()
+    for value in values:
+        try:
+            ids.add(int(value))
+        except ValueError:
+            continue
+    return ids
+
+
+class FundingRequestListFilterForm(forms.Form):
+    """Validation and query mapping for the funding-request filter controls.
+
+    A value that fails validation lands in ``form.errors`` and its criterion is
+    dropped; the raw param stays in the URL so its chip keeps it removable.
+    The form resolves the ``labels``/``exclude_labels`` params against the
+    ``labels`` set: ids outside it filter nothing and get no chip, so the URL
+    cannot select a label the filters do not offer.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        contracts: Iterable[Contract] = (),
+        labels: Iterable[Label],
+        **kwargs: Any,
+    ) -> None:
+        kwargs.setdefault("label_suffix", "")
+        data = args[0] if args else kwargs.get("data")
+        if data is not None and not data.get("publication_type"):
+            data = data.copy()
+            data["publication_type"] = fq.PublicationEntityType.All.value
+            if args:
+                args = (data, *args[1:])
+            else:
+                kwargs["data"] = data
+        super().__init__(*args, **kwargs)
+
+        cast(SearchSelectWidget, self.fields["contract_name"].widget).choices = named_model_choices(
+            contracts
+        )
+        label_widget = cast(SearchSelectMultiWidget, self.fields["exclude_labels"].widget)
+        label_options = list(labels)
+        label_widget.choices = [(label.pk, label.name) for label in label_options]
+        label_widget.option_attrs = {
+            str(label.pk): {"data-color": label.hexcolor} for label in label_options
+        }
+        self.selected_label_ids: set[int] = set()
+        self.excluded_label_ids: set[int] = set()
+        if data is not None:
+            selectable = {label.pk for label in label_options}
+            self.selected_label_ids = parse_label_ids(data.getlist("labels")) & selectable
+            self.excluded_label_ids = parse_label_ids(data.getlist("exclude_labels")) & selectable
+
+    search_term = forms.CharField(required=False)
+    processing_status = forms.TypedMultipleChoiceField(
+        coerce=ReviewResult,
+        choices=processing_status_choices,
+        required=False,
+        label="Processing Status",
+        widget=SearchSelectMultiWidget(
+            attrs={"id": "processing_status", "class": "w-100", "placeholder": "Select statuses"}
+        ),
+    )
+    payment_status = forms.TypedMultipleChoiceField(
+        coerce=fq.PaymentStatus,
+        choices=payment_status_choices,
+        required=False,
+        label="Payment status",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "id_payment_status",
+                "class": "w-100",
+                "placeholder": "Select payment statuses",
+            }
+        ),
+    )
+    payment_methods = forms.TypedMultipleChoiceField(
+        coerce=PaymentMethod,
+        choices=payment_method_choices,
+        required=False,
+        label="Payment Method",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "payment_methods",
+                "class": "w-100",
+                "placeholder": "Select payment methods",
+            }
+        ),
+    )
+    open_access_type = forms.TypedMultipleChoiceField(
+        coerce=OpenAccessType,
+        choices=open_access_type_choices,
+        required=False,
+        label="Open Access Type",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "open_access_type",
+                "class": "w-100",
+                "placeholder": "Select open access types",
+            }
+        ),
+    )
+    publication_type = forms.TypedChoiceField(
+        coerce=fq.PublicationEntityType,
+        choices=publication_type_choices,
+        required=False,
+        initial=fq.PublicationEntityType.All.value,
+        widget=PublicationTypeRadioSelect(),
+    )
+    publication_states = forms.Field(
+        required=False,
+        label="Publication State",
+        widget=SearchSelectMultiWidget(
+            attrs={"id": "id_publication_states", "class": "w-100"},
+            choices=publication_state_choices,
+        ),
+    )
+    contract_name = forms.IntegerField(
+        required=False,
+        label="Contract",
+        widget=SearchSelectWidget(attrs={"id": "contract_name", "class": "w-100"}),
+    )
+    contract_year = forms.IntegerField(
+        required=False,
+        label="Contract Year",
+        widget=forms.NumberInput(attrs={"id": "contract_year", "step": "1"}),
+    )
+    invalid_contract_years = forms.BooleanField(
+        required=False,
+        label="Invalid contract years only",
+        widget=SwitchInput(attrs={"id": "invalid_contract_years", "role": "switch"}),
+    )
+    date_range = DateRangeField(
+        input_names=("start_date", "end_date"),
+        input_ids=("id_start_date", "id_end_date"),
+    )
+    labels = forms.Field(required=False, widget=forms.MultipleHiddenInput)
+    exclude_labels = forms.Field(
+        required=False,
+        label="Exclude labels",
+        widget=SearchSelectMultiWidget(
+            attrs={
+                "id": "exclude_labels",
+                "class": "w-100",
+                "placeholder": "Select labels to exclude",
+            }
+        ),
+    )
+    sort_by = forms.ChoiceField(
+        choices=ListSortOrder.choices(),
+        required=False,
+        widget=forms.Select(attrs={"id": "sort_by", "class": "filter-sort"}),
+    )
+
+    def search_criteria(
+        self,
+    ) -> tuple[list[fq.FundingRequestSearchCriteria], ListSortOrder]:
+        """Translate validated filter fields into criteria and their sort order."""
+        cleaned = valid_fields(self)
+        params = fq.FundingRequestSearchParams(
+            date_range=cleaned.get("date_range"),
+            review_results=cleaned.get("processing_status", []),
+            payment_statuses=cleaned.get("payment_status", []),
+            labels=sorted(self.selected_label_ids),
+            exclude_labels=sorted(self.excluded_label_ids),
+            payment_methods=cleaned.get("payment_methods", []),
+            open_access_types=cleaned.get("open_access_type", []),
+            publication_states=cleaned.get("publication_states", []),
+            entity_type=cleaned.get("publication_type") or fq.PublicationEntityType.All,
+            search_term=cleaned.get("search_term", ""),
+            contract_id=cleaned.get("contract_name"),
+            contract_year=cleaned.get("contract_year"),
+            show_invalid_contract_years=bool(cleaned.get("invalid_contract_years")),
+        )
+        return fq.build_criteria(params), ListSortOrder.parse_or_default(cleaned.get("sort_by"))

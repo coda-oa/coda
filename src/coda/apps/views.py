@@ -1,43 +1,38 @@
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db.models import Model, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
-from coda.apps.version import (
-    check_update as check_version_update,
-    get_branch,
-    get_commit_sha,
-    get_repo,
-    get_version_tag,
-)
-
-from coda.apps.version import (
-    check_update as check_version_update,
-    get_branch,
-    get_commit_sha,
-    get_repo,
-    get_version_tag,
-)
-
-from django.db.models import Model 
-
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
+from coda.apps.search import SearchFieldAliases, build_search_filter
+from coda.apps.version import (
+    check_update as check_version_update,
+)
+from coda.apps.version import (
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version_tag,
+)
 
 EntityType = TypeVar("EntityType")
 
 
 @require_GET
 def check_update(request: HttpRequest) -> HttpResponse:
+    if not request.user.is_authenticated:
+        raise PermissionDenied  # 403, not a login redirect: htmx fragment target
     branch = get_branch()
     commit_sha = get_commit_sha()
     tag = get_version_tag()
     repo = get_repo()
-    update_info = check_version_update(branch, commit_sha)
+    update_available = check_version_update(branch, commit_sha)
     if tag:
         github_url = f"https://github.com/{repo}/releases/tag/{tag}"
     else:
@@ -46,7 +41,7 @@ def check_update(request: HttpRequest) -> HttpResponse:
         request,
         "partials/update_banner.html",
         {
-            "update_available": update_info.get("update_available", False),
+            "update_available": update_available,
             "branch": branch,
             "github_url": github_url,
         },
@@ -60,9 +55,11 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_create_url: str = ""
     entity_list_item_template: str
     entity_list_layout_classes: str = ""
-    entity_filter_template: str = ""
     use_generic_entity_filter: bool = False
-    supports_archiving: bool = False
+    entity_filter_extra_template: str = ""
+    entity_filter_helper_template: str = ""
+    no_results_message: str = ""
+    no_results_clear_url: str = ""
 
     def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         raise NotImplementedError
@@ -75,10 +72,13 @@ class EntityListView(Generic[EntityType], TemplateView):
             "entity_name": self.entity_name,
             "entity_create_url": self.entity_create_url,
             "entity_list_item_template": self.entity_list_item_template,
-            "entity_filter_template": self.entity_filter_template,
             "entity_list_layout_classes": self.entity_list_layout_classes,
             "use_generic_entity_filter": self.use_generic_entity_filter,
-            "supports_archiving": self.supports_archiving,
+            "entity_filter_extra_template": self.entity_filter_extra_template,
+            "entity_filter_helper_template": self.entity_filter_helper_template,
+            "no_results_message": self.no_results_message,
+            "no_results_clear_url": self.no_results_clear_url,
+            "query": self.request.GET.get("query", ""),
             "entities": page.object_list,
             "page_obj": page,
             "search_placeholder": self.search_placeholder,
@@ -92,15 +92,47 @@ class EntityListView(Generic[EntityType], TemplateView):
 ModelType = TypeVar("ModelType", bound=Model)
 
 
-class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
+class SimpleSearchEntityListView(EntityListView[EntityType], Generic[ModelType, EntityType]):
     model: type[ModelType]
-    search_fields: list[str] = ["name"]
+    search_fields: ClassVar[list[str]] = ["name"]
+    search_field_aliases: ClassVar[SearchFieldAliases | None] = None
+    search_distinct: ClassVar[bool] = False
+    ordering: ClassVar[list[str]] = []
 
-    def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
+    def get_base_queryset(self, request: HttpRequest) -> QuerySet[ModelType]:
+        """The queryset searched and listed before any per-view filtering."""
+        return self.model.objects.all()  # type: ignore[attr-defined,no-any-return]
+
+    def filter_queryset(
+        self, queryset: QuerySet[ModelType], request: HttpRequest
+    ) -> QuerySet[ModelType]:
+        """View-specific filtering (checkbox switches, annotations, prefetching)."""
+        return queryset
+
+    def map_entity(self, entity: ModelType) -> EntityType:
+        return cast(EntityType, entity)
+
+    def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         search_term = request.GET.get("query", "").strip()
-        queryset = self.model.objects.all()  # type: ignore[attr-defined]
+        queryset = self.get_base_queryset(request)
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(
+                build_search_filter(
+                    search_term,
+                    *self.search_fields,
+                    field_aliases=self.search_field_aliases,
+                )
+            )
+            if self.search_distinct:
+                queryset = queryset.distinct()
 
-        return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))
+        queryset = self.filter_queryset(queryset, request)
+
+        order_by = self.ordering or self.search_fields
+        return DomainQuerySet[ModelType, Any](queryset.order_by(*order_by), self.map_entity)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {
+            "search_prefixes": ", ".join(self.search_field_aliases or {}),
+        }

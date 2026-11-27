@@ -19,7 +19,7 @@ def test__click_on_new_journal_from_funding_request__returns_modal_with_journal_
     assert "partials/entity_creation_modal.html" in [t.name for t in response.templates]
     assert "form" in response.context
     assert response.context["entity_name"] == "Journal"
-    assert response.context["entity_create_url"] == "publishing:journals:create_modal_submit"
+    assert response.context["entity_create_url"] == "publishing:journals:create_modal"
 
 
 @pytest.mark.django_db
@@ -32,7 +32,7 @@ def test__valid_journal_entered__click_create_button__creates_journal_and_return
     eissn = "1476-4687"
 
     response = client.post(
-        reverse("publishing:journals:create_modal_submit"),
+        reverse("publishing:journals:create_modal"),
         {"title": journal_title, "eissn": eissn, "publisher": publisher.pk},
     )
 
@@ -51,7 +51,7 @@ def test__invalid_journal_entered__click_create_button__returns_modal_with_error
     client: Client,
 ) -> None:
     response = client.post(
-        reverse("publishing:journals:create_modal_submit"),
+        reverse("publishing:journals:create_modal"),
         {"title": "", "eissn": "", "publisher": ""},
     )
 
@@ -116,7 +116,7 @@ def test__create_journal_with_new_publisher_in_modal__creates_both_entities(
     eissn = "1095-9203"
 
     journal_create_response = client.post(
-        reverse("publishing:journals:create_modal_submit"),
+        reverse("publishing:journals:create_modal"),
         {"title": journal_title, "eissn": eissn, "publisher": publisher.pk},
     )
 

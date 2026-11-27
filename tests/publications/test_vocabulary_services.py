@@ -118,13 +118,13 @@ def test__given_limited_vocabulary_used_by_publication__usage_report__contains_p
     limited = vocabulary_repository.create_limited(vocabulary.id, "limited")
 
     concept = vocabulary.get_concept("test-concept")
-    publication_id = create_publication_with_publication_type(concept)
+    _ = create_publication_with_publication_type(concept)
 
     assert vocabulary.id is not None  # Type assertion for mypy
     actual = vocabularies.get_usage(vocabulary.id)
 
     assert actual.vocabulary == vocabulary
-    assert actual.publications == [publication_repository.get_by_id(publication_id)]
+    assert actual.publication_count == 1
     assert actual.derived_vocabularies == [limited]
 
 

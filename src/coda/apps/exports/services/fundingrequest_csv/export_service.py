@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from io import StringIO
 
 import polars as pl
@@ -5,7 +6,15 @@ import polars as pl
 from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
+from coda.contexts.exports.dto.filters import ExportFiltersDto
+from coda.domain.money import DecimalSeparator
+
+
+@dataclass(frozen=True)
+class CsvExportResult:
+    content: str
+    row_count: int
+
 
 CSV_COLUMNS = [
     "legacy_request_id",
@@ -18,6 +27,9 @@ CSV_COLUMNS = [
     "license",
     "open_access_type",
     "authors",
+    "corresponding_author",
+    "corresponding_author_affiliation",
+    "corresponding_author_affiliation_internal_id",
     "doi",
     "isbn",
     "handle",
@@ -25,7 +37,9 @@ CSV_COLUMNS = [
     "online_date",
     "print_date",
     "subject_area",
+    "subject_area_id",
     "publication_type",
+    "publication_type_id",
     "estimated_amount",
     "estimated_currency",
     "payment_method",
@@ -34,14 +48,14 @@ CSV_COLUMNS = [
     "decided_funding_amount",
     "decided_funding_currency",
     "labels",
-    "project_id",
-    "project_name",
-    "funding_organization",
+    "external_funding",
     "invoice_number",
     "invoice_date",
     "creditor",
     "invoice_status",
     "invoice_currency",
+    "invoice_conversion_currency",
+    "invoice_conversion_rate",
     "invoice_comment",
     "external_invoice_id",
     "position_amount",
@@ -59,36 +73,76 @@ CSV_COLUMNS = [
 ]
 
 
-def export_fundingrequests_to_csv(
-    params: FundingRequestSearchParams,
-) -> str:
-    # 1. Get funding requests using the shared params
-    funding_requests = queries.get_funding_requests_for_export(params)
+MONEY_COLUMNS = {
+    "estimated_amount",
+    "decided_funding_amount",
+    "position_amount",
+    "tax_rate",
+    "funded_amount",
+    "invoice_conversion_rate",
+}
 
-    # 2. Map to export DTOs
+
+def _format_money_value(value: str, key: str, decimal_separator: DecimalSeparator) -> str:
+    if decimal_separator == DecimalSeparator.German and key in MONEY_COLUMNS:
+        return value.replace(".", ",")
+    return value
+
+
+def _single_line(value: str) -> str:
+    return (
+        value.replace("\r\n", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\u2028", " ")
+        .replace("\u2029", " ")
+        .replace("\ufeff", "")
+    )
+
+
+def export_fundingrequests_to_csv(filters: ExportFiltersDto) -> CsvExportResult:
+    # 1. Get funding requests using the shared params
+    params = filters.to_params()
+    funding_requests = list(queries.get_funding_requests_for_export(params))
+
+    # 2. Fetch concept ids in a single query to avoid N+1 lookups per funding request
+    concept_ids = queries.get_concept_id_lookup(funding_requests)
+
+    # 3. Map to export DTOs — the query layer did the request-level
+    #    funding-source filtering; invoice-level scoping happens in the
+    #    mapper (see _has_funding_source in mappers.py)
     export_dtos = [
         map_funding_request_to_export_dto(
             fr,
             funding_source=params.funding_source,
+            concept_ids=concept_ids,
         )
         for fr in funding_requests
     ]
 
-    # 3. Flatten to CSV rows
-    all_rows = []
-    for dto in export_dtos:
-        rows = flatten_detailed(dto)
-        all_rows.extend(rows)
+    # 4. Flatten to CSV rows
+    all_rows = [
+        {
+            key: _format_money_value(
+                _single_line(value),
+                key,
+                filters.decimal_separator or DecimalSeparator.English,
+            )
+            for key, value in row.items()
+        }
+        for dto in export_dtos
+        for row in flatten_detailed(dto)
+    ]
 
-    # 4. Build Polars DataFrame from rows
-    if not all_rows:
-        schema = {column: pl.String for column in CSV_COLUMNS}
-        df = pl.DataFrame(schema=schema)
-    else:
-        df = pl.DataFrame(all_rows)
+    # 5. Build the Polars DataFrame pinned to CSV_COLUMNS: every row is
+    #    projected onto the declared columns and the schema is explicit,
+    #    so the column set is identical for empty and non-empty exports
+    rows = [{column: row.get(column, "") for column in CSV_COLUMNS} for row in all_rows]
+    schema = {column: pl.String for column in CSV_COLUMNS}
+    df = pl.DataFrame(rows, schema=schema)
 
-    # 5. Write CSV to StringIO with separator semicolon
+    # 6. Write CSV to StringIO with separator semicolon
     buffer = StringIO()
     df.write_csv(buffer, separator=";")
 
-    return buffer.getvalue()
+    return CsvExportResult(content=buffer.getvalue(), row_count=df.height)

@@ -1,0 +1,602 @@
+"""The report's items as one openCost document, read from live CODA data.
+
+:func:`transform_report` is the whole entry point. It walks the report's own item rows — the
+publications, contracts and invoices it holds — and reads everything the document needs off the
+CODA objects those rows point at: titles, links, identifiers, institution hierarchies and invoice
+lines, all freshly fetched. What the XSD cannot be given is left out and reported with the same
+wording the snapshot transform uses, which the mappers and messages imported below are shared
+from.
+
+Membership is never decided here: the rows handed in are the report's item list, and iterating
+them in id order is also what fixes the order the document's lists come out in. Every result is
+returned as an outcome keyed by the row's entity id (or the invoice row's own id), so ordinals can
+never be attributed to the wrong row by an accident of fetch order.
+"""
+
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import NamedTuple
+from uuid import uuid4
+
+from coda.apps.contracts.models import Contract
+from coda.apps.invoices.models import Invoice, Position
+from coda.apps.opencost.data_aggregation import (
+    HomeInstitutionCache,
+    InstitutionHierarchyCache,
+    get_institution_data,
+)
+from coda.apps.opencost.issues import ReportItem, ValidationWarning
+from coda.apps.opencost.models import (
+    OpenCostReport,
+    OpenCostReportContract,
+    OpenCostReportContractInvoice,
+    OpenCostReportInvoice,
+    OpenCostReportPublication,
+)
+from coda.apps.opencost.transformers.contract import (
+    NO_ESAC_MESSAGE,
+    NO_INSTITUTION_MESSAGE,
+    NO_PARTICIPATION_MESSAGE,
+    UNKNOWN_ESAC,
+    get_contract_primary_identifier,
+    get_contract_secondary_identifiers,
+    get_participation,
+    invoices_period_of,
+    secondary_identifiers_from_links,
+)
+from coda.apps.opencost.transformers.entities import entity_exclusion, institution_from
+from coda.apps.opencost.transformers.invoices import (
+    LiveInvoice,
+    OpenCostInvoiceLine,
+    UnmappedCostType,
+    contract_invoice,
+    publication_invoice,
+)
+from coda.apps.opencost.transformers.publication import (
+    NO_INSTITUTION_REASON,
+    get_publication_type,
+    get_secondary_identifiers,
+    no_doi_primary_identifier,
+    part_of_contract,
+)
+from coda.apps.publications.models import Publication
+from coda.domain.finance.costtypes import ContractCostType, CostType, PublicationCostType
+from coda.domain.finance.taxrate import TaxRate
+from coda.domain.money import Currency, Money
+from opencost import (
+    ContractCostDataType,
+    ContractInvoiceGroupType,
+    ContractInvoiceType,
+    ContractPrimaryIdentifier,
+    ContractPrimaryIdentifierType,
+    ContractType,
+    Data,
+    PartOfContractType,
+    PublicationCostDataType,
+    PublicationInvoiceType,
+    PublicationPrimaryIdentifier,
+    PublicationType,
+)
+
+__all__ = ["LiveTransform", "MissingEntityError", "transform_report"]
+
+
+class MissingEntityError(Exception):
+    """A report row points at a CODA object the caller's fetch did not return.
+
+    Nothing can be said about such a row in the document's own terms, so the run is abandoned
+    rather than guessed at; the caller decides what a failed transform is worth.
+    """
+
+
+@dataclass(frozen=True)
+class ItemOutcome:
+    """How one item row fared: in the document or not, at which position, and how dirty."""
+
+    was_exported: bool
+    had_errors: bool
+    xml_ordinal: int | None
+
+    @staticmethod
+    def excluded() -> "ItemOutcome":
+        """An item the document does not hold.
+
+        Nothing is left out without an error being reported about it, so an excluded row always
+        carries one - even where the wording that explains it is its parent's.
+        """
+        return ItemOutcome(was_exported=False, had_errors=True, xml_ordinal=None)
+
+    @staticmethod
+    def exported(report_item: ReportItem, xml_ordinal: int) -> "ItemOutcome":
+        """An item the document holds, at the position it holds it at."""
+        return ItemOutcome(
+            was_exported=True, had_errors=report_item.has_errors(), xml_ordinal=xml_ordinal
+        )
+
+
+@dataclass(frozen=True)
+class InvoiceOutcome:
+    """How one invoice row fared, indexed within its parent item's exported invoices."""
+
+    was_exported: bool
+    had_errors: bool
+    xml_index: int | None
+
+    @staticmethod
+    def excluded() -> "InvoiceOutcome":
+        """An invoice row the document does not hold, whether it was the reason or inherited it."""
+        return InvoiceOutcome(was_exported=False, had_errors=True, xml_index=None)
+
+    @staticmethod
+    def exported(report_item: ReportItem, xml_index: int) -> "InvoiceOutcome":
+        return InvoiceOutcome(True, report_item.has_errors(), xml_index)
+
+
+class LiveTransform(NamedTuple):
+    """The document, what had to be left out of it, and how every row fared.
+
+    Items are keyed by the CODA entity id their row points at; invoice rows by their own id,
+    since one invoice can be an item of several parents.
+    """
+
+    data: Data | None
+    issues: list[ValidationWarning]
+    publications: dict[int, ItemOutcome]
+    contracts: dict[int, ItemOutcome]
+    publication_invoices: dict[int, InvoiceOutcome]
+    contract_invoices: dict[int, InvoiceOutcome]
+
+
+class PublicationPhase(NamedTuple):
+    """The publication document, whose contracts are already fixed."""
+
+    elements: list[PublicationType]
+    outcomes: dict[int, ItemOutcome]
+    invoice_outcomes: dict[int, InvoiceOutcome]
+
+
+class ContractPhase(NamedTuple):
+    """The contract document plus the group ids its publications have to be linked by."""
+
+    elements: list[ContractType]
+    outcomes: dict[int, ItemOutcome]
+    invoice_outcomes: dict[int, InvoiceOutcome]
+    group_ids: dict[int, str]
+
+
+def transform_report(
+    report: OpenCostReport,
+    publications: Sequence[OpenCostReportPublication],
+    contracts: Sequence[OpenCostReportContract],
+    live_publications: Mapping[int, Publication],
+    live_contracts: Mapping[int, Contract],
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
+    institution_cache: InstitutionHierarchyCache,
+) -> LiveTransform:
+    """The whole item list as one openCost document, plus what had to be left out.
+
+    Contracts are transformed first because a publication's ``part_of_contract`` names its
+    contract through the group id this run gave that contract's invoices.
+    """
+    issues: list[ValidationWarning] = []
+
+    contract_phase = _transform_contracts(
+        report, contracts, live_contracts, live_invoices, home_institution, issues
+    )
+    publication_phase = _transform_publications(
+        publications,
+        live_publications,
+        live_invoices,
+        home_institution,
+        institution_cache,
+        contract_phase.group_ids,
+        issues,
+    )
+
+    if not publication_phase.elements and not contract_phase.elements:
+        # OpenCost requires at least one publication or contract
+        data = None
+    else:
+        data = Data(
+            publication=publication_phase.elements or None,
+            contract=contract_phase.elements or None,
+        )
+
+    return LiveTransform(
+        data=data,
+        issues=issues,
+        publications=publication_phase.outcomes,
+        contracts=contract_phase.outcomes,
+        publication_invoices=publication_phase.invoice_outcomes,
+        contract_invoices=contract_phase.invoice_outcomes,
+    )
+
+
+def _transform_contracts(
+    report: OpenCostReport,
+    rows: Sequence[OpenCostReportContract],
+    live_contracts: Mapping[int, Contract],
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
+    issues: list[ValidationWarning],
+) -> ContractPhase:
+    elements: list[ContractType] = []
+    outcomes: dict[int, ItemOutcome] = {}
+    invoice_outcomes: dict[int, InvoiceOutcome] = {}
+    group_ids: dict[int, str] = {}
+
+    for row in rows:
+        contract = _require(live_contracts, row.contract_id, "contract")
+        invoice_rows = list(row.invoices.all())
+        _left_out(invoice_rows, invoice_outcomes)
+        # A group id is only worth publishing once the contract has invoices of its own for a
+        # publication's part_of_contract to join.
+        group_id = str(uuid4())
+
+        report_item = ReportItem(row)
+        element = _contract_element(
+            report,
+            report_item,
+            contract,
+            invoice_rows,
+            group_id,
+            live_invoices,
+            home_institution,
+            invoice_outcomes,
+        )
+        if element is None:
+            outcomes[row.contract_id] = ItemOutcome.excluded()
+            issues.extend(report_item.issues)
+            continue
+
+        if invoice_rows:
+            group_ids[row.contract_id] = group_id
+
+        elements.append(element)
+        outcomes[row.contract_id] = ItemOutcome.exported(report_item, len(elements) - 1)
+        issues.extend(report_item.issues)
+
+    return ContractPhase(elements, outcomes, invoice_outcomes, group_ids)
+
+
+def _contract_element(
+    report: OpenCostReport,
+    report_item: ReportItem,
+    contract: Contract,
+    invoice_rows: Sequence[OpenCostReportContractInvoice],
+    group_id: str,
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
+    invoice_outcomes: dict[int, InvoiceOutcome],
+) -> ContractType | None:
+    institution = institution_from(home_institution.institution_name, home_institution.identifiers)
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        report_item.global_issue(NO_INSTITUTION_MESSAGE)
+        return None
+
+    participation = get_participation(contract.start_date, contract.end_date)
+    if participation is None:
+        # XSD requires the participation block with both dates.
+        report_item.issue(NO_PARTICIPATION_MESSAGE)
+        return None
+
+    invoice_issues = ReportItem(report_item.item)
+    positions = _positions_by_invoice(contract.position_set.all(), ContractCostType)
+    invoice_elements = _contract_invoice_elements(
+        invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
+    )
+    if not invoice_elements:
+        # XSD requires at least one invoice_group — without cost data
+        # we cannot produce a valid record.
+        report_item.issue(entity_exclusion([issue.message for issue in invoice_issues]))
+        return None
+
+    report_item.absorb(invoice_issues)
+
+    primary_identifier_value = get_contract_primary_identifier(contract)
+    if not primary_identifier_value:
+        # ESAC is mandatory in the schema, so the contract is exported
+        # with the placeholder value instead of a real identifier.
+        report_item.issue(NO_ESAC_MESSAGE, level="warning")
+
+    return ContractType(
+        contract_name=contract.name,
+        institution=institution,
+        participation=participation,
+        primary_identifier=ContractPrimaryIdentifier(
+            value=primary_identifier_value or UNKNOWN_ESAC,
+            type=ContractPrimaryIdentifierType.ESAC,
+        ),
+        secondary_identifiers=get_contract_secondary_identifiers(
+            secondary_identifiers_from_links(contract)
+        ),
+        cost_data=ContractCostDataType(
+            invoice_group=[
+                ContractInvoiceGroupType(
+                    group_id=group_id,
+                    invoices_period=invoices_period_of(report),
+                    invoice=invoice_elements,
+                )
+            ]
+        ),
+    )
+
+
+def _contract_invoice_elements(
+    report_item: ReportItem,
+    invoice_rows: Sequence[OpenCostReportContractInvoice],
+    positions: Mapping[int, list[OpenCostInvoiceLine]],
+    live_invoices: Mapping[int, Invoice],
+    invoice_outcomes: dict[int, InvoiceOutcome],
+) -> list[ContractInvoiceType]:
+    """Each invoice element and the issues attributed to its report item."""
+    elements: list[ContractInvoiceType] = []
+    for invoice_row in invoice_rows:
+        rows = positions.get(invoice_row.invoice_id, [])
+        invoice_report_item = ReportItem(report_item.item)
+        element = contract_invoice(
+            invoice_report_item,
+            live_invoice(_require(live_invoices, invoice_row.invoice_id, "invoice")),
+            rows,
+        )
+        if element is None:
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.excluded()
+        else:
+            elements.append(element)
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.exported(
+                invoice_report_item, len(elements) - 1
+            )
+        report_item.absorb(invoice_report_item)
+
+    return elements
+
+
+def _transform_publications(
+    rows: Sequence[OpenCostReportPublication],
+    live_publications: Mapping[int, Publication],
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
+    institution_cache: InstitutionHierarchyCache,
+    group_ids: Mapping[int, str],
+    issues: list[ValidationWarning],
+) -> PublicationPhase:
+    elements: list[PublicationType] = []
+    outcomes: dict[int, ItemOutcome] = {}
+    invoice_outcomes: dict[int, InvoiceOutcome] = {}
+
+    for row in rows:
+        publication = _require(live_publications, row.publication_id, "publication")
+        invoice_rows = list(row.invoices.all())
+        _left_out(invoice_rows, invoice_outcomes)
+
+        report_item = ReportItem(row)
+        element = _publication_element(
+            report_item,
+            publication,
+            invoice_rows,
+            live_invoices,
+            home_institution,
+            institution_cache,
+            group_ids,
+            invoice_outcomes,
+        )
+        if element is None:
+            outcomes[row.publication_id] = ItemOutcome.excluded()
+            issues.extend(report_item.issues)
+            continue
+
+        elements.append(element)
+        outcomes[row.publication_id] = ItemOutcome.exported(report_item, len(elements) - 1)
+        issues.extend(report_item.issues)
+
+    return PublicationPhase(elements, outcomes, invoice_outcomes)
+
+
+def _publication_element(
+    report_item: ReportItem,
+    publication: Publication,
+    invoice_rows: Sequence[OpenCostReportInvoice],
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
+    institution_cache: InstitutionHierarchyCache,
+    group_ids: Mapping[int, str],
+    invoice_outcomes: dict[int, InvoiceOutcome],
+) -> PublicationType | None:
+    institution = institution_from(
+        *get_institution_data(publication, home_institution, institution_cache)
+    )
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        report_item.global_issue(entity_exclusion([NO_INSTITUTION_REASON]))
+        return None
+
+    invoice_issues = ReportItem(report_item.item)
+    positions = _positions_by_invoice(publication.position_set.all(), PublicationCostType)
+    invoice_elements = _publication_invoice_elements(
+        invoice_issues, invoice_rows, positions, live_invoices, invoice_outcomes
+    )
+
+    linked_contract = _part_of_contract(publication, group_ids)
+
+    if not invoice_elements and linked_contract is None:
+        # XSD requires at least one of invoice or part_of_contract.
+        # Without cost data we cannot produce a valid record.
+        report_item.issue(entity_exclusion([issue.message for issue in invoice_issues]))
+        return None
+
+    report_item.absorb(invoice_issues)
+
+    doi = get_publication_doi(publication)
+    if doi:
+        primary_identifier = PublicationPrimaryIdentifier(doi=doi)
+    else:
+        publisher_name, journal_name = get_publisher_and_journal(publication)
+        primary_identifier = no_doi_primary_identifier(
+            report_item, publication.title, publisher_name, journal_name
+        )
+    return PublicationType(
+        primary_identifier=primary_identifier,
+        secondary_identifiers=get_secondary_identifiers(
+            get_secondary_identifier_pairs(publication)
+        ),
+        institution=institution,
+        publication_type=get_publication_type(get_publication_type_name(publication)),
+        external_costsplitting=get_external_costsplitting(publication),
+        cost_data=PublicationCostDataType(
+            invoice=invoice_elements or None, part_of_contract=linked_contract
+        ),
+    )
+
+
+def _publication_invoice_elements(
+    report_item: ReportItem,
+    invoice_rows: Sequence[OpenCostReportInvoice],
+    positions: Mapping[int, list[OpenCostInvoiceLine]],
+    live_invoices: Mapping[int, Invoice],
+    invoice_outcomes: dict[int, InvoiceOutcome],
+) -> list[PublicationInvoiceType]:
+    """Each invoice element and the issues attributed to its report item."""
+    elements: list[PublicationInvoiceType] = []
+    for invoice_row in invoice_rows:
+        rows = positions.get(invoice_row.invoice_id, [])
+        invoice_report_item = ReportItem(report_item.item)
+        element = publication_invoice(
+            invoice_report_item,
+            live_invoice(_require(live_invoices, invoice_row.invoice_id, "invoice")),
+            rows,
+        )
+        if element is None:
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.excluded()
+        else:
+            elements.append(element)
+            invoice_outcomes[invoice_row.id] = InvoiceOutcome.exported(
+                invoice_report_item, len(elements) - 1
+            )
+        report_item.absorb(invoice_report_item)
+
+    return elements
+
+
+def get_publication_doi(publication: Publication) -> str:
+    """The publication's DOI among its typed links, empty when it has none."""
+    doi_link = next(
+        (link for link in publication.links.all() if link.type.name == "DOI"),
+        None,
+    )
+    return doi_link.value if doi_link else ""
+
+
+def get_publisher_and_journal(publication: Publication) -> tuple[str, str]:
+    """The publisher and journal a publication is published by, from its own records."""
+    if publication.article_journal:
+        return publication.article_journal.publisher.name, publication.article_journal.title
+
+    if publication.monograph_publisher:
+        return publication.monograph_publisher.name, ""
+
+    return "", ""
+
+
+def get_publication_type_name(publication: Publication) -> str:
+    return publication.publication_type.name if publication.publication_type else ""
+
+
+def get_secondary_identifier_pairs(publication: Publication) -> list[tuple[str, str]]:
+    """The publication's non-DOI links as ``(type, value)``; the DOI is its own identifier."""
+    return [
+        (link.type.name.lower(), link.value)
+        for link in publication.links.all()
+        if link.type.name.lower() != "doi"
+    ]
+
+
+def get_external_costsplitting(publication: Publication) -> bool | None:
+    """The cost sharing recorded on the publication's funding request, if it has one."""
+    if hasattr(publication, "fundingrequest") and publication.fundingrequest:
+        return publication.fundingrequest.external_costsplitting
+
+    return None
+
+
+def _part_of_contract(
+    publication: Publication, group_ids: Mapping[int, str]
+) -> PartOfContractType | None:
+    """The contract the publication is published under, as openCost names it.
+
+    Of everything the publication is attached to that is the earliest contract year, ties broken
+    by the order the attachments were made in; a contract this run holds no invoices for is
+    named without a group id, and one with no ESAC cannot be named at all.
+    """
+    attachments = list(publication.attached_contracts.all())
+    if not attachments:
+        return None
+
+    attached = min(attachments, key=lambda attachment: (attachment.contract_year, attachment.id))
+
+    return part_of_contract(attached.contract, group_ids.get(attached.contract_id))
+
+
+def _positions_by_invoice(
+    positions: Iterable[Position],
+    cost_type_factory: Callable[[str], CostType],
+) -> dict[int, list[OpenCostInvoiceLine]]:
+    """Group ORM position rows as report-scoped OpenCost invoice lines."""
+    grouped: dict[int, list[OpenCostInvoiceLine]] = {}
+    for position in positions:
+        grouped.setdefault(position.invoice_id, []).append(
+            open_cost_invoice_line(position, cost_type_factory)
+        )
+
+    return grouped
+
+
+def open_cost_invoice_line(
+    position: Position,
+    cost_type_factory: Callable[[str], CostType],
+) -> OpenCostInvoiceLine:
+    """Project a stored CODA position through its monetary rules into OpenCost terms."""
+    cost_type: CostType | UnmappedCostType
+    try:
+        cost_type = cost_type_factory(position.cost_type)
+    except ValueError:
+        cost_type = UnmappedCostType(position.cost_type)
+
+    return OpenCostInvoiceLine.from_position(
+        cost=Money(position.cost_amount, Currency.from_code(position.cost_currency)),
+        cost_type=cost_type,
+        tax_rate=TaxRate(position.tax_rate),
+    )
+
+
+def live_invoice(invoice: Invoice) -> LiveInvoice:
+    """A CODA invoice in the shape the invoice rules read."""
+    return LiveInvoice(
+        invoice_number=invoice.number or "",
+        creditor=invoice.creditor.name if invoice.creditor else "",
+        invoice_date=invoice.date,
+    )
+
+
+def _require[T](by_id: Mapping[int, T], entity_id: int, what: str) -> T:
+    entity = by_id.get(entity_id)
+    if entity is None:
+        raise MissingEntityError(f"no {what} {entity_id} was fetched for this report")
+    return entity
+
+
+def _left_out(
+    invoice_rows: Sequence[OpenCostReportInvoice] | Sequence[OpenCostReportContractInvoice],
+    outcomes: dict[int, InvoiceOutcome],
+) -> None:
+    """Mark every invoice row of an item as left out, before the item is even attempted.
+
+    An item that gives up on its way to the document - for want of an institution, or of the
+    dates its participation is stated in - never reaches its invoices to say what became of them,
+    and an outcome they were never given is a row whose state nobody can tell. The invoice
+    builders overwrite this for every row they do look at.
+    """
+    outcomes.update({invoice_row.id: InvoiceOutcome.excluded() for invoice_row in invoice_rows})

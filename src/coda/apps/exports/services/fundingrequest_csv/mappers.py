@@ -1,44 +1,50 @@
-from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
+import uuid
+from collections.abc import Mapping
 
+from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices.models import Invoice, Position, FundingAssignment
+from coda.apps.invoices.mappers import FundingSourceDomainMapper
+from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.contexts.finance.dto.import_dtos import (
+    ContractPositionImportDto,
+    ConversionImportDto,
+    FreePositionImportDto,
+    FundingAssignmentImportDto,
+    InvoiceImportDto,
+    PublicationPositionImportDto,
+)
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
-    ContractImportDto,
     ConceptImportDto,
+    ContractImportDto,
     CostEstimateImportDto,
+    DecidedFundingImportDto,
     FundingRequestImportDto,
     LinkImportDto,
     PublicationImportDto,
     PublishingStateImportDto,
     ResearchFundingImportDto,
     ReviewImportDto,
-    DecidedFundingImportDto,
-    SeperateContactImportDto,
-)
-from coda.contexts.finance.dto.import_dtos import (
-    InvoiceImportDto,
-    PublicationPositionImportDto,
-    ContractPositionImportDto,
-    FreePositionImportDto,
-    FundingAssignmentImportDto,
-    ConversionImportDto,
+    SeparateContactImportDto,
 )
 from coda.domain.author import Role
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
+from coda.domain.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.orcid import Orcid
 from coda.domain.publication import License, OpenAccessType
-from coda.domain.finance.costtypes import PublicationCostType, ContractCostType
-from coda.domain.finance.invoice import PaymentStatus, FundingSourceId
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.fundingrequest import PaymentMethod
 
 
-def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingRequestImportDto:
-    publication = _map_publication_to_dto(funding_request)
+def map_funding_request_to_dto(
+    funding_request: FundingRequest,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> FundingRequestImportDto:
+    publication = _map_publication_to_dto(funding_request, concept_ids)
     research_funding = _map_external_funding_to_dto(funding_request)
     review = _map_review_to_dto(funding_request)
     estimated_cost = _map_estimated_cost_to_dto(funding_request)
-    seperate_contact = _map_seperate_contact_to_dto(funding_request)
+    separate_contact = _map_separate_contact_to_dto(funding_request)
     labels = _map_labels_to_dto(funding_request)
     request_id = str(funding_request.request_id) if funding_request.request_id else None
 
@@ -50,20 +56,26 @@ def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingReques
         review=review,
         estimated_cost=estimated_cost,
         request_remarks=funding_request.request_remarks or "",
-        seperate_contact=seperate_contact,
+        separate_contact=separate_contact,
         labels=labels,
         request_id=request_id,
     )
 
 
-def _map_concept_to_dto(concept_field: object) -> ConceptImportDto:
+def _map_concept_to_dto(
+    concept_field: object,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> ConceptImportDto:
     if concept_field is None:
-        return ConceptImportDto(name="", vocabulary_name="")
+        return ConceptImportDto(name="", vocabulary_name="", concept_id="")
     vocabulary = getattr(concept_field, "vocabulary", None)
     vocabulary_name = vocabulary.name if vocabulary else ""
+    entity_id = getattr(concept_field, "entity_id", None)
+    concept_id = concept_ids.get(entity_id, "") if concept_ids and entity_id is not None else ""
     return ConceptImportDto(
         name=getattr(concept_field, "name", ""),
         vocabulary_name=vocabulary_name,
+        concept_id=concept_id,
     )
 
 
@@ -87,6 +99,7 @@ def _map_authors_to_dto(funding_request: FundingRequest) -> list[AuthorImportDto
                 else None
             ),
             affiliation=author.affiliation.name if author.affiliation else None,
+            affiliation_internal_id=author.affiliation.internal_id if author.affiliation else None,
             role=Role[author.roles] if author.roles else Role.CO_AUTHOR,
         )
         for author in funding_request.publication.relevant_authors.all()
@@ -117,14 +130,19 @@ def _map_publishing_state_to_dto(funding_request: FundingRequest) -> PublishingS
     )
 
 
-def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImportDto:
+def _map_publication_to_dto(
+    funding_request: FundingRequest,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> PublicationImportDto:
     is_article, eissn, journal_name, publisher_name = _get_journal_info(funding_request)
 
     authors = _map_authors_to_dto(funding_request)
     links = _map_links_to_dto(funding_request)
     contracts = _map_contracts_to_dto(funding_request)
-    subject_area = _map_concept_to_dto(funding_request.publication.subject_area)
-    publication_type = _map_concept_to_dto(funding_request.publication.publication_type)
+    subject_area = _map_concept_to_dto(funding_request.publication.subject_area, concept_ids)
+    publication_type = _map_concept_to_dto(
+        funding_request.publication.publication_type, concept_ids
+    )
     publishing_state = _map_publishing_state_to_dto(funding_request)
 
     return PublicationImportDto(
@@ -160,7 +178,6 @@ def _map_external_funding_to_dto(funding_request: FundingRequest) -> list[Resear
 def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
     review_model = getattr(funding_request, "review", None)
     if review_model:
-
         decided_funding = DecidedFundingImportDto(
             amount=(
                 review_model.decided_funding_amount if review_model.decided_funding_amount else 0
@@ -180,7 +197,6 @@ def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
 
 
 def _map_estimated_cost_to_dto(funding_request: FundingRequest) -> CostEstimateImportDto:
-
     # PaymentMethod values are stored in lowercase in DB, but enum names are capitalized
     payment_method_str = (
         funding_request.payment_method.capitalize() if funding_request.payment_method else "Unknown"
@@ -192,12 +208,12 @@ def _map_estimated_cost_to_dto(funding_request: FundingRequest) -> CostEstimateI
     )
 
 
-def _map_seperate_contact_to_dto(funding_request: FundingRequest) -> SeperateContactImportDto:
+def _map_separate_contact_to_dto(funding_request: FundingRequest) -> SeparateContactImportDto:
     if funding_request.extra_contact:
-        return SeperateContactImportDto(
+        return SeparateContactImportDto(
             name=funding_request.extra_contact.name, email=funding_request.extra_contact.email
         )
-    return SeperateContactImportDto.default()
+    return SeparateContactImportDto.default()
 
 
 def _map_labels_to_dto(funding_request: FundingRequest) -> list[str]:
@@ -256,10 +272,8 @@ def _map_position_to_dto(
         _map_funding_assignment_to_dto(fa) for fa in position.funding_assignments.all()
     ]
 
-    # Get funding source from first assignment if exists
+    # Legacy funding_source is import-only; never emit it alongside funding_assignments.
     funding_source = ""
-    if funding_assignments:
-        funding_source = funding_assignments[0].name
 
     # Common fields
     common_kwargs = {
@@ -303,11 +317,15 @@ def _map_position_to_dto(
 
 
 def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssignmentImportDto:
-    funding_source = assignment.funding_source
+    domain_source = (
+        FundingSourceDomainMapper.map(assignment.funding_source)
+        if assignment.funding_source
+        else None
+    )
 
     return FundingAssignmentImportDto(
-        type=funding_source.type if funding_source else "budget",
-        name=funding_source.name if funding_source else "",
+        type=domain_source.kind() if domain_source else "budget",
+        name=domain_source.name if domain_source else "",
         amount=assignment.amount,
     )
 
@@ -315,25 +333,12 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
 def map_funding_request_to_export_dto(
     funding_request: FundingRequest,
     funding_source: FundingSourceId | None = None,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
 ) -> FundingRequestExportDto:
-
-    funding_request_dto = map_funding_request_to_dto(funding_request)
-
-    invoices = get_invoices_for_request(funding_request)
-
-    if funding_source:
-        invoices = [
-            i
-            for i in invoices
-            if any(
-                fa.funding_source_id == funding_source
-                for p in i.positions.all()
-                for fa in p.funding_assignments.all()
-            )
-        ]
+    funding_request_dto = map_funding_request_to_dto(funding_request, concept_ids)
 
     invoice_dtos = []
-    for invoice in invoices:
+    for invoice in get_invoices_for_request(funding_request):
         # Scope positions to the current funding request publication to avoid
         # cross-product duplication when one invoice references multiple publications.
         scoped_positions = [
@@ -341,6 +346,8 @@ def map_funding_request_to_export_dto(
             for pos in invoice.positions.all()
             if pos.publication_id == funding_request.publication_id
         ]
+        if not _has_funding_source(scoped_positions, funding_source):
+            continue
         invoice_dtos.append(map_invoice_to_dto(invoice, funding_request, scoped_positions))
 
     return FundingRequestExportDto(
@@ -349,8 +356,38 @@ def map_funding_request_to_export_dto(
     )
 
 
+def _has_funding_source(positions: list[Position], funding_source: FundingSourceId | None) -> bool:
+    """Invoice-level half of the two-stage funding-source filter.
+
+    The query-level criterion (``InvoiceFundingSourceCriteria`` in
+    ``apps/fundingrequests/fundingrequest_query.py``) is the request-level
+    half: it cheaply excludes funding requests whose own publication
+    positions never carry the filtered source — publication-scoped, with
+    no notion of which invoice a position sits on. This check is the
+    invoice-level half: a shared invoice must only appear under requests
+    whose own positions on *that invoice* carry the source — a constraint
+    the Q object cannot express, since it matches on any position row.
+    Both halves are load-bearing; removing either changes results.
+
+    Behavior is pinned by the shared-invoice filtering test in
+    tests/exports/fundingrequest_csv/test_export_service.py (asserts the
+    shared invoice appears under C but not under B, and not at all for A)
+    and by the publication-scope test in
+    tests/exports/fundingrequest_csv/test_queries.py (asserts the query
+    layer admits B even though its position on the shared invoice is
+    unfunded).
+    """
+    if funding_source is None:
+        return True
+    return any(
+        assignment.funding_source_id == funding_source
+        for position in positions
+        for assignment in position.funding_assignments.all()
+    )
+
+
 def get_invoices_for_request(funding_request: FundingRequest) -> list[Invoice]:
     invoices = {
         pos.invoice for pos in funding_request.publication.position_set.all() if pos.invoice
     }
-    return list(invoices)
+    return sorted(invoices, key=lambda invoice: invoice.id)

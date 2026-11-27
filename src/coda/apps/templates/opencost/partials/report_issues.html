@@ -1,0 +1,73 @@
+{% if errors or warnings_only %}
+    <article class="my-2">
+        <header>
+            <h3>Data Completeness Issues</h3>
+        </header>
+        <p>
+            <small>Listed as found at generation ({{ report.generated_at }}).
+            Fixing a source record does not change this list: correct the data, then regenerate this report.</small>
+        </p>
+        {% if errors %}
+            <h4>Errors ({{ errors|length }})</h4>
+            <p>
+                <em>These records are missing from the XML:</em>
+            </p>
+            <div class="scroll-container max-h-30">
+                <ul class="messages error">
+                    {% for error in errors|slice:":50" %}
+                        <li>
+                            <strong>{{ error.entity_name }}</strong>: {{ error.message }}
+                            {% if error.fix_url %}
+                                — <a href="{{ error.fix_url }}">
+                                {% if error.entity_type == "publication" %}
+                                    Open funding request
+                                {% elif error.entity_type == "contract" %}
+                                    Open contract
+                                {% elif error.entity_type == "global" %}
+                                    Open preferences
+                                {% endif %}
+                                </a>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    {% if errors|length > 50 %}
+                        <li>
+                            <em>… and {{ errors|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+        {% if warnings_only %}
+            <h4>Warnings ({{ warnings_only|length }})</h4>
+            <p>
+                <em>Data quality notes — these records are in the XML as they are:</em>
+            </p>
+            <div class="scroll-container max-h-30">
+                <ul class="messages warning">
+                    {% for warning in warnings_only|slice:":50" %}
+                        <li>
+                            <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
+                            {% if warning.fix_url %}
+                                — <a href="{{ warning.fix_url }}">
+                                {% if warning.entity_type == "publication" %}
+                                    Open funding request
+                                {% elif warning.entity_type == "contract" %}
+                                    Open contract
+                                {% elif warning.entity_type == "global" %}
+                                    Open preferences
+                                {% endif %}
+                                </a>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    {% if warnings_only|length > 50 %}
+                        <li>
+                            <em>… and {{ warnings_only|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+    </article>
+{% endif %}

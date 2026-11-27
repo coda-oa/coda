@@ -64,6 +64,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
         ]
         self._request_remarks = self._faker.sentence()
+        self._reviewer_remarks: str | None = None
 
         self.prepare_vocabularies()
         self.set_global_preferences()
@@ -83,6 +84,14 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
     def with_new_request_remarks(self) -> Self:
         self._request_remarks = self._faker.sentence()
         return self
+
+    def with_new_reviewer_remarks(self) -> Self:
+        self._reviewer_remarks = self._faker.sentence()
+        return self
+
+    @property
+    def reviewer_remarks(self) -> str | None:
+        return self._reviewer_remarks
 
     def with_contracts(self, contract_years: Iterable[ContractYear]) -> Self:
         self.contracts = [c.contract for c in contract_years]
@@ -136,6 +145,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         return ExtraInformationDto(
             extra_contact=ExtraContactDto.from_contact(self.extra_contact),
             request_remarks=self._request_remarks,
+            reviewer_remarks=self._reviewer_remarks,
         )
 
     def external_funding_dto(self) -> list[ExternalFundingDto]:

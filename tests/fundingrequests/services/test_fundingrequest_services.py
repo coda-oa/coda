@@ -250,6 +250,52 @@ def test__fundingrequest__update_request_remarks__is_saved_to_db() -> None:
 
 
 @pytest.mark.django_db
+def test__fundingrequest__update_reviewer_remarks__updates_remarks_and_keeps_rest_of_review() -> (
+    None
+):
+    new_id = repository.create(
+        FundingRequest.new(
+            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
+            extra_contact=extra_contact(),
+            estimated_cost=domainfactory.payment(),
+        )
+    )
+    repository.save_review(
+        Review(new_id, Money(100, Currency.GBP), remarks="old", result=ReviewResult.Approved)
+    )
+
+    services.fundingrequests.update_extra_information(
+        new_id, ExtraInformationDto(request_remarks="request remarks", reviewer_remarks="new")
+    )
+
+    updated = get_by_id(new_id)
+    assert updated.request_remarks == "request remarks"
+    assert updated.review_remarks == "new"
+    assert updated.funding_amount == Money(100, Currency.GBP)
+    assert updated.review() == ReviewResult.Approved
+
+
+@pytest.mark.django_db
+def test__fundingrequest__update_extra_info_without_reviewer_remarks__keeps_review_remarks() -> (
+    None
+):
+    new_id = repository.create(
+        FundingRequest.new(
+            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
+            extra_contact=extra_contact(),
+            estimated_cost=domainfactory.payment(),
+        )
+    )
+    repository.save_review(Review(new_id, remarks="keep me", result=ReviewResult.Approved))
+
+    services.fundingrequests.update_extra_information(
+        new_id, ExtraInformationDto(request_remarks="request remarks")
+    )
+
+    assert get_by_id(new_id).review_remarks == "keep me"
+
+
+@pytest.mark.django_db
 def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_external_funding() -> (
     None
 ):

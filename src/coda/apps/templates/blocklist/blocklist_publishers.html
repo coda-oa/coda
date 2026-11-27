@@ -1,10 +1,5 @@
 <div>
-    <div class="flex justify-between align-center">
-        <h2 class="my-2">Publishers</h2>
-        <a href="{% url 'publishing:publishers:list' %}"
-           role="button"
-           class="secondary">Block Publishers</a>
-    </div>
+    {% include "blocklist/blocklist_section_header.html" with section_title="Publishers" section_block_url="publishing:publishers:list" section_block_label="Block Publishers" %}
     {% for publisher in publishers %}
         <article class="flex justify-between align-center">
             <p class="my-0">{{ publisher.publisher.name }}</p>

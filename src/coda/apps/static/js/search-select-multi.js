@@ -40,7 +40,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         .dropdown {
             display: none;
             position: absolute;
-            top: calc(var(--coda-form-element-spacing-vertical) + var(--coda-line-height));
+            top: 100%;
             left: 0;
 
             z-index: 99;
@@ -68,6 +68,7 @@ TEMPLATE.innerHTML =  /*html*/ `
 
         .option:hover {
             background-color: var(--coda-secondary-background);
+            color: var(--coda-secondary-inverse);
         }
 
         .selected-options {
@@ -77,7 +78,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .selected-options:not(:empty) {
-            margin-bottom: var(--coda-spacing);
+            margin-bottom: 0.5rem;
             padding: calc(var(--coda-spacing) / 2);
             border: 1px solid var(--coda-border-color);
             border-top: none;
@@ -87,11 +88,13 @@ TEMPLATE.innerHTML =  /*html*/ `
 
         .selected-tag {
             background-color: var(--coda-secondary-background);
-            padding: calc(var(--coda-spacing) / 2);
+            color: var(--coda-secondary-inverse);
+            padding: 0.125rem 0.5rem;
             border-radius: var(--coda-border-radius);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.25rem;
         }
 
         .selected-tag span {
@@ -100,11 +103,11 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .remove-btn {
-            font-size: calc(var(--coda-font-size) * 1.25);
+            font-size: calc(var(--coda-font-size) * 1.1);
             cursor: pointer;
             border: none;
             background: none;
-            color: var(--coda-text-color);
+            color: var(--coda-text-contrast-color);
         }
     </style>
     <div class="container">
@@ -165,16 +168,21 @@ class SearchSelectMulti extends HTMLElement {
         ).map(optionElement => optionElement.textContent.trim());
     }
 
+    optionEntry(optionElement, optionText) {
+        return { text: optionText, color: optionElement.dataset.color || null };
+    }
+
     selectOption(optionText) {
         const optionElement = this.slotOptions.find(option => option.textContent.trim() === optionText);
         if (optionElement && optionElement.value) {
             const optionValue = optionElement.value;
-            this.selectedOptions.set(optionValue, optionText);
+            this.selectedOptions.set(optionValue, this.optionEntry(optionElement, optionText));
             this.updateSelectedOptions();
             this.updateOriginalOptionElement(optionValue, true);
             this.updateFormValue();
             this.clearSearchInput();
             this.hideDropdown();
+            this.dispatchChangeEvent();
         }
     }
 
@@ -183,6 +191,7 @@ class SearchSelectMulti extends HTMLElement {
         this.updateSelectedOptions();
         this.updateOriginalOptionElement(optionValue, false);
         this.updateFormValue();
+        this.dispatchChangeEvent();
     }
 
     updateOriginalOptionElement(optionValue, isSelected) {
@@ -200,17 +209,30 @@ class SearchSelectMulti extends HTMLElement {
     updateSelectedOptions() {
         const container = this.shadowRoot.querySelector('.selected-options');
         container.innerHTML = Array.from(this.selectedOptions.entries())
-            .map(([value, text]) => this.createSelectedTag(value, text))
+            .map(([value, { text, color }]) => this.createSelectedTag(value, text, color))
             .join('');
 
         container.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', () => this.removeSelectedOption(btn.dataset.option));
         });
+        this.syncPlaceholder();
     }
 
-    createSelectedTag(value, text) {
+    syncPlaceholder() {
+        const placeholder = this.getAttribute('placeholder');
+        if (!placeholder) {
+            return;
+        }
+        const input = this.shadowRoot.querySelector('.search-input');
+        input.placeholder = this.selectedOptions.size > 0 ? '' : placeholder;
+    }
+
+    createSelectedTag(value, text, color) {
+        const style = color
+            ? ` style="background-color: color-mix(in hsl, ${color} 25%, transparent 75%); border: 1px solid ${color}; color: var(--coda-text-contrast-color)"`
+            : '';
         return `
-            <div class="selected-tag">
+            <div class="selected-tag"${style}>
                 <span>${text}</span>
                 <button class="remove-btn" data-option="${value}">×</button>
             </div>
@@ -226,11 +248,15 @@ class SearchSelectMulti extends HTMLElement {
                 const optionValue = optionElement.value;
                 this.options.push(optionText);
                 if (optionElement.hasAttribute('selected')) {
-                    this.selectedOptions.set(optionValue, optionText);
+                    this.selectedOptions.set(optionValue, this.optionEntry(optionElement, optionText));
                 }
             });
             this.updateDropdown(this.options);
             this.updateSelectedOptions();
+            // Hydrated selections must reach the form value here: the swap that
+            // created this element may already have run formAssociatedCallback
+            // with an empty selection, and that ordering is engine-specific.
+            this.updateFormValue();
         }
     }
 
@@ -277,6 +303,10 @@ class SearchSelectMulti extends HTMLElement {
         if (e.target.classList.contains('option')) {
             this.selectOption(e.target.textContent);
         }
+    }
+
+    dispatchChangeEvent() {
+        this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     }
 
     updateFormValue() {

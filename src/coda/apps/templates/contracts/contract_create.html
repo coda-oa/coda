@@ -1,9 +1,6 @@
 {% extends "base.html" %}
-{% block title %}
-    {{ title }}
-{% endblock title %}
+{% block page_title %}{{ title }}{% endblock page_title %}
 {% block content %}
-    <h1 class="my-2">{{ title }}</h1>
     <form action="{{ url }}" method="post">
         {% csrf_token %}
         <article>

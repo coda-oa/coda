@@ -64,10 +64,10 @@ POSTGRES_PASSWORD=<your-password>
 
 ## Launching CODA
 
-All that's left is to launch CODA using the provided startup script. Simply run the following command in a terminal from the CODA directory:
+All that's left is to launch CODA using the provided startup script. All command scripts target production by default; pass `--local` to use the local development stack. Simply run the following command in a terminal from the CODA directory:
 
 ```{code-block} bash
-./commands/start-coda.sh --production
+./commands/start-coda.sh
 ```
 
 Or for a local development environment:
@@ -87,7 +87,7 @@ After CODA has launched, you need to create a superuser to log in and [create ot
 Run the following command in your shell:
 
 ```{code-block} bash
-./commands/create-superuser.sh --production
+./commands/create-superuser.sh
 ```
 
 Or for local environment:
@@ -104,7 +104,7 @@ After creating a superuser, you should be able to log into CODA from your web br
 To stop CODA, use the stop script:
 
 ```{code-block} bash
-./commands/stop-coda.sh --production
+./commands/stop-coda.sh
 ```
 
 Or for local environment:
@@ -122,7 +122,7 @@ CODA provides a built-in backup system to protect your database. It's highly rec
 To create a new database backup:
 
 ```{code-block} bash
-./commands/backups.sh --production create
+./commands/backups.sh create
 ```
 
 Or for local environment:
@@ -138,7 +138,7 @@ The backup will be automatically timestamped and stored in the PostgreSQL backup
 To see all available backups:
 
 ```{code-block} bash
-./commands/backups.sh --production list
+./commands/backups.sh list
 ```
 
 Or for local environment:
@@ -154,7 +154,7 @@ This will display all backup files with their names and creation dates.
 To restore CODA from a previous backup:
 
 ```{code-block} bash
-./commands/backups.sh --production restore <backup_name>
+./commands/backups.sh restore <backup_name>
 ```
 
 Or for local environment:
@@ -171,6 +171,6 @@ The restore process will automatically:
 1. Stop the Django service to prevent database access
 2. Ensure PostgreSQL is running
 3. Restore the database from the backup file
-4. You'll need to restart CODA afterward using `./commands/start-coda.sh --production`
+4. You'll need to restart CODA afterward using `./commands/start-coda.sh`
 ```
 

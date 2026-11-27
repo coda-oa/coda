@@ -73,8 +73,10 @@ class ConceptChoiceField(forms.ChoiceField):
 
     def clean(self, value: Any) -> VocabularyConcept:
         """Convert form value to VocabularyConcept."""
-        if not value and self.required:
-            raise forms.ValidationError("Please select a valid entry")
+        if not value:
+            if self.required:
+                raise forms.ValidationError("Please select a valid entry")
+            return UnknownConcept
 
         try:
             form_concept = decode_concept(value)

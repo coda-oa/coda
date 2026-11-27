@@ -1,24 +1,31 @@
+import uuid
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from coda.apps.contracts.mappers._domain import ContractDomainMapper
-from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import funding_source_repository
+from coda.apps.publications.models import (
+    Concept,
+    PublicationAttachedConcept,
+    Vocabulary,
+)
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.contexts.finance.services import invoice_service
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from coda.domain.publication.publication import PublicationId
-from tests import domainfactory, modelfactory
-
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency, DecimalSeparator, Money
+from coda.domain.publication.publication import PublicationId
+from tests import domainfactory, modelfactory
 
 
 def _make_params(
@@ -28,6 +35,20 @@ def _make_params(
 ) -> FundingRequestSearchParams:
     return FundingRequestSearchParams(
         date_range=DateRange(period_start, period_end),
+        **kwargs,
+    )
+
+
+def _make_filters(
+    period_start: date,
+    period_end: date,
+    decimal_separator: DecimalSeparator | None = None,
+    **kwargs: Any,
+) -> ExportFiltersDto:
+    return ExportFiltersDto(
+        period_start=period_start,
+        period_end=period_end,
+        decimal_separator=decimal_separator,
         **kwargs,
     )
 
@@ -42,12 +63,55 @@ def create_funding_request(
     return funding_request
 
 
-def create_invoice_with_publication_position(funding_request: FundingRequest) -> Invoice:
+@dataclass
+class FundingRequestWithConcepts:
+    funding_request: FundingRequest
+    subject_area_concept: Concept
+    publication_type_concept: Concept
+
+
+def create_funding_request_with_concepts(
+    title: str = "Test Publication",
+) -> "FundingRequestWithConcepts":
+    funding_request = create_funding_request(title=title)
+
+    vocab = Vocabulary.objects.create(name=uuid.uuid4().hex, version="1.0")
+    subject_area_concept = modelfactory.concept(vocabulary=vocab)
+    publication_type_concept = modelfactory.concept(vocabulary=vocab)
+    funding_request.publication.subject_area = PublicationAttachedConcept.objects.create(
+        name=subject_area_concept.name,
+        vocabulary=vocab,
+        entity_id=subject_area_concept.entity_id,
+    )
+    funding_request.publication.publication_type = PublicationAttachedConcept.objects.create(
+        name=publication_type_concept.name,
+        vocabulary=vocab,
+        entity_id=publication_type_concept.entity_id,
+    )
+    funding_request.publication.save()
+
+    return FundingRequestWithConcepts(
+        funding_request=funding_request,
+        subject_area_concept=subject_area_concept,
+        publication_type_concept=publication_type_concept,
+    )
+
+
+def create_invoice_with_publication_position(
+    funding_request: FundingRequest,
+    comment: str | None = None,
+    conversion: tuple[Decimal, Currency] | None = None,
+) -> Invoice:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
 
     position = domainfactory.publication_position(PublicationId(funding_request.publication.id))
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    if comment is not None:
+        invoice.comment = comment
+    if conversion is not None:
+        exchange_rate, target_currency = conversion
+        invoice.add_conversion(exchange_rate, target_currency)
     invoice.id = invoice_service.save(invoice)
 
     return invoice
@@ -133,7 +197,6 @@ def create_invoice_with_currency_conversion(
 
 
 def create_invoice_with_mixed_positions(funding_request: FundingRequest) -> "Invoice":
-
     publication_position = domainfactory.publication_position(
         PublicationId(funding_request.publication.id)
     )
