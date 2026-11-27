@@ -32,16 +32,16 @@ The words `and` and `&` are ignored in unquoted search - `wiley and sons` matche
 
 A term can be restricted to a specific field with a prefix:
 
-| Prefix | Searches in |
-|--------|-------------|
-| `author:` | author names |
-| `title:` | publication titles |
-| `journal:` | journal titles |
+| Prefix       | Searches in                 |
+| ------------ | --------------------------- |
+| `author:`    | author names                |
+| `title:`     | publication titles          |
+| `journal:`   | journal titles              |
 | `publisher:` | journal and book publishers |
-| `doi:` | DOIs |
-| `eissn:` | journal E-ISSNs |
+| `doi:`       | DOIs                        |
+| `eissn:`     | journal E-ISSNs             |
 
-Prefixes can be combined with plain terms: `author:"john doe" springer` finds requests by John Doe in which *springer* occurs anywhere else.
+Prefixes can be combined with plain terms: `author:"john doe" springer` finds requests by John Doe in which _springer_ occurs anywhere else.
 
 Valid DOIs and EISSNs in plain search terms are recognised automatically and scoped to `doi:`/`eissn:` respectively; put them in double quotes to search them literally instead.
 
@@ -446,7 +446,7 @@ The complete JSON schema is generated from the current data model and shown on t
 
 **Research Funding:**
 
-- `organization_name`: Funder name (auto-creates if doesn't exist)
+- `funder`: Funder name (auto-creates if doesn't exist)
 - `project_id`: Grant or project identifier
 - `project_name`: Full project name
 
